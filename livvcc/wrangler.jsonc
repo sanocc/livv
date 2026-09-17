@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "livvcc",
+  "name": "livv-livvcc",
   "compatibility_date": "2026-09-17",
   "assets": {
     "directory": "./public"
