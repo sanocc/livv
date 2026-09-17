@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "livv collector",
+  "version": "0.3.1",
+  "description": "Livv hotel collector M03：设备注册、本地采集、授权后上传",
+  "permissions": ["storage", "tabs", "scripting", "alarms"],
+  "host_permissions": [
+    "https://api.livv.cc/*",
+    "https://livv-api.sanxxcc.workers.dev/*",
+    "https://*.ctrip.com/*",
+    "https://*.trip.com/*",
+    "https://*.meituan.com/*",
+    "https://*.dianping.com/*",
+    "https://*.fliggy.com/*",
+    "https://*.taobao.com/*",
+    "https://*.alitrip.com/*",
+    "https://*.ly.com/*",
+    "https://*.tongcheng.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "livv collector",
+    "default_popup": "popup/popup.html"
+  }
+}

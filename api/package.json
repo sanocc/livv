@@ -1,0 +1,21 @@
+{
+  "name": "livv-api",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "wrangler dev",
+    "validate:schema": "sh scripts/validate_schema.sh"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "5.20260914.1",
+    "typescript": "^5.9.0",
+    "vitest": "4.1.11",
+    "wrangler": "^4.30.0"
+  }
+}

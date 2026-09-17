@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>livv ota</title>
+  <style>
+    :root { --blue:#3b82f6; --line:#1e3a5f; --muted:#8ba0bf; --ink:#e8eef8; --bg:#07111f; --card:#0d1b2e; --sale:#7dd3fc; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.5 "PingFang SC","Noto Sans SC",sans-serif; color:var(--ink); background:
+      radial-gradient(800px 280px at 8% -10%, #16325a 0%, transparent 55%), var(--bg); color-scheme: dark; }
+    header { background:rgba(8,18,32,.92); backdrop-filter: blur(12px); border-bottom:1px solid var(--line); padding:10px 24px; display:flex; align-items:center; gap:18px; position:sticky; top:0; z-index:10; }
+    .brand { display:flex; align-items:center; gap:10px; min-width:168px; }
+    .logo { width:32px; height:32px; border-radius:10px; background:linear-gradient(180deg,#3b82f6,#1d4ed8); color:#fff; display:grid; place-items:center; font-weight:800; }
+    .brand b { font-size:15px; letter-spacing:.04em; }
+    .brand small { color:var(--muted); display:block; font-size:12px; }
+    nav { display:flex; gap:6px; flex:1; min-width:0; }
+    nav button { border:1px solid transparent; background:none; padding:7px 14px; cursor:pointer; color:var(--muted); font-weight:650; border-radius:999px; }
+    nav button:hover { background:#12233a; color:#dbeafe; }
+    nav button.on { color:#fff; background:#1d4ed8; border-color:#2563eb; }
+    .biz { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; flex:0 0 auto; background:#0d1b2e; border:1px solid var(--line); border-radius:999px; padding:4px 10px 4px 4px; white-space:nowrap; }
+    .biz button { width:28px; height:28px; border:0; background:#163052; color:#dbeafe; border-radius:50%; cursor:pointer; }
+    .biz-wrap { position:relative; flex:0 0 auto; }
+    .biz-label { border:0; background:transparent; color:#e8eef8; padding:4px 8px; cursor:pointer; font:inherit; white-space:nowrap; min-width:108px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#334155; display:inline-block; }
+    .dot.on { background:#22c55e; }
+    .cal { display:none; position:absolute; right:0; top:44px; width:292px; background:#0d1b2e; border:1px solid var(--line); border-radius:16px; padding:12px; z-index:20; box-shadow:0 16px 40px #0008; }
+    .cal.show { display:block; }
+    .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .cal-head button { width:28px; height:28px; border:0; background:#163052; color:#dbeafe; border-radius:8px; cursor:pointer; }
+    .cal-week, .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .cal-week span { text-align:center; color:#7b91b3; font-size:11px; padding:4px 0; }
+    .cal-grid button { height:36px; border:0; background:transparent; color:#e8eef8; border-radius:8px; cursor:pointer; position:relative; font-size:13px; }
+    .cal-grid button.out { color:#475569; }
+    .cal-grid button.fri, .cal-grid button.sat { background:#122033; }
+    .cal-grid button.has::after { content:""; width:5px; height:5px; border-radius:50%; background:#38bdf8; position:absolute; left:50%; bottom:4px; transform:translateX(-50%); }
+    .cal-grid button.today { box-shadow:inset 0 0 0 1px #3b82f6; }
+    .cal-grid button.on { background:#2563eb; color:#fff; }
+    .wrap { padding:20px 24px 40px; max-width:1280px; margin:0 auto; }
+    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; }
+    .card em { color:var(--muted); font-style:normal; font-size:12px; }
+    .card b { display:block; font-size:24px; margin-top:6px; letter-spacing:-.02em; color:#fff; }
+    table { width:100%; border-collapse:separate; border-spacing:0; }
+    th, td { padding:10px 12px; border-bottom:1px solid #163052; text-align:left; font-size:13px; vertical-align:middle; }
+    th { color:#7b91b3; font-weight:600; background:#0b1728; }
+    tbody tr:hover td { background:#12233a; }
+    .sale { color:var(--sale); font-weight:800; }
+    .low { background:#064e3b !important; color:#6ee7b7; border-radius:8px; }
+    .chip { display:inline-block; background:#3b2a12; color:#fdba74; border:1px solid #9a3412; border-radius:999px; padding:2px 8px; font-size:11px; }
+    .ok { color:#34d399; }
+    .wait { color:#fbbf24; }
+    .muted { color:var(--muted); }
+    .soon { color:var(--muted); font-size:13px; padding:8px 0 4px; }
+    h2 { font-size:15px; margin:0 0 12px; color:#f1f5f9; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">L</span>
+      <div><b>LIVV OTA</b><small>酒店价格对照</small></div>
+    </div>
+    <nav>
+      <button data-tab="market" class="on">今日市场</button>
+      <button data-tab="hotels">酒店管理</button>
+      <button data-tab="devices">设备管理</button>
+    </nav>
+    <div class="biz-wrap">
+      <div class="biz">
+        <button type="button" id="dayPrev">‹</button>
+        <button type="button" class="biz-label" id="dateBtn">2026-09-16</button>
+        <button type="button" id="dayNext">›</button>
+        <span class="dot" id="dataDot"></span>
+        <span id="freshTime">最新 —</span>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+  </header>
+
+  <div class="wrap" id="tab-market">
+    <div class="kpis">
+      <div class="card"><em>对照酒店</em><b id="kHotels">-</b></div>
+      <div class="card"><em>今日最低平台</em><b id="kWin">-</b></div>
+      <div class="card"><em>四平台都有</em><b id="kAll">-</b></div>
+      <div class="card"><em>近时预订条数</em><b id="kBook">-</b></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>当日价格对照</h2>
+      <table>
+        <thead><tr><th>酒店</th><th>携程</th><th>美团</th><th>同程</th><th>飞猪</th><th>最低</th><th>最新预订</th></tr></thead>
+        <tbody id="marketRows"><tr><td colspan="7">读取中…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>未来 14 天价格 + Cloudflare AI 分析</h2>
+      <p class="soon">这一块需要按日期连续采集和 Workers AI，下一批再接。先保留入口：展示日历价曲线、异常涨跌、预订热度摘要。</p>
+    </div>
+  </div>
+
+  <div class="wrap" id="tab-hotels" hidden>
+    <div class="card">
+      <h2>跨平台酒店汇总</h2>
+      <p class="muted" id="hotelHint">同一店名合并，ID 来自各平台采集结果。映射推荐下一步再做确认流。</p>
+      <table>
+        <thead><tr><th>酒店</th><th>携程ID</th><th>美团ID</th><th>同程ID</th><th>飞猪ID</th><th>映射</th></tr></thead>
+        <tbody id="hotelRows"><tr><td colspan="6">读取中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="wrap" id="tab-devices" hidden>
+    <div class="kpis">
+      <div class="card"><em>设备总数</em><b id="dTotal">-</b></div>
+      <div class="card"><em>已授权</em><b id="dOk">-</b></div>
+      <div class="card"><em>待审批</em><b id="dWait">-</b></div>
+      <div class="card"><em>采集任务</em><b>未开放</b></div>
+    </div>
+    <div class="card">
+      <h2>设备列表</h2>
+      <table>
+        <thead><tr><th>设备ID</th><th>状态</th><th>说明</th></tr></thead>
+        <tbody id="deviceRows"><tr><td colspan="3">读取中…</td></tr></tbody>
+      </table>
+      <p class="soon">任务发布、在线心跳自动领任务下一步再做。当前只需保证设备授权后能上传列表采集。</p>
+    </div>
+  </div>
+
+  <script>
+    const API = "https://api.livv.cc";
+    const NAMES = { ctrip: "携程", meituan: "美团", tongcheng: "同程", fliggy: "飞猪" };
+    const ORDER = ["ctrip", "meituan", "tongcheng", "fliggy"];
+    let allItems = [];
+
+    document.querySelectorAll("nav button").forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll("nav button").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        ["market", "hotels", "devices"].forEach((id) => {
+          document.getElementById("tab-" + id).hidden = id !== btn.dataset.tab;
+        });
+      };
+    });
+
+    function compactName(s) {
+      return String(s || "").toLowerCase().replace(/\s+/g, "").replace(/[()（）·・\-—_.]/g, "");
+    }
+    async function loadFacts(id) {
+      const res = await fetch(API + "/api/v1/collections/" + id);
+      const json = await res.json().catch(() => ({}));
+      return json.data?.facts || json.facts || [];
+    }
+    function bookFrom(f, collectedAt) {
+      let extra = {};
+      try { extra = JSON.parse(f.extras_json || "{}"); } catch {}
+      const raw = extra.raw || extra || {};
+      const blob = JSON.stringify(raw);
+      const m = blob.match(/((刚刚|\d+(?:\.\d+)?)\s*(分钟|小时|天)?前有人[预預]订(?:了该酒店)?)/);
+      if (!m) return "";
+      const collected = collectedAt ? new Date(collectedAt).getTime() : Date.now();
+      let offset = 0;
+      if (m[1].indexOf("刚刚") >= 0) offset = 60 * 1000;
+      else {
+        const n = parseFloat(m[2]);
+        const unit = m[3];
+        if (unit === "分钟") offset = n * 60 * 1000;
+        else if (unit === "小时") offset = n * 3600 * 1000;
+        else if (unit === "天") offset = n * 86400 * 1000;
+      }
+      const bookedAt = collected - offset;
+      const ago = Math.max(0, Date.now() - bookedAt);
+      let label = "1分钟前";
+      if (ago >= 86400 * 1000) label = Math.floor(ago / 86400 / 1000) + "天前";
+      else if (ago >= 3600 * 1000) label = Math.floor(ago / 3600 / 1000) + "小时前";
+      else label = Math.max(1, Math.floor(ago / 60 / 1000)) + "分钟前";
+      return label + "有人预订";
+    }
+    function hidFrom(f) {
+      let extra = {};
+      try { extra = JSON.parse(f.extras_json || "{}"); } catch {}
+      const raw = extra.raw || extra || {};
+      const id = raw.hotel_id || "";
+      return id && id !== f.hotel_name ? id : "";
+    }
+
+    async function renderMarket(date) {
+      const scoped = date ? allItems.filter((it) => (it.check_in || "").slice(0, 10) === date) : allItems;
+      const latest = {};
+      for (const it of scoped) if (it.platform && !latest[it.platform]) latest[it.platform] = it;
+      const used = ORDER.filter((p) => latest[p]);
+      const groups = new Map();
+      let bookCount = 0;
+      let newest = "";
+      let newestPlat = "";
+      for (const plat of used) {
+        if (!newest || String(latest[plat].created_at) > newest) {
+          newest = latest[plat].created_at;
+          newestPlat = plat;
+        }
+        const facts = await loadFacts(latest[plat].id);
+        for (const f of facts) {
+          const key0 = compactName(f.hotel_name);
+          if (!key0 || key0.length < 4) continue;
+          let key = key0;
+          for (const exist of groups.keys()) {
+            if (exist.includes(key0) || key0.includes(exist)) { key = exist; break; }
+          }
+          const row = groups.get(key) || { name: f.hotel_name, prices: {}, books: {}, ids: {} };
+          if (f.display_price != null && row.prices[plat] == null) row.prices[plat] = f.display_price;
+          const bk = bookFrom(f, latest[plat].created_at);
+          if (bk) { row.books[plat] = bk; bookCount += 1; }
+          const hid = hidFrom(f);
+          if (hid) row.ids[plat] = hid;
+          if ((f.hotel_name || "").length > (row.name || "").length) row.name = f.hotel_name;
+          groups.set(key, row);
+        }
+      }
+      const rows = [...groups.values()].filter((r) => Object.keys(r.prices).length >= 2);
+      rows.sort((a, b) => Object.keys(b.prices).length - Object.keys(a.prices).length);
+      const four = rows.filter((r) => ORDER.every((p) => r.prices[p] != null)).length;
+      const winCount = {};
+      rows.forEach((r) => {
+        const vals = ORDER.map((p) => r.prices[p]).filter((v) => v != null);
+        const min = Math.min(...vals);
+        ORDER.forEach((p) => { if (r.prices[p] === min) winCount[p] = (winCount[p] || 0) + 1; });
+      });
+      const winPlat = Object.entries(winCount).sort((a, b) => b[1] - a[1])[0];
+      document.getElementById("kHotels").textContent = String(rows.length);
+      document.getElementById("kWin").textContent = winPlat ? NAMES[winPlat[0]] : "-";
+      document.getElementById("kAll").textContent = String(four);
+      document.getElementById("kBook").textContent = String(bookCount);
+      document.getElementById("freshTime").textContent = newest
+        ? ("最新 " + (NAMES[newestPlat] || newestPlat) + " " + new Date(newest).toLocaleString("zh-CN", { hour12: false }))
+        : "该日暂无采集";
+      document.getElementById("marketRows").innerHTML = rows.map((r) => {
+        const vals = ORDER.map((p) => r.prices[p]).filter((v) => v != null);
+        const min = Math.min(...vals);
+        const cells = ORDER.map((p) => {
+          const v = r.prices[p];
+          if (v == null) return "<td></td>";
+          return `<td class="sale${v === min ? " low" : ""}">¥${v}</td>`;
+        }).join("");
+        const winner = ORDER.filter((p) => r.prices[p] === min).map((p) => NAMES[p]).join(" / ");
+        const book = ORDER.map((p) => r.books[p]).filter(Boolean)[0] || "";
+        return `<tr><td>${r.name}</td>${cells}<td>${winner}</td><td>${book ? `<span class="chip">${book}</span>` : ""}</td></tr>`;
+      }).join("") || "<tr><td colspan='7'>这一天还没有可对照的采集</td></tr>";
+      document.getElementById("hotelRows").innerHTML = [...groups.values()].map((r) => `<tr>
+        <td>${r.name}</td>
+        <td>${r.ids.ctrip || ""}</td>
+        <td>${r.ids.meituan || ""}</td>
+        <td>${r.ids.tongcheng || ""}</td>
+        <td>${r.ids.fliggy || ""}</td>
+        <td class="muted">${ORDER.filter((p) => r.ids[p]).length >= 2 ? "待确认" : "缺ID"}</td>
+      </tr>`).join("") || "<tr><td colspan='6'>这一天还没有酒店</td></tr>";
+    }
+
+    let currentBiz = "";
+    let viewYear = 2026;
+    let viewMonth = 8;
+    const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
+    const WEEKDAY = ["日", "一", "二", "三", "四", "五", "六"];
+
+    function ymd(d) {
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    function parseYmd(s) {
+      return new Date((s || ymd(new Date())) + "T00:00:00");
+    }
+    function dataDates() {
+      const set = new Set();
+      allItems.forEach((it) => { if (it.check_in) set.add(String(it.check_in).slice(0, 10)); });
+      return set;
+    }
+    function syncPill() {
+      const d = parseYmd(currentBiz);
+      document.getElementById("dateBtn").textContent = currentBiz.slice(5) + " 周" + WEEKDAY[d.getDay()];
+      document.getElementById("dataDot").classList.toggle("on", dataDates().has(currentBiz));
+    }
+    function drawCal() {
+      const first = new Date(viewYear, viewMonth, 1);
+      const start = new Date(first);
+      start.setDate(1 - first.getDay());
+      let html = `<div class="cal-head"><button type="button" id="calPrev">‹</button><b>${viewYear}年${viewMonth + 1}月</b><button type="button" id="calNext">›</button></div>`;
+      html += `<div class="cal-week">${WEEK.map((w) => `<span>${w}</span>`).join("")}</div><div class="cal-grid">`;
+      const today = ymd(new Date());
+      const has = dataDates();
+      for (let i = 0; i < 42; i++) {
+        const cell = new Date(start);
+        cell.setDate(start.getDate() + i);
+        const key = ymd(cell);
+        const dow = cell.getDay();
+        const cls = [
+          cell.getMonth() !== viewMonth ? "out" : "",
+          dow === 5 ? "fri" : "",
+          dow === 6 ? "sat" : "",
+          has.has(key) ? "has" : "",
+          key === today ? "today" : "",
+          key === currentBiz ? "on" : "",
+        ].filter(Boolean).join(" ");
+        html += `<button type="button" class="${cls}" data-d="${key}">${cell.getDate()}</button>`;
+      }
+      html += "</div>";
+      const box = document.getElementById("cal");
+      box.innerHTML = html;
+      document.getElementById("calPrev").onclick = (e) => { e.stopPropagation(); viewMonth -= 1; if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; } drawCal(); };
+      document.getElementById("calNext").onclick = (e) => { e.stopPropagation(); viewMonth += 1; if (viewMonth > 11) { viewMonth = 0; viewYear += 1; } drawCal(); };
+      box.querySelectorAll(".cal-grid button").forEach((btn) => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          currentBiz = btn.dataset.d;
+          box.classList.remove("show");
+          syncPill();
+          renderMarket(currentBiz);
+        };
+      });
+    }
+    async function boot() {
+      const res = await fetch(API + "/api/v1/collections");
+      const json = await res.json().catch(() => ({}));
+      allItems = json.data?.items || json.items || [];
+      currentBiz = ymd(new Date());
+      const d = parseYmd(currentBiz);
+      viewYear = d.getFullYear();
+      viewMonth = d.getMonth();
+      syncPill();
+      await renderMarket(currentBiz);
+      const dres = await fetch(API + "/api/v1/devices").catch(() => null);
+      if (dres && dres.ok) {
+        const dj = await dres.json().catch(() => ({}));
+        const devices = dj.data?.items || dj.items || dj.data?.devices || [];
+        document.getElementById("dTotal").textContent = String(devices.length);
+        document.getElementById("dOk").textContent = String(devices.filter((x) => x.status === "authorized" || x.status === "active").length);
+        document.getElementById("dWait").textContent = String(devices.filter((x) => x.status === "pending").length);
+        document.getElementById("deviceRows").innerHTML = devices.map((x) => `<tr>
+          <td>${x.device_id || x.id}</td>
+          <td class="${x.status === "pending" ? "wait" : "ok"}">${x.status || ""}</td>
+          <td>${x.note || ""}</td>
+        </tr>`).join("") || "<tr><td colspan='3'>暂无设备</td></tr>";
+      }
+    }
+    function shiftDate(days) {
+      const d = parseYmd(currentBiz);
+      d.setDate(d.getDate() + days);
+      currentBiz = ymd(d);
+      viewYear = d.getFullYear();
+      viewMonth = d.getMonth();
+      syncPill();
+      renderMarket(currentBiz);
+    }
+    document.getElementById("dayPrev").onclick = () => shiftDate(-1);
+    document.getElementById("dayNext").onclick = () => shiftDate(1);
+    document.getElementById("dateBtn").onclick = (e) => {
+      e.stopPropagation();
+      const cal = document.getElementById("cal");
+      const open = !cal.classList.contains("show");
+      if (open) drawCal();
+      cal.classList.toggle("show", open);
+    };
+    document.addEventListener("click", () => document.getElementById("cal").classList.remove("show"));
+    boot().catch((e) => { document.getElementById("freshTime").textContent = e.message; });
+  </script>
+</body>
+</html>

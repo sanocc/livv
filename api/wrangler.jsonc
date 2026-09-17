@@ -1,0 +1,28 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "livv-api",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-22",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"vars": {
+		"APP_VERSION": "0.2.0",
+		"ACCESS_ISSUER": "dev-placeholder",
+		"ACCESS_AUD": "dev-placeholder"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "livv-data",
+			"database_id": "50bd8941-b709-4503-8686-7d862dc4a994",
+			"migrations_dir": "migrations"
+		},
+		{
+			"binding": "livv_data",
+			"database_name": "livv-data",
+			"database_id": "50bd8941-b709-4503-8686-7d862dc4a994",
+			"remote": true
+		}
+	]
+}

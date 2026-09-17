@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LIVV OPS</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="https://livv.cc">LIVV <em>OPS</em></a>
+    <label class="upload-btn">上传报表<input type="file" id="xlsx" accept=".xlsx,.xls" /></label>
+    <span class="upload-hint" id="uploadHint"></span>
+    <div class="nav-right">
+      <div class="grains">
+        <button type="button" class="grain on" data-grain="month">按月</button>
+        <button type="button" class="grain" data-grain="quarter">按季</button>
+        <button type="button" class="grain" data-grain="year">按年</button>
+      </div>
+      <div class="pager">
+        <button type="button" id="prevBtn" class="arrow">‹</button>
+        <div class="pager-label">《 <b id="periodLabel">2026年8月</b> 》</div>
+        <button type="button" id="nextBtn" class="arrow">›</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="cards" id="cards"></section>
+    <section class="split" id="revSplit"></section>
+    <section class="split costs" id="costSplit"></section>
+    <section class="charts">
+      <article class="chart-card">
+        <header><h2>主营业务收入</h2><span>当年已导入月份 · 实线实际 / 虚线预算</span></header>
+        <canvas id="cRev"></canvas>
+      </article>
+      <article class="chart-card">
+        <header><h2>可控成本</h2><span>当年已导入月份 · 实线实际 / 虚线预算</span></header>
+        <canvas id="cCost"></canvas>
+      </article>
+      <article class="chart-card">
+        <header><h2>主营业务利润</h2><span>当年已导入月份 · 实线实际 / 虚线预算</span></header>
+        <canvas id="cGop"></canvas>
+      </article>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>

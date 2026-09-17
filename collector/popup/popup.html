@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>酒店助手</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand-row">
+        <span class="logo" aria-hidden="true">L</span>
+        <span class="brand">酒店助手</span>
+        <span class="page-type" id="pageType">—</span>
+      </div>
+      <span class="ver" id="appVer">v0.3.1</span>
+    </header>
+
+    <nav>
+      <button data-tab="results" class="on">采集结果</button>
+      <button data-tab="tasks">任务状态</button>
+      <button data-tab="device">设备状态</button>
+    </nav>
+
+    <section id="results" class="tab on">
+      <div class="ctx" id="pageCtx">
+        <span class="plat-logo" id="platLogo">—</span>
+        <span id="ctxCity">—</span>
+        <span id="ctxIn">—</span>
+        <span id="ctxOut">—</span>
+        <span id="ctxKw">—</span>
+        <span class="dtag" id="ctxD">—</span>
+      </div>
+      <div class="actions">
+        <button id="collect" class="primary">采集当前页</button>
+        <button id="upload" class="ghost">上传最新一条</button>
+        <button id="probe" class="ghost">探测DOM</button>
+      </div>
+      <div class="stats">
+        <div><em>检测</em><b id="stAll">0</b></div>
+        <div class="ok"><em>可售</em><b id="stAvail">0</b></div>
+        <div class="sold"><em>售罄</em><b id="stSold">0</b></div>
+        <div class="ad"><em>广告</em><b id="stAd">0</b></div>
+        <div class="err"><em>异常</em><b id="stErr">0</b></div>
+      </div>
+      <p id="collectStatus" class="status"></p>
+      <pre id="domProbe" class="probe" hidden></pre>
+      <div id="resultList"></div>
+    </section>
+
+    <section id="tasks" class="tab">
+      <div class="empty">
+        <strong>云端任务尚未开放</strong>
+        <p>当前只支持打开 OTA 列表后手动采集。</p>
+      </div>
+      <div class="log-card">
+        <h3>日志列表</h3>
+        <ol class="log-list" id="logList"></ol>
+      </div>
+    </section>
+
+    <section id="device" class="tab">
+      <div class="platforms" id="platforms">
+        <button type="button" data-p="ctrip" data-url="https://hotels.ctrip.com/">携程</button>
+        <button type="button" data-p="meituan" data-url="https://hotel.meituan.com/">美团</button>
+        <button type="button" data-p="fliggy" data-url="https://hotel.fliggy.com/">飞猪</button>
+        <button type="button" data-p="tongcheng" data-url="https://www.ly.com/hotel/">同程</button>
+      </div>
+      <div class="device-card" id="deviceSummary">读取设备中…</div>
+    </section>
+
+    <footer>
+      <span>服务状态 <i class="dot" id="svcDot"></i> <b id="svcText">检测中</b></span>
+      <span>授权状态 <i class="dot" id="authDot"></i> <b id="authText">—</b></span>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>
