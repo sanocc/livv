@@ -23,3 +23,5 @@ This phase does not connect to real Cloudflare, create production D1, deploy, in
 - `npm test`: run Worker tests with Vitest and the Cloudflare Workers pool.
 - `npm run typecheck`: run TypeScript checking.
 - `npm run dev`: start Wrangler locally.
+
+<!-- automatic deployment verification -->
