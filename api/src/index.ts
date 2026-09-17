@@ -20,6 +20,34 @@ const router = new Router();
 router.on("GET", "/health", "public", health);
 router.on("GET", "/api/v1/health", "public", health);
 
+router.on("GET", "/api/v1/admin/whoami", "public", async (ctx: AppContext) => {
+  const identity = await ctx.executionCtx.access?.getIdentity();
+
+  if (!identity) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: {
+          code: "ACCESS_IDENTITY_MISSING",
+          message: "Cloudflare Access identity unavailable"
+        }
+      }),
+      {
+        status: 401,
+        headers: {
+          "content-type": "application/json; charset=utf-8"
+        }
+      }
+    );
+  }
+
+  return ok({
+    user_uuid: identity.user_uuid ?? null,
+    email: identity.email ?? null,
+    name: identity.name ?? null
+  });
+});
+
 router.on("GET", "/api/v1/markets", "access_user", listMarkets);
 router.on("POST", "/api/v1/markets", "access_user", createMarket);
 router.on("GET", "/api/v1/markets/:id", "access_user", getMarket);
