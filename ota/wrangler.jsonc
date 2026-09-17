@@ -1,6 +1,14 @@
 {
   "name": "livv-ota",
   "main": "worker.js",
-  "compatibility_date": "2026-09-15",
-  "workers_dev": true
+  "compatibility_date": "2026-09-17",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "livv-data",
+      "database_id": "50bd8941-b709-4503-8686-7d862dc4a994",
+      "remote": true
+    }
+  ]
 }
