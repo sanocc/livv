@@ -16,7 +16,7 @@ export function corsHeaders(request: Request): HeadersInit {
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization,x-livv-device-id,x-livv-device-credential,x-livv-mock-access-sub,x-livv-mock-access-email,x-livv-mock-access-role",
+    "access-control-allow-headers": "content-type,authorization,x-livv-device-id,x-livv-device-credential",
     "access-control-allow-credentials": "true",
     vary: "Origin"
   };

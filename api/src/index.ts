@@ -58,8 +58,8 @@ router.on("POST", "/api/v1/collector/heartbeat", "device", heartbeat);
 router.on("POST", "/api/v1/collector/collections", "device", uploadCollections);
 router.on("POST", "/api/v1/collector/tasks/claim", "device", rejectPendingBusinessWrite);
 
-router.on("GET", "/api/v1/devices", "access_user", listDevices);
-router.on("POST", "/api/v1/devices/:id/authorize", "access_user", authorizeDevice);
+router.on("GET", "/api/v1/admin/devices", "access_user", listDevices);
+router.on("POST", "/api/v1/admin/devices/:id/authorize", "access_user", authorizeDevice);
 
 router.on("GET", "/api/v1/collections", "public", async (ctx: AppContext) => {
   const items = await new CollectionRepository(ctx.env.DB).listRecent(50);

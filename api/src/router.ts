@@ -1,5 +1,5 @@
 import type { AppContext, AuthType } from "./env";
-import { getMockAccessIdentity } from "./auth/access";
+import { getAccessIdentity } from "./auth/access";
 import { getDeviceIdentity } from "./auth/device";
 import { getInternalIdentity } from "./auth/internal";
 import { AppError } from "./errors/app-error";
@@ -48,7 +48,7 @@ export class Router {
 
 async function authenticate(auth: AuthType, ctx: AppContext) {
   if (auth === "public") return undefined;
-  if (auth === "access_user") return getMockAccessIdentity(ctx);
+  if (auth === "access_user") return getAccessIdentity(ctx);
   if (auth === "device") return getDeviceIdentity(ctx);
   return getInternalIdentity(ctx);
 }
