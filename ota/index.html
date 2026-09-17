@@ -215,7 +215,7 @@
           groups.set(key, row);
         }
       }
-      const rows = [...groups.values()].filter((r) => Object.keys(r.prices).length >= 2);
+      const rows = [...groups.values()].filter((r) => Object.keys(r.prices).length >= 1);
       rows.sort((a, b) => Object.keys(b.prices).length - Object.keys(a.prices).length);
       const four = rows.filter((r) => ORDER.every((p) => r.prices[p] != null)).length;
       const winCount = {};
@@ -324,7 +324,7 @@
       viewMonth = d.getMonth();
       syncPill();
       await renderMarket(currentBiz);
-      const dres = await fetch(API + "/api/v1/devices").catch(() => null);
+      const dres = await fetch(API + "/api/v1/admin/devices").catch(() => null);
       if (dres && dres.ok) {
         const dj = await dres.json().catch(() => ({}));
         const devices = dj.data?.items || dj.items || dj.data?.devices || [];
