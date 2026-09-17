@@ -28,9 +28,12 @@ body {
 }
 .brand-row { display: flex; align-items: center; gap: 8px; }
 .logo {
-  width: 22px; height: 22px; border-radius: 6px;
-  background: var(--blue); color: #fff; font-weight: 800;
-  display: grid; place-items: center; font-size: 12px;
+  width: 38px;
+  height: 38px;
+  display: block;
+  object-fit: cover;
+  border-radius: 9px;
+  flex: 0 0 auto;
 }
 .brand { font-size: 16px; font-weight: 700; }
 .page-type {
@@ -133,3 +136,21 @@ footer span { display: inline-flex; align-items: center; gap: 6px; }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; margin: 0; flex: 0 0 auto; }
 .dot.on { background: #16a34a; }
 .dot.off { background: #ef4444; }
+
+
+.chip-rate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: #1677ff;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}

@@ -32,6 +32,44 @@ async function sha256(text) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+
+async function runM04InTab(tabId) {
+  const runtimeUrl = chrome.runtime.getURL(
+    "core/runtime.js"
+  );
+
+  const [run] =
+    await chrome.scripting.executeScript({
+      target: {
+        tabId
+      },
+
+      world: "ISOLATED",
+
+      func: async (moduleUrl) => {
+        const mod =
+          await import(moduleUrl);
+
+        if (
+          typeof mod.collectM04 !==
+          "function"
+        ) {
+          throw new Error(
+            "M04 collectM04() 不存在"
+          );
+        }
+
+        return await mod.collectM04();
+      },
+
+      args: [
+        runtimeUrl
+      ]
+    });
+
+  return run?.result || null;
+}
+
 async function collectCurrent() {
   collectStatus.textContent = "采集中…";
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -45,15 +83,100 @@ async function collectCurrent() {
   const isFliggyList = /hotel\.fliggy\.com|hotel\.taobao\.com|alitrip\.com/i.test(tab.url);
   let result;
   if (isCtripList) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["parsers/ctrip-list.js"],
-    });
-    const [injected] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (typeof window.__livvScrapeCtripList === "function" ? window.__livvScrapeCtripList() : null),
-    });
-    result = injected.result;
+    const m04 =
+      await runM04InTab(tab.id);
+
+    if (!m04) {
+      throw new Error(
+        "携程 M04 返回空结果"
+      );
+    }
+
+    const facts =
+      Array.isArray(m04.facts)
+        ? m04.facts
+        : [];
+
+    result = {
+      host:
+        new URL(tab.url).hostname,
+
+      href:
+        tab.url,
+
+      title:
+        tab.title || "携程酒店",
+
+      count:
+        facts.length,
+
+      hotels:
+        facts.map((fact) => ({
+          ...(fact.platform_hotel_id
+            ? {
+                platform_hotel_id:
+                  fact.platform_hotel_id
+              }
+            : {}),
+
+          hotel_name:
+            fact.hotel_name,
+
+          rank:
+            fact.display_position,
+
+          price:
+            fact.display_price,
+
+          sold_out:
+            fact.sold_out,
+
+          source_url:
+            fact.source_url,
+
+          raw: {
+            ...(fact.raw || {}),
+
+            hotel_id:
+              fact.platform_hotel_id,
+
+            is_ad:
+              fact.is_ad,
+
+            rating:
+              fact.rating,
+
+            review_count:
+              fact.review_count,
+
+            room_name:
+              fact.room_name,
+
+            promotions:
+              fact.promotions || [],
+
+            list_price:
+              fact.list_price,
+
+            sale_price:
+              fact.display_price,
+
+            m04_quality:
+              fact.quality,
+
+            m04_evidence:
+              fact.evidence
+          }
+        })),
+
+      m04: {
+        version: "M04",
+        audit:
+          m04.audit || null,
+        meta:
+          m04.meta || null
+      }
+    };
   } else if (isMeituanList) {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -111,6 +234,31 @@ async function collectCurrent() {
   const check_out = (rawOut.replaceAll("/", "-") || check_in);
   const business_date = check_in;
   const rawPayload = { page: result, platform, check_in, check_out };
+
+  /*
+   * M04 Collection Quality
+   *
+   * complete:
+   * - M04 Quality Gate 通过
+   * - Rank Monitor 达到正式排名上限
+   *
+   * 其它情况保持 partial。
+   *
+   * 目前只有携程已经正式迁移到 M04。
+   */
+  const m04Audit =
+    result?.m04?.audit || null;
+
+  const m04Meta =
+    result?.m04?.meta || null;
+
+  const collectionQuality =
+    m04Audit?.passed === true &&
+    m04Meta?.reached_target === true &&
+    m04Meta?.stop_reason === "rank_limit"
+      ? "complete"
+      : "partial";
+
   const payload_hash = await sha256(JSON.stringify(rawPayload) + Date.now().toString().slice(0, 8));
   const item = {
     collected_at: new Date().toISOString(),
@@ -125,9 +273,9 @@ async function collectCurrent() {
       business_date,
       check_in,
       check_out,
-      quality: "partial",
+      quality: collectionQuality,
       policy_version: "30-200-10-3",
-      collector_version: "0.3.1",
+      collector_version: "0.4.0",
       source: "manual_popup",
       source_url: result.href,
       title: hotelName,
@@ -217,14 +365,55 @@ function clipName(name, n = 25) {
 
 function setStats(facts) {
   const list = facts || [];
-  const ad = list.filter((f) => f.raw?.is_ad).length;
-  const sold = list.filter((f) => f.sold_out || f.price == null).length;
-  const err = list.filter((f) => !f.hotel_name).length;
-  document.getElementById("stAll").textContent = String(list.length);
-  document.getElementById("stAvail").textContent = String(Math.max(0, list.length - sold));
-  document.getElementById("stSold").textContent = String(sold);
-  document.getElementById("stAd").textContent = String(ad);
-  document.getElementById("stErr").textContent = String(err);
+
+  const isOfficialId = (value) =>
+    /^\d{4,}$/.test(String(value || ""));
+
+  const official = list.filter((f) =>
+    isOfficialId(f.platform_hotel_id)
+  );
+
+  const missing = list.filter((f) =>
+    !isOfficialId(f.platform_hotel_id)
+  );
+
+  const ids = official.map((f) =>
+    String(f.platform_hotel_id)
+  );
+
+  const duplicateIds = new Set(
+    ids.filter((id, index) =>
+      ids.indexOf(id) !== index
+    )
+  );
+
+  const sold = list.filter(
+    (f) => f.sold_out || f.price == null
+  ).length;
+
+  document.getElementById("stAll").textContent =
+    String(list.length);
+
+  document.getElementById("stAvail").textContent =
+    String(Math.max(0, list.length - sold));
+
+  document.getElementById("stSold").textContent =
+    String(official.length);
+
+  document.getElementById("stAd").textContent =
+    String(missing.length);
+
+  document.getElementById("stErr").textContent =
+    String(duplicateIds.size);
+
+  return {
+    total: list.length,
+    available: Math.max(0, list.length - sold),
+    official_id_count: official.length,
+    missing_id_count: missing.length,
+    duplicate_id_count: duplicateIds.size,
+    duplicate_ids: [...duplicateIds]
+  };
 }
 
 function dayOffset(checkIn) {
@@ -332,66 +521,521 @@ async function refreshPageContext() {
 }
 
 async function probeDom() {
-  collectStatus.textContent = "探测DOM中…";
+  collectStatus.textContent = "OTA审计探测中…";
+
   const box = document.getElementById("domProbe");
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  });
+
   if (!tab?.id) {
     collectStatus.textContent = "没有活动标签页";
     return;
   }
+
   const [inj] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    func: () => {
-      function shallow(obj, depth) {
-        if (!obj || typeof obj !== "object" || depth > 1) return obj && typeof obj === "object" ? "[object]" : obj;
+
+    func: async () => {
+      function norm(value) {
+        return String(value || "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function platformFromHost(host) {
+        if (/ctrip|trip\.com/i.test(host)) return "ctrip";
+        if (/meituan|dianping/i.test(host)) return "meituan";
+        if (/fliggy|taobao|alitrip/i.test(host)) return "fliggy";
+        if (/ly\.com|tongcheng/i.test(host)) return "tongcheng";
+        return "unknown";
+      }
+
+      function short(value, max = 1000) {
+        const s = String(value || "");
+        return s.length > max ? s.slice(0, max) + "…" : s;
+      }
+
+      function attrsOf(el) {
+        if (!el || !el.attributes) return {};
         const out = {};
-        const keys = Object.keys(obj).slice(0, 40);
-        for (let i = 0; i < keys.length; i++) {
-          const k = keys[i];
-          try {
-            const v = obj[k];
-            out[k] = v && typeof v === "object" ? Object.keys(v).slice(0, 20) : v;
-          } catch (e) {}
+        for (const a of [...el.attributes]) {
+          if (
+            a.name === "href" ||
+            a.name === "id" ||
+            a.name === "class" ||
+            a.name.startsWith("data-") ||
+            /hotel|poi|shop/i.test(a.name)
+          ) {
+            out[a.name] = short(a.value, 300);
+          }
         }
         return out;
       }
-      const cell = document.querySelector("div.cell, a.poi");
-      const poi = document.querySelector("a.poi");
-      const vueBits = [];
-      const els = [cell, poi, poi && poi.parentElement];
-      for (let i = 0; i < els.length; i++) {
-        const el = els[i];
-        if (!el) continue;
-        vueBits.push({
-          tag: el.tagName + "." + (el.className || ""),
-          vue2keys: el.__vue__ ? Object.keys(el.__vue__).slice(0, 30) : null,
-          vue2data: el.__vue__ ? shallow(el.__vue__._data || el.__vue__.poi || el.__vue__, 0) : null,
-          vue3keys: el.__vueParentComponent ? Object.keys(el.__vueParentComponent).slice(0, 30) : null,
-          vue3props: el.__vueParentComponent ? shallow(el.__vueParentComponent.props || el.__vueParentComponent.ctx, 0) : null,
-        });
+
+      function selectorHint(el) {
+        if (!el) return "";
+        const tag = (el.tagName || "").toLowerCase();
+        const id = el.id ? "#" + el.id : "";
+        const classes = [...(el.classList || [])]
+          .slice(0, 5)
+          .map((x) => "." + x)
+          .join("");
+        return tag + id + classes;
       }
-      const resources = (performance.getEntriesByType("resource") || [])
-        .map((e) => e.name)
-        .filter((n) => /poi|hotel|search|hbsearch/i.test(n))
-        .slice(0, 15);
+
+      function extractIds(text) {
+        const s = String(text || "");
+        const out = new Set();
+
+        const patterns = [
+          /data-offline-hotelid=["']?(\d{4,})/gi,
+          /data-hotel-id=["']?(\d{4,})/gi,
+          /data-hotelid=["']?(\d{4,})/gi,
+          /data-poi-id=["']?(\d{4,})/gi,
+          /data-poiid=["']?(\d{4,})/gi,
+          /data-shopid=["']?(\d{4,})/gi,
+          /hotelId["'=:\s]+(\d{4,})/gi,
+          /hotelid["'=:\s]+(\d{4,})/gi,
+          /poiId["'=:\s]+(\d{4,})/gi,
+          /poiid["'=:\s]+(\d{4,})/gi,
+          /realPoiId["'=:\s]+(\d{4,})/gi,
+          /shopId["'=:\s]+(\d{4,})/gi,
+          /\/hotel[^0-9]{0,6}(\d{4,})/gi,
+          /\/hotels\/(\d{4,})/gi,
+          /\/poi\/(\d{4,})/gi,
+          /\/shop\/(\d{4,})/gi
+        ];
+
+        for (const re of patterns) {
+          let m;
+          while ((m = re.exec(s))) {
+            out.add(m[1]);
+            if (out.size >= 20) break;
+          }
+        }
+
+        return [...out];
+      }
+
+      function dataIdAttrs(el) {
+        const rows = [];
+        const nodes = [
+          el,
+          ...(el ? [...el.querySelectorAll("*")].slice(0, 150) : [])
+        ];
+
+        for (const node of nodes) {
+          if (!node?.attributes) continue;
+
+          for (const a of [...node.attributes]) {
+            if (
+              a.name.startsWith("data-") &&
+              /id|hotel|poi|shop/i.test(a.name)
+            ) {
+              rows.push({
+                selector: selectorHint(node),
+                name: a.name,
+                value: short(a.value, 300)
+              });
+            }
+          }
+
+          if (rows.length >= 30) break;
+        }
+
+        return rows;
+      }
+
+      function linksOf(el) {
+        if (!el) return [];
+
+        return [...el.querySelectorAll("a[href]")]
+          .slice(0, 10)
+          .map((a) => ({
+            text: short(norm(a.textContent), 120),
+            href: short(a.href, 500),
+            ids: extractIds(a.outerHTML + " " + a.href)
+          }));
+      }
+
+      function pricesOf(text) {
+        return [
+          ...String(text || "").matchAll(
+            /(?:¥|￥)\s*([0-9]{1,6}(?:\.[0-9]{1,2})?)/g
+          )
+        ]
+          .map((m) => Number(m[1]))
+          .filter(Number.isFinite);
+      }
+
+      function possibleName(text) {
+        const lines = String(text || "")
+          .split("\n")
+          .map(norm)
+          .filter(Boolean);
+
+        return (
+          lines.find(
+            (line) =>
+              line.length >= 4 &&
+              line.length <= 100 &&
+              /酒店|饭店|宾馆|旅馆|民宿|客栈|度假村|公寓|Hotel|Inn|Hostel/i.test(
+                line
+              )
+          ) || ""
+        );
+      }
+
+      function vueInfo(el) {
+        const out = [];
+        let cur = el;
+
+        for (let i = 0; i < 6 && cur; i += 1) {
+          try {
+            const v2 = cur.__vue__;
+            const v3 = cur.__vueParentComponent;
+
+            if (v2) {
+              const bag =
+                v2._data ||
+                v2.$props ||
+                v2.poi ||
+                v2.hotel ||
+                v2;
+
+              out.push({
+                level: i,
+                type: "vue2",
+                selector: selectorHint(cur),
+                keys: Object.keys(bag || {}).slice(0, 40),
+                id_values: Object.entries(bag || {})
+                  .filter(([k]) => /id|hotel|poi|shop/i.test(k))
+                  .slice(0, 20)
+              });
+            }
+
+            if (v3) {
+              const bag =
+                v3.props ||
+                v3.setupState ||
+                v3.ctx ||
+                {};
+
+              out.push({
+                level: i,
+                type: "vue3",
+                selector: selectorHint(cur),
+                keys: Object.keys(bag || {}).slice(0, 40),
+                id_values: Object.entries(bag || {})
+                  .filter(([k]) => /id|hotel|poi|shop/i.test(k))
+                  .slice(0, 20)
+              });
+            }
+          } catch {}
+
+          cur = cur.parentElement;
+        }
+
+        return out;
+      }
+
+      function chooseCards() {
+        const candidates = [];
+
+        const nodes = [
+          ...document.querySelectorAll(
+            "article, li, section, div"
+          )
+        ];
+
+        for (const el of nodes) {
+          const text = el.innerText || "";
+
+          if (text.length < 25 || text.length > 1600) continue;
+
+          if (!/(?:¥|￥)\s*\d+/.test(text)) continue;
+
+          if (
+            !/酒店|饭店|宾馆|旅馆|民宿|客栈|度假村|公寓|Hotel|Inn|Hostel/i.test(
+              text
+            )
+          ) {
+            continue;
+          }
+
+          const name = possibleName(text);
+          if (!name) continue;
+
+          const reviewSignals =
+            (text.match(/点评|评价|评论|评分/g) || []).length;
+
+          const detailSignals =
+            (text.match(/查看详情|预订|起|订/g) || []).length;
+
+          const priceCount = pricesOf(text).length;
+
+          let score = 0;
+
+          if (name) score += 4;
+          if (priceCount >= 1) score += 3;
+          if (reviewSignals >= 1) score += 2;
+          if (detailSignals >= 1) score += 1;
+
+          if (text.length <= 800) score += 2;
+
+          if (
+            /热门筛选|地图找房|价格星级|热门商圈/.test(text)
+          ) {
+            score -= 4;
+          }
+
+          candidates.push({
+            el,
+            score,
+            name,
+            textLength: text.length
+          });
+        }
+
+        candidates.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return a.textLength - b.textLength;
+        });
+
+        const picked = [];
+        const names = new Set();
+
+        for (const row of candidates) {
+          const compact = norm(row.name)
+            .toLowerCase()
+            .replace(/[()（）·・\-—_.\s]/g, "");
+
+          if (!compact || names.has(compact)) continue;
+
+          names.add(compact);
+          picked.push(row);
+
+          if (picked.length >= 8) break;
+        }
+
+        return {
+          totalCandidates: candidates.length,
+          picked
+        };
+      }
+
+      const host = location.hostname;
+      const platform = platformFromHost(host);
+      const chosen = chooseCards();
+
+      const html = document.documentElement.innerHTML || "";
+
+      const samples = chosen.picked.slice(0, 5).map((row, index) => {
+        const el = row.el;
+        const text = el.innerText || "";
+        const outer = el.outerHTML || "";
+        const name = row.name;
+
+        let htmlAroundName = "";
+
+        try {
+          const pos = html.indexOf(name);
+          if (pos >= 0) {
+            htmlAroundName = html.slice(
+              Math.max(0, pos - 700),
+              Math.min(html.length, pos + name.length + 1400)
+            );
+          }
+        } catch {}
+
+        return {
+          index: index + 1,
+          guessed_name: name,
+          selector: selectorHint(el),
+          score: row.score,
+          text_length: text.length,
+
+          prices: pricesOf(text),
+
+          root_attrs: attrsOf(el),
+
+          data_id_attrs: dataIdAttrs(el),
+
+          links: linksOf(el),
+
+          possible_ids: [
+            ...new Set([
+              ...extractIds(outer),
+              ...extractIds(htmlAroundName)
+            ])
+          ].slice(0, 30),
+
+          vue: vueInfo(el),
+
+          text: short(text, 1600),
+
+          html_near_name: short(htmlAroundName, 2400)
+        };
+      });
+
+      const resourceUrls = (
+        performance.getEntriesByType("resource") || []
+      )
+        .map((x) => x.name)
+        .filter((url) =>
+          /hotel|search|poi|shop|list|detail|hbsearch|graphql|api/i.test(
+            url
+          )
+        )
+        .slice(-40);
+
+      const bodyText = document.body?.innerText || "";
+
+      async function auditMeituanHotelSearch() {
+        if (platform !== "meituan") return null;
+
+        const allResources = (
+          performance.getEntriesByType("resource") || []
+        )
+          .map((x) => x.name)
+          .filter((url) =>
+            /ihotel\.meituan\.com\/hbsearch\/HotelSearch/i.test(url)
+          );
+
+        const actualUrl =
+          allResources.length
+            ? allResources[allResources.length - 1]
+            : "";
+
+        if (!actualUrl) {
+          return {
+            found: false,
+            error: "未找到页面真实 HotelSearch 请求"
+          };
+        }
+
+        try {
+          const res = await fetch(actualUrl, {
+            credentials: "include"
+          });
+
+          const json = await res.json();
+
+          const rows =
+            json?.data?.searchresult ||
+            json?.searchresult ||
+            [];
+
+          const simplify = (row, index) => ({
+            index: index + 1,
+
+            name:
+              row?.name ??
+              row?.hotelName ??
+              "",
+
+            poiid:
+              row?.poiid ??
+              row?.poiId ??
+              null,
+
+            realPoiId:
+              row?.realPoiId ??
+              null,
+
+            id:
+              row?.poiid ??
+              row?.poiId ??
+              row?.realPoiId ??
+              null,
+
+            price:
+              row?.lowestPrice ??
+              row?.price ??
+              row?.lowestprice ??
+              row?.minPrice ??
+              null,
+
+            score:
+              row?.score ??
+              row?.avgScore ??
+              row?.rating ??
+              null,
+
+            raw_keys:
+              Object.keys(row || {}).slice(0, 80)
+          });
+
+          return {
+            found: true,
+            request_url: actualUrl,
+            http_status: res.status,
+            row_count: Array.isArray(rows)
+              ? rows.length
+              : 0,
+            rows: Array.isArray(rows)
+              ? rows.slice(0, 20).map(simplify)
+              : [],
+            response_top_keys:
+              Object.keys(json || {}).slice(0, 40),
+            data_keys:
+              Object.keys(json?.data || {}).slice(0, 60)
+          };
+        } catch (error) {
+          return {
+            found: true,
+            request_url: actualUrl,
+            error: String(
+              error?.message || error
+            )
+          };
+        }
+      }
+
+      const meituan_hotel_search =
+        await auditMeituanHotelSearch();
+
       return {
-        probe: "v2",
-        href: location.href,
-        title: document.title,
-        vueBits,
-        resources,
-        cellAttrs: cell ? [...cell.attributes].map((a) => a.name + "=" + a.value) : [],
-        poiAttrs: poi ? [...poi.attributes].map((a) => a.name + "=" + a.value) : [],
-        cardText: (cell && cell.innerText || "").slice(0, 300),
+        probe: "OTA_AUDIT_V2",
+
+        platform,
+
+        page: {
+          host,
+          href: location.href,
+          title: document.title
+        },
+
+        summary: {
+          candidate_card_count: chosen.totalCandidates,
+          sampled_card_count: samples.length,
+          page_price_count: pricesOf(bodyText).length
+        },
+
+        samples,
+
+        relevant_resources: resourceUrls,
+
+        meituan_hotel_search
       };
-    },
+    }
   });
-  const data = inj && inj.result ? inj.result : { error: "空结果" };
+
+  const data =
+    inj && inj.result
+      ? inj.result
+      : { error: "空结果" };
+
   if (box) {
     box.hidden = false;
     box.textContent = JSON.stringify(data, null, 2);
   }
-  collectStatus.textContent = "DOM探测完成，把下面文本发给我";
+
+  collectStatus.textContent =
+    "OTA Audit V1 完成，请复制下方完整结果";
 }
 
 document.getElementById("platforms")?.addEventListener("click", (event) => {
@@ -402,6 +1046,375 @@ document.getElementById("platforms")?.addEventListener("click", (event) => {
 document.getElementById("collect").addEventListener("click", () => collectCurrent().catch((e) => {
   collectStatus.textContent = e.message;
 }));
+
+async function compareCtripM04() {
+  collectStatus.textContent = "M04 新旧对比中…";
+
+  const box = document.getElementById("domProbe");
+
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  });
+
+  if (!tab?.id || !tab?.url) {
+    collectStatus.textContent = "没有活动标签页";
+    return;
+  }
+
+  if (!/hotels\.ctrip\.com\/hotels\/list/i.test(tab.url)) {
+    collectStatus.textContent = "当前不是携程酒店列表页";
+    return;
+  }
+
+  // -------------------------------------------------------
+  // OLD PARSER
+  // -------------------------------------------------------
+
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["parsers/ctrip-list.js"]
+  });
+
+  const [oldRun] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: async () => {
+      if (
+        typeof window.__livvScrapeCtripList !== "function"
+      ) {
+        return null;
+      }
+
+      return await window.__livvScrapeCtripList();
+    }
+  });
+
+  const oldResult = oldRun?.result || {
+    hotels: []
+  };
+
+  // -------------------------------------------------------
+  // NEW M04 ADAPTER
+  //
+  // Chrome scripting.executeScript 不能直接 import ES module，
+  // 所以这里加载一个临时页面 runner。
+  // -------------------------------------------------------
+
+  const runtimeResult =
+    await runM04InTab(
+      tab.id
+    );
+
+  const newResult = {
+    facts:
+      runtimeResult?.facts || [],
+
+    card_count:
+      runtimeResult?.meta?.card_count ??
+      runtimeResult?.facts?.length ??
+      0,
+
+    audit:
+      runtimeResult?.audit || null,
+
+    meta:
+      runtimeResult?.meta || null
+  };
+
+  const oldFacts =
+    Array.isArray(oldResult.hotels)
+      ? oldResult.hotels
+      : [];
+
+  const newFacts =
+    Array.isArray(newResult.facts)
+      ? newResult.facts
+      : [];
+
+  const oldById = new Map();
+  const oldByName = new Map();
+
+  for (const row of oldFacts) {
+    if (row.platform_hotel_id) {
+      oldById.set(
+        String(row.platform_hotel_id),
+        row
+      );
+    }
+
+    if (row.hotel_name) {
+      oldByName.set(
+        String(row.hotel_name),
+        row
+      );
+    }
+  }
+
+  const differences = {
+    name: [],
+    price: [],
+    rating: [],
+    review_count: [],
+    room_name: []
+  };
+
+  for (const row of newFacts) {
+    const old =
+      (
+        row.platform_hotel_id &&
+        oldById.get(
+          String(row.platform_hotel_id)
+        )
+      ) ||
+      oldByName.get(row.hotel_name);
+
+    if (!old) {
+      continue;
+    }
+
+    const oldRaw =
+      old.raw || {};
+
+    if (
+      String(old.hotel_name || "") !==
+      String(row.hotel_name || "")
+    ) {
+      differences.name.push({
+        id:
+          row.platform_hotel_id,
+        new:
+          row.hotel_name,
+        old:
+          old.hotel_name
+      });
+    }
+
+    if (
+      Number(old.price) !==
+      Number(row.display_price)
+    ) {
+      differences.price.push({
+        hotel:
+          row.hotel_name,
+        new:
+          row.display_price,
+        old:
+          old.price
+      });
+    }
+
+    if (
+      Number(oldRaw.rating) !==
+      Number(row.rating)
+    ) {
+      differences.rating.push({
+        hotel:
+          row.hotel_name,
+        new:
+          row.rating,
+        old:
+          oldRaw.rating
+      });
+    }
+
+    if (
+      Number(oldRaw.review_count) !==
+      Number(row.review_count)
+    ) {
+      differences.review_count.push({
+        hotel:
+          row.hotel_name,
+        new:
+          row.review_count,
+        old:
+          oldRaw.review_count
+      });
+    }
+
+    if (
+      String(oldRaw.room_name || "") !==
+      String(row.room_name || "")
+    ) {
+      differences.room_name.push({
+        hotel:
+          row.hotel_name,
+        new:
+          row.room_name,
+        old:
+          oldRaw.room_name
+      });
+    }
+  }
+
+  const officialIds =
+    newFacts.filter(
+      (row) =>
+        /^\d{4,}$/.test(
+          String(
+            row.platform_hotel_id || ""
+          )
+        )
+    );
+
+  const ids =
+    officialIds.map(
+      (row) =>
+        String(row.platform_hotel_id)
+    );
+
+  const duplicateIds = [
+    ...new Set(
+      ids.filter(
+        (id, index) =>
+          ids.indexOf(id) !== index
+      )
+    )
+  ];
+
+  const missingIds =
+    newFacts.filter(
+      (row) =>
+        !/^\d{4,}$/.test(
+          String(
+            row.platform_hotel_id || ""
+          )
+        )
+    );
+
+  const ambiguousPrices =
+    newFacts.filter(
+      (row) =>
+        row.ambiguous_price
+    );
+
+  const report = {
+    probe:
+      "M04_CTRIP_COMPARE_V1",
+
+    page:
+      tab.url,
+
+    old: {
+      hotel_count:
+        oldFacts.length
+    },
+
+    m04: {
+      card_count:
+        newResult.card_count,
+
+      hotel_count:
+        newFacts.length,
+
+      official_id_count:
+        officialIds.length,
+
+      missing_id_count:
+        missingIds.length,
+
+      duplicate_id_count:
+        duplicateIds.length,
+
+      duplicate_ids:
+        duplicateIds,
+
+      ambiguous_price_count:
+        ambiguousPrices.length
+    },
+
+    differences: {
+      name_count:
+        differences.name.length,
+
+      price_count:
+        differences.price.length,
+
+      rating_count:
+        differences.rating.length,
+
+      review_count:
+        differences.review_count.length,
+
+      room_name_count:
+        differences.room_name.length
+    },
+
+    difference_details:
+      differences,
+
+    m04_facts:
+      newFacts
+  };
+
+  if (box) {
+    box.hidden = false;
+    box.textContent =
+      JSON.stringify(
+        report,
+        null,
+        2
+      );
+  }
+
+  console.group(
+    "[酒店助手] M04 携程新旧对比"
+  );
+
+  console.table(
+    newFacts.map(
+      (row, index) => ({
+        index:
+          index + 1,
+
+        id:
+          row.platform_hotel_id,
+
+        hotel:
+          row.hotel_name,
+
+        price:
+          row.display_price,
+
+        rating:
+          row.rating,
+
+        reviews:
+          row.review_count,
+
+        room:
+          row.room_name,
+
+        ambiguous:
+          row.ambiguous_price
+      })
+    )
+  );
+
+  console.log(
+    "[酒店助手] 对比报告",
+    report
+  );
+
+  console.groupEnd();
+
+  collectStatus.textContent =
+    `M04对比完成：旧${oldFacts.length}家 / 新${newFacts.length}家 / ID ${officialIds.length}/${newFacts.length}`;
+}
+
+
+document.getElementById("compareM04")?.addEventListener(
+  "click",
+  () =>
+    compareCtripM04().catch((e) => {
+      collectStatus.textContent =
+        `M04对比失败：${e.message}`;
+      console.error(
+        "[酒店助手] M04 compare failed",
+        e
+      );
+    })
+);
+
 document.getElementById("probe").addEventListener("click", () => probeDom().catch((e) => {
   collectStatus.textContent = e.message;
 }));

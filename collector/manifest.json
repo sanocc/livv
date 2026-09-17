@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "livv collector",
-  "version": "0.3.1",
-  "description": "Livv hotel collector M03：设备注册、本地采集、授权后上传",
-  "permissions": ["storage", "tabs", "scripting", "alarms"],
+  "name": "酒店助手",
+  "version": "0.4.0",
+  "description": "酒店助手自动化获取主流OTA平台最新房价信息，目前已接入携程、美团、飞猪、同程艺龙，可本地采集使用，授权后可同步云端。https://ota.livv.cc",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "alarms"
+  ],
   "host_permissions": [
     "https://api.livv.cc/*",
     "https://livv-api.sanxxcc.workers.dev/*",
@@ -22,7 +27,35 @@
     "type": "module"
   },
   "action": {
-    "default_title": "livv collector",
-    "default_popup": "popup/popup.html"
-  }
+    "default_title": "酒店助手",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "core/runtime.js",
+        "core/engine.js",
+        "core/quality.js",
+        "core/types.js",
+        "debug/logger.js",
+        "adapters/base.js",
+        "adapters/ctrip.js"
+      ],
+      "matches": [
+        "https://hotels.ctrip.com/*"
+      ]
+    }
+  ]
 }
