@@ -275,15 +275,102 @@ async function collectCurrent() {
       }
     };
   } else if (isTongchengList) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["parsers/tongcheng-list.js"],
-    });
-    const [injected] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (typeof window.__livvScrapeTongchengList === "function" ? window.__livvScrapeTongchengList() : null),
-    });
-    result = injected.result;
+    const m04 =
+      await runM04InTab(tab.id);
+
+    if (!m04) {
+      throw new Error(
+        "同程 M04 返回空结果"
+      );
+    }
+
+    const facts =
+      Array.isArray(m04.facts)
+        ? m04.facts
+        : [];
+
+    result = {
+      host:
+        new URL(tab.url).hostname,
+
+      href:
+        tab.url,
+
+      title:
+        tab.title || "同程酒店",
+
+      count:
+        facts.length,
+
+      hotels:
+        facts.map((fact) => ({
+          ...(fact.platform_hotel_id
+            ? {
+                platform_hotel_id:
+                  fact.platform_hotel_id
+              }
+            : {}),
+
+          hotel_name:
+            fact.hotel_name,
+
+          rank:
+            fact.display_position,
+
+          price:
+            fact.display_price,
+
+          sold_out:
+            fact.sold_out,
+
+          source_url:
+            fact.source_url,
+
+          raw: {
+            ...(fact.raw || {}),
+
+            hotel_id:
+              fact.platform_hotel_id,
+
+            is_ad:
+              fact.is_ad,
+
+            rating:
+              fact.rating,
+
+            review_count:
+              fact.review_count,
+
+            room_name:
+              fact.room_name,
+
+            promotions:
+              fact.promotions || [],
+
+            list_price:
+              fact.list_price,
+
+            sale_price:
+              fact.display_price,
+
+            m04_quality:
+              fact.quality,
+
+            m04_evidence:
+              fact.evidence
+          }
+        })),
+
+      m04: {
+        version: "M04",
+
+        audit:
+          m04.audit || null,
+
+        meta:
+          m04.meta || null
+      }
+    };
   } else if (isFliggyList) {
     const m04 =
       await runM04InTab(tab.id);
@@ -418,7 +505,7 @@ async function collectCurrent() {
    *
    * 其它情况保持 partial。
    *
-   * 目前携程、美团、飞猪已经正式迁移到 M04。
+   * 目前携程、美团、飞猪、同程已经正式迁移到 M04。
    */
   const m04Audit =
     result?.m04?.audit || null;

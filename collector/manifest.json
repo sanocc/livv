@@ -53,7 +53,8 @@
         "adapters/base.js",
         "adapters/ctrip.js",
         "adapters/meituan.js",
-        "adapters/fliggy.js"
+        "adapters/fliggy.js",
+        "adapters/tongcheng.js"
       ],
       "matches": [
         "https://hotels.ctrip.com/*",
@@ -63,7 +64,9 @@
         "https://hotel.dianping.com/*",
         "https://*.fliggy.com/*",
         "https://*.alitrip.com/*",
-        "https://*.taobao.com/*"
+        "https://*.taobao.com/*",
+        "https://*.ly.com/*",
+        "https://*.tongcheng.com/*"
       ]
     }
   ]

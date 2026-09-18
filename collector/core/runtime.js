@@ -2,6 +2,7 @@ import { runAdapter } from "./engine.js";
 import ctripAdapter from "../adapters/ctrip.js";
 import meituanAdapter from "../adapters/meituan.js";
 import fliggyAdapter from "../adapters/fliggy.js";
+import tongchengAdapter from "../adapters/tongcheng.js";
 
 /**
  * LIVV Collector M04 Runtime
@@ -28,7 +29,8 @@ import fliggyAdapter from "../adapters/fliggy.js";
 const adapters = [
   ctripAdapter,
   meituanAdapter,
-  fliggyAdapter
+  fliggyAdapter,
+  tongchengAdapter
 ];
 
 function resolveAdapter() {
