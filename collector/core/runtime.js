@@ -1,5 +1,6 @@
 import { runAdapter } from "./engine.js";
 import ctripAdapter from "../adapters/ctrip.js";
+import meituanAdapter from "../adapters/meituan.js";
 
 /**
  * LIVV Collector M04 Runtime
@@ -24,7 +25,8 @@ import ctripAdapter from "../adapters/ctrip.js";
  */
 
 const adapters = [
-  ctripAdapter
+  ctripAdapter,
+  meituanAdapter
 ];
 
 function resolveAdapter() {

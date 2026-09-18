@@ -178,15 +178,102 @@ async function collectCurrent() {
       }
     };
   } else if (isMeituanList) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["parsers/meituan-list.js"],
-    });
-    const [injected] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (typeof window.__livvScrapeMeituanList === "function" ? window.__livvScrapeMeituanList() : null),
-    });
-    result = injected.result;
+    const m04 =
+      await runM04InTab(tab.id);
+
+    if (!m04) {
+      throw new Error(
+        "美团 M04 返回空结果"
+      );
+    }
+
+    const facts =
+      Array.isArray(m04.facts)
+        ? m04.facts
+        : [];
+
+    result = {
+      host:
+        new URL(tab.url).hostname,
+
+      href:
+        tab.url,
+
+      title:
+        tab.title || "美团酒店",
+
+      count:
+        facts.length,
+
+      hotels:
+        facts.map((fact) => ({
+          ...(fact.platform_hotel_id
+            ? {
+                platform_hotel_id:
+                  fact.platform_hotel_id
+              }
+            : {}),
+
+          hotel_name:
+            fact.hotel_name,
+
+          rank:
+            fact.display_position,
+
+          price:
+            fact.display_price,
+
+          sold_out:
+            fact.sold_out,
+
+          source_url:
+            fact.source_url,
+
+          raw: {
+            ...(fact.raw || {}),
+
+            hotel_id:
+              fact.platform_hotel_id,
+
+            is_ad:
+              fact.is_ad,
+
+            rating:
+              fact.rating,
+
+            review_count:
+              fact.review_count,
+
+            room_name:
+              fact.room_name,
+
+            promotions:
+              fact.promotions || [],
+
+            list_price:
+              fact.list_price,
+
+            sale_price:
+              fact.display_price,
+
+            m04_quality:
+              fact.quality,
+
+            m04_evidence:
+              fact.evidence
+          }
+        })),
+
+      m04: {
+        version: "M04",
+
+        audit:
+          m04.audit || null,
+
+        meta:
+          m04.meta || null
+      }
+    };
   } else if (isTongchengList) {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -244,7 +331,7 @@ async function collectCurrent() {
    *
    * 其它情况保持 partial。
    *
-   * 目前只有携程已经正式迁移到 M04。
+   * 目前携程、美团已经正式迁移到 M04。
    */
   const m04Audit =
     result?.m04?.audit || null;
@@ -1047,6 +1134,9 @@ document.getElementById("collect").addEventListener("click", () => collectCurren
   collectStatus.textContent = e.message;
 }));
 
+
+
+
 async function compareCtripM04() {
   collectStatus.textContent = "M04 新旧对比中…";
 
@@ -1402,6 +1492,9 @@ async function compareCtripM04() {
 }
 
 
+
+
+
 document.getElementById("compareM04")?.addEventListener(
   "click",
   () =>
@@ -1421,6 +1514,18 @@ document.getElementById("probe").addEventListener("click", () => probeDom().catc
 document.getElementById("upload").addEventListener("click", () => uploadLatest().catch((e) => {
   collectStatus.textContent = e.message;
 }));
+
+
+const manifestVersion =
+  chrome.runtime.getManifest()?.version || "";
+
+const appVersionEl =
+  document.getElementById("appVer");
+
+if (appVersionEl && manifestVersion) {
+  appVersionEl.textContent =
+    `v${manifestVersion}`;
+}
 
 const PLAT_CN = { ctrip: "携程", meituan: "美团", fliggy: "飞猪", tongcheng: "同程" };
 

@@ -51,10 +51,15 @@
         "core/types.js",
         "debug/logger.js",
         "adapters/base.js",
-        "adapters/ctrip.js"
+        "adapters/ctrip.js",
+        "adapters/meituan.js"
       ],
       "matches": [
-        "https://hotels.ctrip.com/*"
+        "https://hotels.ctrip.com/*",
+        "https://hotel.meituan.com/*",
+        "https://ihotel.meituan.com/*",
+        "https://i.meituan.com/*",
+        "https://hotel.dianping.com/*"
       ]
     }
   ]
