@@ -520,7 +520,20 @@ async function collectCurrent() {
       ? "complete"
       : "partial";
 
-  const payload_hash = await sha256(JSON.stringify(rawPayload) + Date.now().toString().slice(0, 8));
+  const currentMarket =
+    await getCurrentMarket();
+
+  const payload_hash = await sha256(
+    JSON.stringify({
+      market_id:
+        currentMarket.id,
+      payload:
+        rawPayload
+    }) +
+    Date.now()
+      .toString()
+      .slice(0, 8)
+  );
   const item = {
     collected_at: new Date().toISOString(),
     source_url: result.href,
@@ -531,6 +544,8 @@ async function collectCurrent() {
       payload_hash,
       platform,
       task_type: "list",
+      market_id:
+        currentMarket.id,
       business_date,
       check_in,
       check_out,
@@ -567,15 +582,105 @@ async function collectCurrent() {
   renderResults();
 }
 
+
+/**
+ * LIVV Market Context V1
+ *
+ * 当前正式市场：
+ * xn-center-huatan
+ *
+ * Market 保存在 chrome.storage.local，
+ * 不依赖 API fallback。
+ *
+ * 后续可以扩展为多市场选择器。
+ */
+const DEFAULT_MARKET_CONTEXT = {
+  id: "xn-center-huatan",
+  name: "咸宁 · 中心花坛",
+  city: "咸宁",
+  keyword: "中心花坛"
+};
+
+async function getCurrentMarket() {
+  const {
+    currentMarket = null
+  } =
+    await chrome.storage.local.get({
+      currentMarket: null
+    });
+
+  if (
+    currentMarket &&
+    typeof currentMarket === "object" &&
+    currentMarket.id
+  ) {
+    return currentMarket;
+  }
+
+  await chrome.storage.local.set({
+    currentMarket:
+      DEFAULT_MARKET_CONTEXT
+  });
+
+  return {
+    ...DEFAULT_MARKET_CONTEXT
+  };
+}
+
+async function renderCurrentMarket() {
+  const market =
+    await getCurrentMarket();
+
+  const el =
+    document.getElementById(
+      "ctxMarket"
+    );
+
+  if (el) {
+    el.textContent =
+      market.name ||
+      market.id ||
+      "—";
+
+    el.title =
+      `Market: ${market.id}`;
+  }
+
+  return market;
+}
+
 async function uploadLatest() {
   const { lastResults } = await chrome.storage.local.get({ lastResults: [] });
   if (!lastResults.length) {
     collectStatus.textContent = "没有可上传的本地结果";
     return;
   }
-  collectStatus.textContent = "上传中…";
   const latest = lastResults[0];
-  const res = await send({ type: "UPLOAD", payload: latest.upload });
+
+  if (!latest.upload?.market_id) {
+    collectStatus.textContent =
+      "该本地结果来自旧版本，缺少 Market，请重新采集后再上传";
+    return;
+  }
+
+  const currentMarket =
+    await getCurrentMarket();
+
+  if (
+    latest.upload.market_id !==
+    currentMarket.id
+  ) {
+    collectStatus.textContent =
+      `本地结果属于其它 Market（${latest.upload.market_id}），请重新采集`;
+    return;
+  }
+
+  collectStatus.textContent = "上传中…";
+
+  const res = await send({
+    type: "UPLOAD",
+    payload: latest.upload
+  });
   if (!res.ok) {
     collectStatus.textContent = `上传失败：${res.error}`;
     return;
@@ -1897,6 +2002,15 @@ document.getElementById("upload").addEventListener("click", () => uploadLatest()
   collectStatus.textContent = e.message;
 }));
 
+
+renderCurrentMarket().catch(
+  (error) => {
+    console.warn(
+      "[酒店助手] Market Context 初始化失败",
+      error
+    );
+  }
+);
 
 const manifestVersion =
   chrome.runtime.getManifest()?.version || "";
