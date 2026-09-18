@@ -120,3 +120,80 @@ export async function listHotelMappingCandidates(
       ).length
   });
 }
+
+export async function confirmHotelMapping(
+  ctx: AppContext
+): Promise<Response> {
+  const identity =
+    ctx.identity as AccessIdentity;
+
+  requireRole(
+    identity.role,
+    "manager"
+  );
+
+  const {
+    readJsonObject
+  } =
+    await import(
+      "../utils/json"
+    );
+
+  const {
+    HotelMappingService
+  } =
+    await import(
+      "../services/hotel-mappings"
+    );
+
+  const {
+    HotelMappingWriteRepository
+  } =
+    await import(
+      "../repositories/hotel-mappings"
+    );
+
+  const body =
+    await readJsonObject(
+      ctx.request
+    );
+
+  const {
+    parseConfirmHotelMapping
+  } =
+    await import(
+      "../schemas/hotel-mappings"
+    );
+
+  const input =
+    parseConfirmHotelMapping(
+      body
+    );
+
+  const service =
+    new HotelMappingService(
+      new HotelMappingWriteRepository(
+        ctx.env.DB
+      )
+    );
+
+  const result =
+    await service.confirm(
+      input,
+      identity
+    );
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      data: result
+    }),
+    {
+      status: 201,
+      headers: {
+        "content-type":
+          "application/json; charset=utf-8"
+      }
+    }
+  );
+}
