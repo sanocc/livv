@@ -10,6 +10,7 @@ import {
   uploadCollections,
 } from "./routes/collector";
 import { authorizeDevice, listDevices } from "./routes/devices_admin";
+import { listHotelMappingCandidates } from "./routes/hotel-mappings";
 import { scheduledNoop } from "./routes/internal";
 import { CollectionRepository } from "./repositories/collections";
 import { fail, ok } from "./utils/response";
@@ -51,6 +52,13 @@ router.on("GET", "/api/v1/admin/whoami", "public", async (ctx: AppContext) => {
 router.on("GET", "/api/v1/markets", "access_user", listMarkets);
 router.on("POST", "/api/v1/markets", "access_user", createMarket);
 router.on("GET", "/api/v1/markets/:id", "access_user", getMarket);
+
+router.on(
+  "GET",
+  "/api/v1/hotel-mappings/candidates",
+  "access_user",
+  listHotelMappingCandidates
+);
 
 router.on("POST", "/api/v1/collector/register", "public", registerDevice);
 router.on("GET", "/api/v1/collector/device", "device", getOwnDevice);
