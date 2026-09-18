@@ -52,14 +52,18 @@
         "debug/logger.js",
         "adapters/base.js",
         "adapters/ctrip.js",
-        "adapters/meituan.js"
+        "adapters/meituan.js",
+        "adapters/fliggy.js"
       ],
       "matches": [
         "https://hotels.ctrip.com/*",
         "https://hotel.meituan.com/*",
         "https://ihotel.meituan.com/*",
         "https://i.meituan.com/*",
-        "https://hotel.dianping.com/*"
+        "https://hotel.dianping.com/*",
+        "https://*.fliggy.com/*",
+        "https://*.alitrip.com/*",
+        "https://*.taobao.com/*"
       ]
     }
   ]

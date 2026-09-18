@@ -285,15 +285,102 @@ async function collectCurrent() {
     });
     result = injected.result;
   } else if (isFliggyList) {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ["parsers/fliggy-list.js"],
-    });
-    const [injected] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => (typeof window.__livvScrapeFliggyList === "function" ? window.__livvScrapeFliggyList() : null),
-    });
-    result = injected.result;
+    const m04 =
+      await runM04InTab(tab.id);
+
+    if (!m04) {
+      throw new Error(
+        "飞猪 M04 返回空结果"
+      );
+    }
+
+    const facts =
+      Array.isArray(m04.facts)
+        ? m04.facts
+        : [];
+
+    result = {
+      host:
+        new URL(tab.url).hostname,
+
+      href:
+        tab.url,
+
+      title:
+        tab.title || "飞猪酒店",
+
+      count:
+        facts.length,
+
+      hotels:
+        facts.map((fact) => ({
+          ...(fact.platform_hotel_id
+            ? {
+                platform_hotel_id:
+                  fact.platform_hotel_id
+              }
+            : {}),
+
+          hotel_name:
+            fact.hotel_name,
+
+          rank:
+            fact.display_position,
+
+          price:
+            fact.display_price,
+
+          sold_out:
+            fact.sold_out,
+
+          source_url:
+            fact.source_url,
+
+          raw: {
+            ...(fact.raw || {}),
+
+            hotel_id:
+              fact.platform_hotel_id,
+
+            is_ad:
+              fact.is_ad,
+
+            rating:
+              fact.rating,
+
+            review_count:
+              fact.review_count,
+
+            room_name:
+              fact.room_name,
+
+            promotions:
+              fact.promotions || [],
+
+            list_price:
+              fact.list_price,
+
+            sale_price:
+              fact.display_price,
+
+            m04_quality:
+              fact.quality,
+
+            m04_evidence:
+              fact.evidence
+          }
+        })),
+
+      m04: {
+        version: "M04",
+
+        audit:
+          m04.audit || null,
+
+        meta:
+          m04.meta || null
+      }
+    };
   } else {
     const [injected] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -331,7 +418,7 @@ async function collectCurrent() {
    *
    * 其它情况保持 partial。
    *
-   * 目前携程、美团已经正式迁移到 M04。
+   * 目前携程、美团、飞猪已经正式迁移到 M04。
    */
   const m04Audit =
     result?.m04?.audit || null;
@@ -1137,6 +1224,197 @@ document.getElementById("collect").addEventListener("click", () => collectCurren
 
 
 
+
+async function testCurrentM04() {
+  collectStatus.textContent =
+    "M04 测试中…";
+
+  const box =
+    document.getElementById(
+      "domProbe"
+    );
+
+  const [tab] =
+    await chrome.tabs.query({
+      active: true,
+      currentWindow: true
+    });
+
+  if (
+    !tab?.id ||
+    !tab?.url
+  ) {
+    collectStatus.textContent =
+      "没有活动标签页";
+    return;
+  }
+
+  const result =
+    await runM04InTab(
+      tab.id
+    );
+
+  if (!result) {
+    throw new Error(
+      "M04 返回空结果"
+    );
+  }
+
+  const facts =
+    Array.isArray(result.facts)
+      ? result.facts
+      : [];
+
+  const official =
+    facts.filter(
+      (fact) =>
+        /^\d{4,}$/.test(
+          String(
+            fact.platform_hotel_id || ""
+          )
+        )
+    );
+
+  const missing =
+    facts.filter(
+      (fact) =>
+        !/^\d{4,}$/.test(
+          String(
+            fact.platform_hotel_id || ""
+          )
+        )
+    );
+
+  const ids =
+    official.map(
+      (fact) =>
+        String(
+          fact.platform_hotel_id
+        )
+    );
+
+  const duplicateIds =
+    [
+      ...new Set(
+        ids.filter(
+          (id, index) =>
+            ids.indexOf(id) !==
+            index
+        )
+      )
+    ];
+
+  const priced =
+    facts.filter(
+      (fact) =>
+        fact.sold_out ||
+        (
+          fact.display_price != null &&
+          Number.isFinite(
+            Number(
+              fact.display_price
+            )
+          )
+        )
+    );
+
+  const conflicts =
+    facts.filter(
+      (fact) =>
+        fact.quality
+          ?.identity_conflict ===
+        true
+    );
+
+  const report = {
+    probe:
+      "M04_RUNTIME_TEST_V1",
+
+    page:
+      tab.url,
+
+    summary: {
+      card_count:
+        result.meta
+          ?.card_count ?? null,
+
+      fact_count:
+        facts.length,
+
+      official_id_count:
+        official.length,
+
+      missing_id_count:
+        missing.length,
+
+      duplicate_id_count:
+        duplicateIds.length,
+
+      priced_count:
+        priced.length,
+
+      identity_conflict_count:
+        conflicts.length
+    },
+
+    audit:
+      result.audit || null,
+
+    meta:
+      result.meta || null,
+
+    facts:
+      facts.map((fact) => ({
+        rank:
+          fact.display_position,
+
+        hotel_name:
+          fact.hotel_name,
+
+        platform_hotel_id:
+          fact.platform_hotel_id,
+
+        display_price:
+          fact.display_price,
+
+        list_price:
+          fact.list_price,
+
+        rating:
+          fact.rating,
+
+        review_count:
+          fact.review_count,
+
+        sold_out:
+          fact.sold_out,
+
+        promotions:
+          fact.promotions,
+
+        quality:
+          fact.quality,
+
+        evidence:
+          fact.evidence
+      }))
+  };
+
+  if (box) {
+    box.hidden = false;
+
+    box.textContent =
+      JSON.stringify(
+        report,
+        null,
+        2
+      );
+  }
+
+  collectStatus.textContent =
+    `M04测试完成：${facts.length}家 / 官方ID ${official.length} / 缺ID ${missing.length} / 重复ID ${duplicateIds.length} / 价格 ${priced.length} / 冲突 ${conflicts.length}`;
+}
+
 async function compareCtripM04() {
   collectStatus.textContent = "M04 新旧对比中…";
 
@@ -1494,6 +1772,23 @@ async function compareCtripM04() {
 
 
 
+
+
+document.getElementById("testM04")?.addEventListener(
+  "click",
+  () =>
+    testCurrentM04().catch(
+      (error) => {
+        collectStatus.textContent =
+          `M04测试失败：${error.message}`;
+
+        console.error(
+          "[酒店助手] M04 Runtime Test failed",
+          error
+        );
+      }
+    )
+);
 
 document.getElementById("compareM04")?.addEventListener(
   "click",
