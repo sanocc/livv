@@ -1,6 +1,18 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVV Collector</title></head>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIVV Collector</title><style>
+    :root { color-scheme: light; font: 14px/1.45 system-ui, sans-serif; }
+    body { width: 400px; margin: 0; color: #202124; }
+    nav { display: flex; gap: 6px; padding: 10px; border-bottom: 1px solid #ddd; }
+    button { padding: 7px 10px; border: 1px solid #bbb; border-radius: 4px; background: #fff; cursor: pointer; }
+    main { padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    .field { margin: 10px 0; }
+    .field-label { font-weight: 600; }
+    .muted { color: #666; }
+    .error { color: #b3261e; }
+    .probe-evidence { margin-top: 12px; font-size: 12px; }
+  </style></head>
   <body>
     <nav><button data-tab="execution">任务执行</button><button data-tab="status">任务状态</button><button data-tab="device">设备</button></nav>
     <main id="app">加载中…</main>

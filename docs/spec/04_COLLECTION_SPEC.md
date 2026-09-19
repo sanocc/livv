@@ -79,6 +79,11 @@ Each platform has three explicit logical components:
 2. Page Context Reader: reads real search state;
 3. Collection Adapter: extracts list cards and evidence.
 
+The Page Context `page_type` identifies the business page and is distinct from
+collection readiness. A future platform result-surface contract MAY classify
+the surface as `ready`, `loading`, `empty`, or `unknown`; that classification
+belongs to the Collection Gate, not the M06 Context Reader.
+
 The Collection Adapter MUST start from actual hotel cards, use explicit
 platform evidence, deduplicate by official ID, and return normalized facts. It
 MUST NOT scan the whole page for hotel-looking text, choose the smallest

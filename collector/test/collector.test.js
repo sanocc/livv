@@ -120,6 +120,16 @@ describe("M05 Collector runtime", () => {
     expect(ready.getState().state).toBe(STATES.EXECUTING);
   });
 
+  it("keeps navigation readiness separate from production collection readiness", async () => {
+    const runtime = createRuntime({ storage: fakeStorage({ device_id: "device-1", device_credential: "secret" }), alarms: fakeAlarms(), apiFactory: () => apiMock(), navigationReady: true, collectionReady: false, executionReady: false });
+    const state = await runtime.start();
+    expect(state.navigation_ready).toBe(true);
+    expect(state.collection_ready).toBe(false);
+    expect(state.task_execution_ready).toBe(false);
+    await runtime.claimIfReady();
+    expect(state.task_execution_ready).toBe(false);
+  });
+
   it("hydrates active cloud task, clears stale session, and keeps popup state transient", async () => {
     const task = { task_id: "task-1", attempt_id: "attempt-1", platform: "ctrip", check_in: "2026-01-01", check_out: "2026-01-02" };
     const storage = fakeStorage({ device_id: "device-1", device_credential: "secret" }, { task: { task_id: "stale" } });

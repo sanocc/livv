@@ -3,8 +3,15 @@
   "name": "LIVV OTA V2 Collector",
   "version": "0.1.0",
   "description": "LIVV cloud task execution terminal.",
-  "permissions": ["storage", "alarms"],
-  "host_permissions": ["http://localhost:8787/*"],
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": ["http://localhost:8787/*", "https://hotels.ctrip.com/hotels/list*"],
+  "content_scripts": [
+    {
+      "matches": ["https://hotels.ctrip.com/hotels/list*"],
+      "js": ["platforms/ctrip/context-reader.bundle.js", "platforms/ctrip/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"

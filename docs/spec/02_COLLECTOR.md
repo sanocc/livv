@@ -89,6 +89,11 @@ The Reader MUST obtain the OTA's real search state and return:
 - `check_in` and `check_out` as absolute dates;
 - `source_url`.
 
+`page_type` belongs to Page Context and identifies the business page. Collection
+readiness is a separate platform concern; M06 does not implement a
+`result_surface` decision. A future Collection Gate MUST evaluate whether the
+platform result surface is ready before invoking collection.
+
 Each platform MUST publish a separate Context Contract and tests MUST prove
 the source of every field. Authority is ordered: explicit OTA search controls
 or search state, OTA structured state, then a clearly validated URL parameter.

@@ -10,6 +10,8 @@
     "test:device": "vitest run api/test/device.test.ts",
     "test:task": "vitest run api/test/task.test.ts",
     "test:collector": "vitest run collector/test",
+    "test:context": "vitest run collector/test/context.test.js",
+    "build:collector": "node collector/platforms/ctrip/build-content-script.mjs",
     "test:watch": "vitest",
     "wrangler:dry-run": "XDG_CONFIG_HOME=/tmp/livv-v2-xdg WRANGLER_LOG_PATH=/tmp/livv-v2-wrangler.log wrangler deploy --dry-run"
   },

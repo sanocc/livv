@@ -22,6 +22,8 @@ function metadata() {
 
 function publicState(state) {
   return {
+    device_id: state.local_device_id ?? state.device?.device_id ?? null,
+    local_device_initialized: Boolean(state.local_device_id),
     state: state.state,
     device: state.device ? {
       device_id: state.device.device_id,
@@ -37,12 +39,14 @@ function publicState(state) {
     task: state.task,
     progress: state.progress,
     task_execution_ready: state.task_execution_ready,
+    navigation_ready: state.navigation_ready,
+    collection_ready: state.collection_ready,
     error_code: state.error_code ?? null,
   };
 }
 
-export function createRuntime({ storage, apiFactory, alarms, executor = { async execute() {} }, executionReady = false, metadataFactory = metadata, uuid = () => crypto.randomUUID(), logger = console, clock = () => new Date() }) {
-  let state = { state: STATES.BOOTING, device: null, task: null, progress: null, task_execution_ready: executionReady, error_code: null };
+export function createRuntime({ storage, apiFactory, alarms, executor = { async execute() {} }, executionReady = false, navigationReady = executionReady, collectionReady = executionReady, metadataFactory = metadata, uuid = () => crypto.randomUUID(), logger = console, clock = () => new Date() }) {
+  let state = { state: STATES.BOOTING, local_device_id: null, device: null, task: null, progress: null, task_execution_ready: executionReady, navigation_ready: navigationReady, collection_ready: collectionReady, error_code: null };
   let api = null;
   let startPromise = null;
   let refreshPromise = null;
@@ -112,6 +116,7 @@ export function createRuntime({ storage, apiFactory, alarms, executor = { async 
     state.state = STATES.BOOTING;
     const local = await storage.getLocal();
     const deviceId = local.device_id ?? uuid();
+    state.local_device_id = deviceId;
     if (!local.device_id) await storage.setLocal({ device_id: deviceId });
     if (!local.device_credential) {
       state.state = STATES.REGISTERING;
