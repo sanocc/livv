@@ -1,0 +1,2524 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <title>LIVV OTA</title>
+
+  <style>
+    :root {
+      --bg: #06111f;
+      --sidebar: #071525;
+      --panel: #0b1a2d;
+      --panel-2: #0d2037;
+      --panel-3: #102743;
+      --line: #173859;
+      --line-soft: rgba(84, 137, 190, .16);
+      --text: #f3f7fc;
+      --muted: #8097b5;
+      --muted-2: #5f7695;
+      --blue: #2583ff;
+      --blue-2: #0f6ee8;
+      --cyan: #2cc7ef;
+      --green: #23d49b;
+      --orange: #ff9b38;
+      --red: #ff5967;
+      --yellow: #f6c24d;
+      --shadow: 0 18px 48px rgba(0, 0, 0, .18);
+      --radius: 14px;
+      --sidebar-width: 236px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(
+          circle at 70% -10%,
+          rgba(26, 95, 170, .12),
+          transparent 34%
+        ),
+        var(--bg);
+      color: var(--text);
+      font-family:
+        Inter,
+        "PingFang SC",
+        "Microsoft YaHei",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    }
+
+    body {
+      min-width: 1180px;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--sidebar-width);
+      border-right: 1px solid var(--line-soft);
+      background:
+        linear-gradient(
+          180deg,
+          rgba(8, 25, 44, .98),
+          rgba(5, 18, 32, .99)
+        );
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      height: 82px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line-soft);
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 43px;
+      height: 43px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      font-weight: 800;
+      background:
+        linear-gradient(
+          145deg,
+          #1683ff,
+          #3456ef
+        );
+      box-shadow:
+        0 8px 24px rgba(37, 131, 255, .24);
+    }
+
+    .brand-name {
+      font-size: 19px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .brand-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .nav {
+      padding: 16px 12px;
+      flex: 1;
+    }
+
+    .nav-item,
+    .nav-parent,
+    .nav-sub {
+      width: 100%;
+      border: 0;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .nav-item,
+    .nav-parent {
+      height: 45px;
+      border-radius: 10px;
+      padding: 0 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: transparent;
+      color: #b5c5d9;
+      margin-bottom: 4px;
+    }
+
+    .nav-item:hover,
+    .nav-parent:hover {
+      background: rgba(42, 107, 176, .11);
+      color: #fff;
+    }
+
+    .nav-item.active {
+      color: #fff;
+      background:
+        linear-gradient(
+          90deg,
+          rgba(23, 103, 201, .83),
+          rgba(19, 75, 139, .82)
+        );
+      box-shadow:
+        inset 2px 0 0 #4ca4ff;
+    }
+
+    .nav-icon {
+      width: 19px;
+      text-align: center;
+      font-size: 16px;
+      opacity: .95;
+    }
+
+    .nav-label {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .nav-arrow {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .nav-children {
+      margin: 1px 0 9px 29px;
+      border-left: 1px solid rgba(65, 116, 167, .24);
+      padding-left: 8px;
+    }
+
+    .nav-sub {
+      color: var(--muted);
+      background: transparent;
+      border-radius: 8px;
+      padding: 8px 11px;
+      font-size: 12px;
+      margin-bottom: 1px;
+    }
+
+    .nav-sub:hover,
+    .nav-sub.active {
+      color: #cfe5ff;
+      background: rgba(37, 131, 255, .08);
+    }
+
+    .sidebar-bottom {
+      padding: 12px;
+    }
+
+    .market-mini {
+      border: 1px solid var(--line-soft);
+      background: rgba(12, 34, 58, .78);
+      border-radius: 13px;
+      padding: 13px;
+      margin-bottom: 10px;
+    }
+
+    .market-mini-name {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .market-mini-id {
+      color: var(--muted-2);
+      font-size: 10px;
+      margin: 5px 0 10px;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #a9c0da;
+      font-size: 11px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow:
+        0 0 10px rgba(35, 212, 155, .75);
+    }
+
+    .profile {
+      padding: 13px 10px;
+      border-top: 1px solid var(--line-soft);
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .avatar {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #224c7c;
+      color: #fff;
+      font-weight: 750;
+    }
+
+    .profile-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .profile-name {
+      font-size: 12px;
+      color: #d7e4f4;
+    }
+
+    .profile-role {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    /* Main */
+
+    .main {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      height: 82px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(5, 18, 32, .86);
+      backdrop-filter: blur(14px);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .top-select {
+      height: 43px;
+      border: 1px solid #1a4168;
+      background: #0c2037;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      min-width: 205px;
+      color: #e8f1fb;
+      font-size: 12px;
+    }
+
+    .top-select.date {
+      min-width: 280px;
+    }
+
+    .top-select-spacer {
+      flex: 1;
+    }
+
+    .data-time {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #9bb0c9;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .refresh-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid #1a4168;
+      background: #0c2037;
+      border-radius: 10px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+    }
+
+    .refresh-btn:hover {
+      background: #123052;
+    }
+
+    .content {
+      padding: 24px 24px 34px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 29px;
+      line-height: 1.2;
+      letter-spacing: -.02em;
+    }
+
+    .page-subtitle {
+      color: #b1c3d8;
+      margin-top: 7px;
+      font-size: 14px;
+    }
+
+    .page-note {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 7px;
+    }
+
+    .market-context {
+      text-align: right;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.7;
+      padding-top: 7px;
+    }
+
+    .market-context strong {
+      color: #bcd2e8;
+      font-size: 12px;
+    }
+
+    /* Panels */
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(
+          180deg,
+          rgba(12, 31, 53, .98),
+          rgba(8, 25, 44, .98)
+        );
+      box-shadow: var(--shadow);
+    }
+
+    .panel-head {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .panel-action {
+      color: var(--cyan);
+      font-size: 11px;
+    }
+
+    .panel-body {
+      padding: 15px 16px;
+    }
+
+    /* KPI */
+
+    .kpis {
+      display: grid;
+      grid-template-columns:
+        repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .kpi {
+      min-height: 120px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background:
+        linear-gradient(
+          145deg,
+          rgba(13, 36, 62, .97),
+          rgba(8, 27, 48, .97)
+        );
+      display: flex;
+      gap: 13px;
+      align-items: flex-start;
+    }
+
+    .kpi-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      background: rgba(37, 131, 255, .16);
+      color: #62aaff;
+      flex: 0 0 auto;
+    }
+
+    .kpi-icon.green {
+      color: #45e0ac;
+      background: rgba(35, 212, 155, .13);
+    }
+
+    .kpi-main {
+      min-width: 0;
+    }
+
+    .kpi-label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      white-space: nowrap;
+    }
+
+    .kpi-value.green {
+      color: #4ee4b2;
+    }
+
+    .kpi-foot {
+      color: var(--muted-2);
+      font-size: 10px;
+      margin-top: 7px;
+    }
+
+    /* Grid */
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1.45fr)
+        minmax(310px, .85fr)
+        minmax(290px, .78fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1.55fr)
+        minmax(350px, .9fr);
+      gap: 14px;
+    }
+
+    /* Chart */
+
+    .chart-placeholder {
+      min-height: 268px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-empty {
+      flex: 1;
+      min-height: 210px;
+      border-radius: 10px;
+      background:
+        linear-gradient(
+          180deg,
+          rgba(20, 50, 82, .14),
+          rgba(5, 19, 34, .08)
+        );
+      border: 1px dashed rgba(84, 137, 190, .18);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .chart-empty b {
+      display: block;
+      color: #9bb0c9;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .chart-empty span {
+      color: var(--muted-2);
+      font-size: 10px;
+    }
+
+    /* Distribution */
+
+    .dist-chart {
+      height: 245px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      gap: 8px;
+      padding: 25px 5px 0;
+      border-bottom: 1px solid rgba(67, 111, 155, .16);
+    }
+
+    .dist-col {
+      height: 100%;
+      flex: 1;
+      min-width: 42px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dist-bar-wrap {
+      height: 180px;
+      width: 42px;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .dist-bar {
+      width: 100%;
+      border-radius: 6px 6px 2px 2px;
+      background:
+        linear-gradient(
+          180deg,
+          #26d2a0,
+          #2184ff
+        );
+      min-height: 2px;
+      box-shadow:
+        0 0 18px rgba(37, 131, 255, .13);
+    }
+
+    .dist-count {
+      color: #c6d7e9;
+      font-size: 10px;
+    }
+
+    .dist-label {
+      color: var(--muted);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    /* Activity */
+
+    .activity-list {
+      display: grid;
+      gap: 1px;
+    }
+
+    .activity-row {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 8px;
+      padding: 11px 2px;
+      border-bottom: 1px solid rgba(84, 137, 190, .09);
+    }
+
+    .activity-row:last-child {
+      border-bottom: 0;
+    }
+
+    .activity-time {
+      color: #6986a8;
+      font-size: 10px;
+    }
+
+    .activity-main {
+      min-width: 0;
+    }
+
+    .activity-title {
+      color: #c7d8e9;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .activity-sub {
+      color: var(--muted-2);
+      font-size: 9px;
+      margin-top: 3px;
+    }
+
+    /* Tables */
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    th {
+      color: #7890ad;
+      text-align: left;
+      font-weight: 550;
+      background: rgba(24, 55, 88, .36);
+      padding: 9px 10px;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid rgba(84, 137, 190, .10);
+      color: #c9d8e8;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover {
+      background: rgba(37, 131, 255, .035);
+    }
+
+    .rank {
+      width: 28px;
+      height: 22px;
+      border-radius: 7px;
+      display: inline-grid;
+      place-items: center;
+      background: #213d5f;
+      color: #d9e7f5;
+      font-size: 10px;
+    }
+
+    .rank.top {
+      color: #192235;
+      background: var(--yellow);
+      font-weight: 800;
+    }
+
+    .price {
+      color: #eef6ff;
+      font-weight: 750;
+    }
+
+    .platform-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .platform-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 3px;
+    }
+
+    .p-ctrip {
+      background: #2583ff;
+    }
+
+    .p-meituan {
+      background: #ffd241;
+    }
+
+    .p-fliggy {
+      background: #ff8b2b;
+    }
+
+    .p-tongcheng {
+      background: #35d0a0;
+    }
+
+    .healthy {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #48dca9;
+      background: rgba(35, 212, 155, .09);
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 9px;
+    }
+
+    .partial {
+      color: #ffca68;
+      background: rgba(246, 194, 77, .08);
+    }
+
+    /* Generic module pages */
+
+    .module-empty {
+      min-height: 510px;
+      padding: 22px;
+    }
+
+    .module-title {
+      font-size: 23px;
+      margin: 0;
+    }
+
+    .module-desc {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 7px;
+    }
+
+    .module-coming {
+      height: 390px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .module-coming strong {
+      display: block;
+      font-size: 17px;
+      color: #bcd2e8;
+      margin-bottom: 7px;
+    }
+
+    .module-coming span {
+      color: var(--muted-2);
+      font-size: 11px;
+    }
+
+    /* Mapping placeholder */
+
+    .mapping-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .mapping-tabs button {
+      border: 1px solid var(--line);
+      background: #0b1d32;
+      color: var(--muted);
+      border-radius: 9px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .mapping-tabs button.on {
+      color: #fff;
+      background: #175cae;
+      border-color: #2b82df;
+    }
+
+    .mapping-warning {
+      border: 1px solid rgba(246, 194, 77, .23);
+      background: rgba(246, 194, 77, .055);
+      color: #dbc58f;
+      padding: 11px 13px;
+      border-radius: 10px;
+      font-size: 11px;
+      margin-top: 16px;
+    }
+
+    /* Loading */
+
+    .loading-cover {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(5, 16, 28, .87);
+      display: grid;
+      place-items: center;
+      transition: .2s ease;
+    }
+
+    .loading-cover.hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .loading-box {
+      color: #a9bfd7;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid #15385c;
+      border-top-color: #2583ff;
+      margin: 0 auto 10px;
+      animation: spin .75s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1280px) {
+      :root {
+        --sidebar-width: 215px;
+      }
+
+      .content {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+
+      .overview-grid {
+        grid-template-columns:
+          minmax(0, 1.25fr)
+          minmax(270px, .85fr);
+      }
+
+      .overview-grid > :last-child {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">L</div>
+        <div>
+          <div class="brand-name">LIVV OTA</div>
+          <div class="brand-sub">
+            酒店市场智能监控
+          </div>
+        </div>
+      </div>
+
+      <nav class="nav">
+
+        <button
+          class="nav-item active"
+          data-page="overview"
+        >
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">市场概览</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-page="hotels"
+        >
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">酒店管理</span>
+        </button>
+
+        <button
+          class="nav-item"
+          data-page="devices"
+        >
+          <span class="nav-icon">◉</span>
+          <span class="nav-label">设备管理</span>
+        </button>
+
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="market-mini">
+          <div class="market-mini-name">
+            咸宁 · 中心花坛
+          </div>
+
+          <div class="market-mini-id">
+            xn-center-huatan
+          </div>
+
+          <div class="status-line">
+            <span class="status-dot"></span>
+            <span id="sidebarStatus">
+              正在读取数据
+            </span>
+          </div>
+
+          <div
+            class="status-line"
+            style="margin-top:7px"
+          >
+            <span id="sidebarUpdated">
+              最近更新 —
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile">
+        <div class="avatar">S</div>
+        <div class="profile-info">
+          <div class="profile-name">
+            LIVV
+          </div>
+          <div class="profile-role">
+            酒店市场监控
+          </div>
+        </div>
+        <div style="color:#67809f">›</div>
+      </div>
+    </aside>
+
+
+    <main class="main">
+
+      <header class="topbar">
+
+        <div class="top-select">
+          <span>⌖</span>
+          <strong>咸宁 · 中心花坛</strong>
+          <span
+            style="
+              margin-left:auto;
+              color:#6482a4
+            "
+          >⌄</span>
+        </div>
+
+        <div class="top-select date">
+          <span>▣</span>
+          <span id="dateRange">
+            — → —
+          </span>
+          <span
+            style="
+              margin-left:auto;
+              color:#6482a4
+            "
+          >⌄</span>
+        </div>
+
+        <div class="top-select-spacer"></div>
+
+        <div class="data-time">
+          <span class="status-dot"></span>
+          <span id="topUpdated">
+            数据读取中
+          </span>
+        </div>
+
+        <button
+          class="refresh-btn"
+          id="refreshBtn"
+          title="刷新数据"
+        >
+          ↻
+        </button>
+      </header>
+
+
+      <div class="content">
+
+        <!-- Overview -->
+
+        <section
+          class="page active"
+          id="page-overview"
+        >
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">
+                咸宁 · 中心花坛
+              </h1>
+
+              <div class="page-subtitle">
+                OTA 酒店市场实时价格情报
+              </div>
+
+              <div class="page-note">
+                基于携程、美团、飞猪、同程最新正式采集数据
+              </div>
+            </div>
+
+            <div class="market-context">
+              <strong>
+                咸宁市 · 中心花坛商圈
+              </strong>
+              <br />
+              监控主流 OTA 平台酒店价格
+            </div>
+          </div>
+
+
+          <div class="kpis">
+
+            <div class="kpi">
+              <div class="kpi-icon">▦</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  监控身份
+                </div>
+                <div
+                  class="kpi-value"
+                  id="kObserved"
+                >
+                  —
+                </div>
+                <div class="kpi-foot">
+                  当前4个平台最新列表
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon green">
+                ◇
+              </div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  市场最低价
+                </div>
+                <div
+                  class="kpi-value green"
+                  id="kMin"
+                >
+                  —
+                </div>
+                <div class="kpi-foot">
+                  当前可见展示价
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">▥</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  市场均价
+                </div>
+                <div
+                  class="kpi-value"
+                  id="kAvg"
+                >
+                  —
+                </div>
+                <div class="kpi-foot">
+                  当前全部有效价格
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">
+                ↗
+              </div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  市场价格范围
+                </div>
+                <div
+                  class="kpi-value"
+                  id="kRange"
+                  style="font-size:18px"
+                >
+                  —
+                </div>
+                <div class="kpi-foot">
+                  最低价 → 最高价
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon green">
+                ◉
+              </div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  采集状态
+                </div>
+                <div
+                  class="kpi-value green"
+                  id="kHealth"
+                >
+                  —
+                </div>
+                <div class="kpi-foot">
+                  最新正式采集
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="overview-grid">
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">
+                  市场价格走势
+                </div>
+
+                <div
+                  class="panel-action"
+                  id="trendState"
+                >
+                  等待历史数据
+                </div>
+              </div>
+
+              <div class="panel-body">
+                <div class="chart-placeholder">
+                  <div class="chart-empty">
+                    <div>
+                      <b>
+                        历史价格趋势将在持续采集后自动生成
+                      </b>
+
+                      <span>
+                        当前正式 Market 尚未积累足够的连续时间序列
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">
+                  OTA 价格分布
+                </div>
+                <div class="panel-action">
+                  最新采集
+                </div>
+              </div>
+
+              <div class="panel-body">
+                <div
+                  class="dist-chart"
+                  id="distributionChart"
+                >
+                </div>
+              </div>
+            </div>
+
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">
+                  最近采集
+                </div>
+
+                <div class="panel-action">
+                  实时
+                </div>
+              </div>
+
+              <div class="panel-body">
+                <div
+                  class="activity-list"
+                  id="activityList"
+                >
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="bottom-grid">
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">
+                  当前市场价格排行
+                </div>
+
+                <div class="panel-action">
+                  最新有效价格
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>酒店名称</th>
+                      <th>平台</th>
+                      <th>展示价</th>
+                      <th>排名</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="rankingRows">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">
+                  OTA 平台状态
+                </div>
+
+                <div
+                  class="panel-action"
+                  id="platformHealthText"
+                >
+                  —
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>平台</th>
+                      <th>状态</th>
+                      <th>最近采集</th>
+                      <th>数据</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="platformRows">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+
+        
+        <!-- Hotel Management -->
+
+        <section
+          class="page"
+          id="page-hotels"
+        >
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">
+                酒店管理
+              </h1>
+
+              <div class="page-subtitle">
+                抓取酒店、映射关联与关注竞品
+              </div>
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-icon">▦</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  抓取身份
+                </div>
+                <div class="kpi-value" id="hotelIdentityCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  最新正式 Market
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon green">✓</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  已映射酒店
+                </div>
+                <div class="kpi-value" id="hotelMappedCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  已人工确认
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">★</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  关注竞品
+                </div>
+                <div class="kpi-value" id="hotelWatchedCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  后续接入竞品关注
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">!</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  待处理
+                </div>
+                <div class="kpi-value" id="hotelPendingCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  映射与异常身份
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">
+                酒店管理
+              </div>
+            </div>
+
+            <div class="panel-body">
+              <div class="mapping-tabs">
+                <button class="on" data-hotel-view="list">
+                  酒店列表
+                </button>
+
+                <button data-hotel-view="mapping">
+                  映射管理
+                </button>
+
+                <button data-hotel-view="watch">
+                  关注竞品
+                </button>
+              </div>
+
+              <div
+                id="hotelManagementContent"
+                class="module-coming"
+                style="height:360px"
+              >
+                <div>
+                  <strong>
+                    酒店列表
+                  </strong>
+                  <span>
+                    下一步接入真实酒店身份与映射数据
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- Device Management -->
+
+        <section
+          class="page"
+          id="page-devices"
+        >
+          <div class="page-head">
+            <div>
+              <h1 class="page-title">
+                设备管理
+              </h1>
+
+              <div class="page-subtitle">
+                设备授权、任务发布与计划执行
+              </div>
+            </div>
+          </div>
+
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-icon">◉</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  设备数量
+                </div>
+                <div class="kpi-value" id="deviceCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  已注册设备
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon green">●</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  已授权
+                </div>
+                <div class="kpi-value" id="deviceAuthorizedCount">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  当前可执行采集
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">☷</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  今日任务
+                </div>
+                <div class="kpi-value">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  后续接入任务系统
+                </div>
+              </div>
+            </div>
+
+            <div class="kpi">
+              <div class="kpi-icon">⌚</div>
+              <div class="kpi-main">
+                <div class="kpi-label">
+                  执行计划
+                </div>
+                <div class="kpi-value">
+                  —
+                </div>
+                <div class="kpi-foot">
+                  后续接入计划系统
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">
+                设备与任务
+              </div>
+            </div>
+
+            <div class="panel-body">
+              <div class="mapping-tabs">
+                <button class="on" data-device-view="devices">
+                  设备
+                </button>
+
+                <button data-device-view="tasks">
+                  任务
+                </button>
+
+                <button data-device-view="plans">
+                  计划
+                </button>
+              </div>
+
+              <div id="deviceManagementContent">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>设备</th>
+                        <th>状态</th>
+                        <th>版本</th>
+                        <th>系统</th>
+                        <th>浏览器</th>
+                        <th>最近在线</th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="deviceRows">
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+
+  <div
+    class="loading-cover"
+    id="loadingCover"
+  >
+    <div class="loading-box">
+      <div class="spinner"></div>
+      正在载入酒店市场数据
+    </div>
+  </div>
+
+
+<script>
+  const API = "";
+
+  const MARKET_ID =
+    "xn-center-huatan";
+
+  const PLATFORM_NAME = {
+    ctrip: "携程",
+    meituan: "美团",
+    fliggy: "飞猪",
+    tongcheng: "同程"
+  };
+
+  const PLATFORM_CLASS = {
+    ctrip: "p-ctrip",
+    meituan: "p-meituan",
+    fliggy: "p-fliggy",
+    tongcheng: "p-tongcheng"
+  };
+
+  let overviewData = null;
+
+
+  function escapeHtml(value) {
+    return String(
+      value ?? ""
+    )
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  function money(value) {
+    if (
+      value == null ||
+      !Number.isFinite(
+        Number(value)
+      )
+    ) {
+      return "—";
+    }
+
+    return "¥" +
+      Math.round(
+        Number(value)
+      );
+  }
+
+
+  function dateTime(value) {
+    if (!value) {
+      return "—";
+    }
+
+    const d =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        d.getTime()
+      )
+    ) {
+      return value;
+    }
+
+    return d.toLocaleString(
+      "zh-CN",
+      {
+        hour12: false,
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+  }
+
+
+  function timeOnly(value) {
+    if (!value) {
+      return "—";
+    }
+
+    const d =
+      new Date(value);
+
+    return d.toLocaleTimeString(
+      "zh-CN",
+      {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit"
+      }
+    );
+  }
+
+
+  function renderDistribution(items) {
+    const root =
+      document.getElementById(
+        "distributionChart"
+      );
+
+    const max =
+      Math.max(
+        1,
+        ...items.map(
+          x => Number(x.count) || 0
+        )
+      );
+
+    root.innerHTML =
+      items.map(
+        item => {
+          const pct =
+            (
+              (Number(item.count) || 0) /
+              max
+            ) * 100;
+
+          return `
+            <div class="dist-col">
+              <div class="dist-count">
+                ${escapeHtml(item.count)}
+              </div>
+
+              <div class="dist-bar-wrap">
+                <div
+                  class="dist-bar"
+                  style="
+                    height:${Math.max(
+                      2,
+                      pct
+                    )}%
+                  "
+                ></div>
+              </div>
+
+              <div class="dist-label">
+                ${escapeHtml(item.label)}
+              </div>
+            </div>
+          `;
+        }
+      ).join("");
+  }
+
+
+  function renderPlatforms(platforms) {
+    const rows =
+      document.getElementById(
+        "platformRows"
+      );
+
+    rows.innerHTML =
+      platforms.map(
+        p => {
+          const healthy =
+            p.status === "completed" &&
+            p.quality === "complete";
+
+          return `
+            <tr>
+              <td>
+                <span class="platform-pill">
+                  <span
+                    class="
+                      platform-dot
+                      ${PLATFORM_CLASS[p.platform] || ""}
+                    "
+                  ></span>
+
+                  ${escapeHtml(
+                    PLATFORM_NAME[p.platform] ||
+                    p.platform
+                  )}
+                </span>
+              </td>
+
+              <td>
+                <span class="
+                  healthy
+                  ${healthy ? "" : "partial"}
+                ">
+                  ${healthy ? "正常" : "部分"}
+                </span>
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  timeOnly(
+                    p.collected_at
+                  )
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  p.priced
+                )}/${escapeHtml(
+                  p.hotels
+                )}
+              </td>
+            </tr>
+          `;
+        }
+      ).join("");
+
+    const healthyCount =
+      platforms.filter(
+        p =>
+          p.status === "completed" &&
+          p.quality === "complete"
+      ).length;
+
+    document.getElementById(
+      "platformHealthText"
+    ).textContent =
+      `${healthyCount}/${platforms.length} 正常`;
+  }
+
+
+  function renderActivity(platforms) {
+    const root =
+      document.getElementById(
+        "activityList"
+      );
+
+    const sorted =
+      [...platforms].sort(
+        (a, b) =>
+          new Date(
+            b.collected_at || 0
+          ) -
+          new Date(
+            a.collected_at || 0
+          )
+      );
+
+    root.innerHTML =
+      sorted.map(
+        p => `
+          <div class="activity-row">
+            <div class="activity-time">
+              ${escapeHtml(
+                timeOnly(
+                  p.collected_at
+                )
+              )}
+            </div>
+
+            <div class="activity-main">
+              <div class="activity-title">
+                ${
+                  escapeHtml(
+                    PLATFORM_NAME[p.platform] ||
+                    p.platform
+                  )
+                } 最新列表采集完成
+              </div>
+
+              <div class="activity-sub">
+                ${
+                  escapeHtml(
+                    p.hotels
+                  )
+                } 家酒店 · ${
+                  escapeHtml(
+                    p.quality
+                  )
+                }
+              </div>
+            </div>
+          </div>
+        `
+      ).join("");
+  }
+
+
+  function renderRanking(facts) {
+    const root =
+      document.getElementById(
+        "rankingRows"
+      );
+
+    const priced =
+      facts
+        .filter(
+          f =>
+            f.display_price != null &&
+            Number.isFinite(
+              Number(
+                f.display_price
+              )
+            )
+        )
+        .sort(
+          (a, b) =>
+            Number(
+              a.display_price
+            ) -
+            Number(
+              b.display_price
+            )
+        )
+        .slice(0, 12);
+
+    root.innerHTML =
+      priced.map(
+        (f, index) => `
+          <tr>
+            <td>
+              <span class="
+                rank
+                ${index < 3 ? "top" : ""}
+              ">
+                ${
+                  String(
+                    index + 1
+                  ).padStart(
+                    2,
+                    "0"
+                  )
+                }
+              </span>
+            </td>
+
+            <td>
+              ${escapeHtml(
+                f.hotel_name ||
+                "—"
+              )}
+            </td>
+
+            <td>
+              <span class="platform-pill">
+                <span
+                  class="
+                    platform-dot
+                    ${PLATFORM_CLASS[f.platform] || ""}
+                  "
+                ></span>
+
+                ${escapeHtml(
+                  PLATFORM_NAME[f.platform] ||
+                  f.platform
+                )}
+              </span>
+            </td>
+
+            <td class="price">
+              ${escapeHtml(
+                money(
+                  f.display_price
+                )
+              )}
+            </td>
+
+            <td>
+              ${escapeHtml(
+                f.rank_position ?? "—"
+              )}
+            </td>
+          </tr>
+        `
+      ).join("") ||
+      `
+        <tr>
+          <td
+            colspan="5"
+            style="
+              text-align:center;
+              color:#7188a4
+            "
+          >
+            当前没有有效价格
+          </td>
+        </tr>
+      `;
+  }
+
+
+  function renderOverview(data) {
+    overviewData = data;
+
+    const summary =
+      data.summary || {};
+
+    const platforms =
+      data.platforms || [];
+
+    const facts =
+      data.facts || [];
+
+    document.getElementById(
+      "kObserved"
+    ).textContent =
+      `${summary.observed_identities ?? 0} 条`;
+
+    const hotelIdentityCount =
+      document.getElementById(
+        "hotelIdentityCount"
+      );
+
+    if (hotelIdentityCount) {
+      hotelIdentityCount.textContent =
+        String(
+          summary.observed_identities ?? 0
+        );
+    }
+
+    document.getElementById(
+      "kMin"
+    ).textContent =
+      money(
+        summary.min_price
+      );
+
+    document.getElementById(
+      "kAvg"
+    ).textContent =
+      money(
+        summary.avg_price
+      );
+
+    document.getElementById(
+      "kRange"
+    ).textContent =
+      summary.min_price == null
+        ? "—"
+        : `${money(
+            summary.min_price
+          )} → ${money(
+            summary.max_price
+          )}`;
+
+    document.getElementById(
+      "kHealth"
+    ).textContent =
+      `${summary.healthy_platforms ?? 0}/${summary.platform_count ?? 0}`;
+
+    const latest =
+      summary.latest_at;
+
+    document.getElementById(
+      "topUpdated"
+    ).textContent =
+      latest
+        ? `数据更新 ${timeOnly(latest)}`
+        : "暂无数据";
+
+    document.getElementById(
+      "sidebarUpdated"
+    ).textContent =
+      latest
+        ? `最近更新 ${dateTime(latest)}`
+        : "最近更新 —";
+
+    document.getElementById(
+      "sidebarStatus"
+    ).textContent =
+      summary.healthy_platforms ===
+      summary.platform_count &&
+      summary.platform_count > 0
+        ? "系统正常"
+        : "存在部分数据";
+
+    const firstCollection =
+      platforms[0];
+
+    if (firstCollection) {
+      const collection =
+        firstCollection;
+
+      const latestRaw =
+        data.platforms.find(
+          p => p.collection_id
+        );
+
+      document.getElementById(
+        "dateRange"
+      ).textContent =
+        (
+          overviewData?.facts?.length
+        )
+          ? (
+              `${facts[0]?.business_date || "—"}`
+            )
+          : "—";
+    }
+
+    renderDistribution(
+      data.distribution || []
+    );
+
+    renderPlatforms(
+      platforms
+    );
+
+    renderActivity(
+      platforms
+    );
+
+    renderRanking(
+      facts
+    );
+  }
+
+
+  async function loadOverview() {
+    const res =
+      await fetch(
+        `${API}/api/v1/market-overview?market_id=${MARKET_ID}`,
+        {
+          cache: "no-store"
+        }
+      );
+
+    const json =
+      await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        json?.error?.message ||
+        "市场概览读取失败"
+      );
+    }
+
+    renderOverview(
+      json.data
+    );
+  }
+
+
+  async function loadDevices() {
+    try {
+      const res =
+        await fetch(
+          `${API}/api/v1/admin/devices`,
+          {
+            cache: "no-store"
+          }
+        );
+
+      const json =
+        await res.json();
+
+      const items =
+        json?.data?.items || [];
+
+      const deviceCount =
+        document.getElementById(
+          "deviceCount"
+        );
+
+      const authorizedCount =
+        document.getElementById(
+          "deviceAuthorizedCount"
+        );
+
+      if (deviceCount) {
+        deviceCount.textContent =
+          String(items.length);
+      }
+
+      if (authorizedCount) {
+        authorizedCount.textContent =
+          String(
+            items.filter(
+              x =>
+                x.status ===
+                "authorized"
+            ).length
+          );
+      }
+
+      const root =
+        document.getElementById(
+          "deviceRows"
+        );
+
+      if (!root) {
+        return;
+      }
+
+      root.innerHTML =
+        items.map(
+          d => `
+            <tr>
+              <td>
+                ${escapeHtml(
+                  d.name ||
+                  d.device_id ||
+                  "—"
+                )}
+              </td>
+
+              <td>
+                <span class="
+                  healthy
+                  ${
+                    d.status === "authorized"
+                      ? ""
+                      : "partial"
+                  }
+                ">
+                  ${escapeHtml(
+                    d.status ||
+                    "—"
+                  )}
+                </span>
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  d.collector_version ||
+                  "—"
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  d.os ||
+                  "—"
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  d.browser ||
+                  "—"
+                )}
+              </td>
+
+              <td>
+                ${escapeHtml(
+                  dateTime(
+                    d.last_seen_at
+                  )
+                )}
+              </td>
+            </tr>
+          `
+        ).join("") ||
+        `
+          <tr>
+            <td
+              colspan="6"
+              style="
+                text-align:center;
+                color:#7188a4
+              "
+            >
+              暂无设备
+            </td>
+          </tr>
+        `;
+    } catch (error) {
+      console.error(
+        "loadDevices",
+        error
+      );
+    }
+  }
+
+
+  function activatePage(page) {
+    document
+      .querySelectorAll(
+        ".page"
+      )
+      .forEach(
+        el =>
+          el.classList.remove(
+            "active"
+          )
+      );
+
+    document
+      .querySelectorAll(
+        "[data-page]"
+      )
+      .forEach(
+        el =>
+          el.classList.remove(
+            "active"
+          )
+      );
+
+    const target =
+      document.getElementById(
+        `page-${page}`
+      );
+
+    if (target) {
+      target.classList.add(
+        "active"
+      );
+    }
+
+    document
+      .querySelectorAll(
+        `[data-page="${page}"]`
+      )
+      .forEach(
+        el =>
+          el.classList.add(
+            "active"
+          )
+      );
+  }
+
+
+  document
+    .querySelectorAll(
+      "[data-page]"
+    )
+    .forEach(
+      btn => {
+        btn.addEventListener(
+          "click",
+          () => {
+            activatePage(
+              btn.dataset.page
+            );
+          }
+        );
+      }
+    );
+
+
+  document
+    .getElementById(
+      "refreshBtn"
+    )
+    .addEventListener(
+      "click",
+      async () => {
+        const btn =
+          document.getElementById(
+            "refreshBtn"
+          );
+
+        btn.textContent = "…";
+
+        try {
+          await loadOverview();
+          await loadDevices();
+        } finally {
+          btn.textContent = "↻";
+        }
+      }
+    );
+
+
+
+  function setHotelView(view) {
+    document
+      .querySelectorAll(
+        "[data-hotel-view]"
+      )
+      .forEach((btn) => {
+        btn.classList.toggle(
+          "on",
+          btn.dataset.hotelView === view
+        );
+      });
+
+    const root =
+      document.getElementById(
+        "hotelManagementContent"
+      );
+
+    const content = {
+      list: {
+        title: "酒店列表",
+        text:
+          "查看各 OTA 抓取到的酒店身份与当前映射状态"
+      },
+
+      mapping: {
+        title: "映射管理",
+        text:
+          "人工确认不同 OTA 平台是否为同一家酒店"
+      },
+
+      watch: {
+        title: "关注竞品",
+        text:
+          "选择需要在市场概览中重点关注的竞品酒店"
+      }
+    }[view];
+
+    root.innerHTML = `
+      <div>
+        <strong>
+          ${content.title}
+        </strong>
+        <span>
+          ${content.text}
+        </span>
+      </div>
+    `;
+  }
+
+
+  document
+    .querySelectorAll(
+      "[data-hotel-view]"
+    )
+    .forEach((btn) => {
+      btn.addEventListener(
+        "click",
+        () =>
+          setHotelView(
+            btn.dataset.hotelView
+          )
+      );
+    });
+
+
+  function setDeviceView(view) {
+    document
+      .querySelectorAll(
+        "[data-device-view]"
+      )
+      .forEach((btn) => {
+        btn.classList.toggle(
+          "on",
+          btn.dataset.deviceView === view
+        );
+      });
+
+    const root =
+      document.getElementById(
+        "deviceManagementContent"
+      );
+
+    if (view === "devices") {
+      root.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>设备</th>
+                <th>状态</th>
+                <th>版本</th>
+                <th>系统</th>
+                <th>浏览器</th>
+                <th>最近在线</th>
+              </tr>
+            </thead>
+            <tbody id="deviceRows"></tbody>
+          </table>
+        </div>
+      `;
+
+      loadDevices();
+      return;
+    }
+
+    root.innerHTML = `
+      <div
+        class="module-coming"
+        style="height:320px"
+      >
+        <div>
+          <strong>
+            ${
+              view === "tasks"
+                ? "任务管理"
+                : "执行计划"
+            }
+          </strong>
+
+          <span>
+            ${
+              view === "tasks"
+                ? "后续接入任务发布与执行状态"
+                : "后续接入自动采集计划"
+            }
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+
+  document
+    .querySelectorAll(
+      "[data-device-view]"
+    )
+    .forEach((btn) => {
+      btn.addEventListener(
+        "click",
+        () =>
+          setDeviceView(
+            btn.dataset.deviceView
+          )
+      );
+    });
+
+  async function boot() {
+    try {
+      await Promise.all([
+        loadOverview(),
+        loadDevices()
+      ]);
+    } catch (error) {
+      console.error(
+        error
+      );
+
+      document.getElementById(
+        "topUpdated"
+      ).textContent =
+        "数据读取失败";
+
+      document.getElementById(
+        "sidebarStatus"
+      ).textContent =
+        "数据异常";
+    } finally {
+      document
+        .getElementById(
+          "loadingCover"
+        )
+        .classList.add(
+          "hide"
+        );
+    }
+  }
+
+
+  boot();
+</script>
+
+</body>
+</html>

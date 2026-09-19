@@ -578,7 +578,23 @@ async function collectCurrent() {
     },
   };
   const res = await send({ type: "SAVE_LOCAL", payload: item });
-  collectStatus.textContent = res.ok ? `已本地保存（${platform}，${(result.hotels||[]).length} 家）` : res.error;
+  const savedCount =
+    (result.hotels || []).length;
+
+  if (res.ok) {
+    collectStatus.className =
+      "status success";
+
+    collectStatus.textContent =
+      `✓ 采集完成 · ${savedCount}家 · 等待上传`;
+  } else {
+    collectStatus.className =
+      "status error";
+
+    collectStatus.textContent =
+      res.error || "本地保存失败";
+  }
+
   renderResults();
 }
 
@@ -675,19 +691,54 @@ async function uploadLatest() {
     return;
   }
 
-  collectStatus.textContent = "上传中…";
+  collectStatus.className =
+    "status";
+
+  collectStatus.textContent =
+    "正在上传本次结果…";
 
   const res = await send({
     type: "UPLOAD",
     payload: latest.upload
   });
   if (!res.ok) {
-    collectStatus.textContent = `上传失败：${res.error}`;
+    collectStatus.className =
+      "status error";
+
+    collectStatus.textContent =
+      `上传失败：${res.error}`;
+
     return;
   }
   const count = latest.upload?.price_facts?.length || latest.upload?.hotels?.length || 0;
-  const when = new Date().toLocaleString("zh-CN", { hour12: false });
-  collectStatus.textContent = `上传成功！已保存${count}条。${when}`;
+  const now =
+    new Date();
+
+  const when =
+    now.toLocaleString(
+      "zh-CN",
+      {
+        hour12: false
+      }
+    );
+
+  const shortWhen =
+    now.toLocaleTimeString(
+      "zh-CN",
+      {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      }
+    );
+
+  collectStatus.className =
+    "status success";
+
+  collectStatus.textContent =
+    `✓ 已上传 · ${count}家 · ${shortWhen}`;
+
   await pushLog({
     at: when,
     platform: latest.upload?.platform || latest.platform || "",
@@ -721,7 +772,28 @@ async function refreshDevice() {
   const lastRaw = device.last_seen_at || device.updated_at || "";
   const last = lastRaw ? new Date(lastRaw).toLocaleString("zh-CN", { hour12: false }) : "—";
   const st = status === "authorized" || status === "active" ? "已授权" : status;
-  box.innerHTML = `<p>设备 ID：${id}</p><p>状态：${st}</p><p>最近心跳：${last}</p>`;
+  box.innerHTML = `
+    <p>
+      <strong>状态</strong>：
+      <span class="${
+        st === "已授权"
+          ? "device-status-ok"
+          : ""
+      }">${st}</span>
+    </p>
+
+    <p>
+      <strong>最近心跳</strong>：
+      ${last}
+    </p>
+
+    <p>
+      <strong>设备 ID</strong>
+      <span class="device-id-value">
+        ${id}
+      </span>
+    </p>
+  `;
 }
 
 function clipName(name, n = 25) {
@@ -764,13 +836,32 @@ function setStats(facts) {
     String(Math.max(0, list.length - sold));
 
   document.getElementById("stSold").textContent =
-    String(official.length);
+    `${official.length}/${list.length}`;
 
   document.getElementById("stAd").textContent =
     String(missing.length);
 
   document.getElementById("stErr").textContent =
     String(duplicateIds.size);
+
+  const issueCount =
+    missing.length +
+    duplicateIds.size;
+
+  const issueEl =
+    document.getElementById(
+      "stIssue"
+    );
+
+  if (issueEl) {
+    issueEl.textContent =
+      String(issueCount);
+
+    issueEl.classList.toggle(
+      "has-issue",
+      issueCount > 0
+    );
+  }
 
   return {
     total: list.length,
@@ -877,12 +968,59 @@ async function refreshPageContext() {
     } catch {}
   }
   document.getElementById("pageType").textContent = page;
-  document.getElementById("ctxCity").textContent = city;
-  document.getElementById("ctxIn").textContent = cin;
-  document.getElementById("ctxOut").textContent = cout;
-  document.getElementById("ctxKw").textContent = kw;
-  const fullIn = cin !== "—" ? `2026-${cin}` : "";
-  document.getElementById("ctxD").textContent = dayOffset(fullIn);
+  document.getElementById("ctxCity").textContent =
+    city;
+
+  document.getElementById("ctxIn").textContent =
+    cin;
+
+  document.getElementById("ctxOut").textContent =
+    cout;
+
+  document.getElementById("ctxKw").textContent =
+    kw;
+
+  const placeParts = [];
+
+  if (city && city !== "—") {
+    placeParts.push(city);
+  }
+
+  if (
+    kw &&
+    kw !== "—" &&
+    kw !== city
+  ) {
+    placeParts.push(kw);
+  }
+
+  const place =
+    placeParts.length
+      ? placeParts.join(" · ")
+      : "—";
+
+  const ctxPlace =
+    document.getElementById(
+      "ctxPlace"
+    );
+
+  if (ctxPlace) {
+    ctxPlace.textContent =
+      place;
+
+    ctxPlace.title =
+      place;
+  }
+
+  const fullIn =
+    cin !== "—"
+      ? `2026-${cin}`
+      : "";
+
+  document.getElementById(
+    "ctxD"
+  ).textContent =
+    dayOffset(fullIn);
   document.getElementById("platLogo").textContent = url.includes("ctrip") ? "携" : url.includes("meituan") || url.includes("dianping") ? "美" : url.includes("ly.com") || url.includes("tongcheng") ? "同" : url.includes("fliggy") || url.includes("taobao") ? "飞" : "平";
 }
 

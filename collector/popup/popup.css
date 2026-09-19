@@ -154,3 +154,296 @@ footer span { display: inline-flex; align-items: center; gap: 6px; }
   line-height: 1;
   white-space: nowrap;
 }
+
+/* ===== Popup V1.1 ===== */
+
+.ctx {
+  grid-template-columns:
+    22px minmax(0, 1fr) auto 32px;
+  gap: 8px;
+  padding: 8px 9px;
+}
+
+.ctx-market {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 650;
+}
+
+.ctx-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: #334155;
+}
+
+.ctx-arrow {
+  color: #94a3b8;
+}
+
+.primary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.primary-actions button {
+  width: 100%;
+}
+
+.dev-tools {
+  margin-top: 1px;
+}
+
+.dev-tools summary {
+  width: max-content;
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.dev-tools summary::-webkit-details-marker {
+  display: none;
+}
+
+.dev-tools summary::before {
+  content: "⚙ ";
+  font-size: 10px;
+}
+
+.dev-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.dev-actions button {
+  padding: 7px 5px;
+  font-size: 11px;
+}
+
+.device-section-title {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 650;
+  margin: 2px 2px 5px;
+}
+
+#device.tab.on {
+  justify-content: flex-start;
+}
+
+#device .device-card {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.device-card p {
+  margin: 0;
+  padding: 9px 0;
+  border-top: 1px solid #eef4fb;
+}
+
+.device-card p:first-child {
+  border-top: 0;
+}
+
+.device-id-value {
+  display: block;
+  margin-top: 4px;
+  color: #475569;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.device-status-ok {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.status.success {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.status.error {
+  color: #dc2626;
+}
+
+
+/* ===== Popup V1.2 compact layout ===== */
+
+#results.tab.on {
+  gap: 6px;
+}
+
+.ctx {
+  grid-template-columns:
+    22px minmax(0, 1fr) auto 30px;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 0;
+}
+
+.ctx-place {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 650;
+  color: #1e293b;
+}
+
+.ctx-dates {
+  font-size: 11px;
+}
+
+.dtag {
+  font-size: 10px;
+  border-radius: 5px;
+}
+
+.primary-actions {
+  gap: 7px;
+}
+
+.primary-actions button {
+  min-height: 38px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.dev-tools,
+.dev-actions {
+  display: none !important;
+}
+
+.stats {
+  grid-template-columns:
+    repeat(4, 1fr);
+  gap: 6px;
+  margin: 1px 0 0;
+}
+
+.stats div {
+  padding: 5px 3px;
+  border-radius: 7px;
+}
+
+.stats em {
+  font-size: 10px;
+}
+
+.stats b {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.stats .sold b {
+  color: #ea580c;
+}
+
+#stIssue {
+  color: #16a34a;
+}
+
+#stIssue.has-issue {
+  color: #dc2626;
+}
+
+.status {
+  min-height: 15px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.hotel {
+  padding: 7px 0;
+}
+
+.l1 {
+  grid-template-columns:
+    18px minmax(0, 1fr) 34px 30px 43px;
+  gap: 4px;
+}
+
+.l2,
+.l3 {
+  grid-template-columns:
+    18px minmax(0, 1fr) 62px;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.name {
+  font-size: 12px;
+}
+
+.room {
+  font-size: 11px;
+}
+
+.reviews {
+  font-size: 10px;
+}
+
+.sale {
+  font-size: 15px;
+}
+
+.chip-rate {
+  min-width: 28px;
+  height: 20px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+
+.ad-slot {
+  width: 34px;
+  height: 18px;
+}
+
+.chip-ad {
+  line-height: 18px;
+}
+
+.chip-promo {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+
+.diagnostic-title {
+  margin-top: 10px;
+}
+
+.diagnostic-button {
+  width: 100%;
+  border: 1px solid #d7e6f5;
+  background: #fff;
+  color: #2563eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.diagnostic-button:hover {
+  background: #f5f9ff;
+}
+
+#device .probe {
+  margin: 7px 0 0;
+  max-height: 180px;
+}
+
