@@ -11,12 +11,17 @@ const deviceMigration = readFileSync(
   fileURLToPath(new URL("../../migrations/0002_device_authorization.sql", import.meta.url)),
   "utf8",
 );
+const taskMigration = readFileSync(
+  fileURLToPath(new URL("../../migrations/0003_task_progress.sql", import.meta.url)),
+  "utf8",
+);
 
 function createDatabase(): DatabaseSync {
   const database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec(migration);
   database.exec(deviceMigration);
+  database.exec(taskMigration);
   return database;
 }
 
@@ -46,7 +51,7 @@ function seedTask(database: DatabaseSync, taskId = "task-1", batchId = "batch-1"
     [taskId, batchId, "market-1", "2026-02-01", "2026-02-02", 30, 10, 1, "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"]);
 }
 
-describe("M02 D1 schema migration", () => {
+describe("D1 schema migrations", () => {
   it("applies from an empty database and creates every logical entity", () => {
     const database = createDatabase();
     const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -107,6 +112,12 @@ describe("M02 D1 schema migration", () => {
     expect(() => insert(database, "INSERT INTO task_attempts (id, task_id, device_id, attempt_number, status, claimed_at, lease_expires_at, upload_idempotency_key) VALUES ('attempt-2', 'task-2', 'device-1', 1, 'active', 'now', 'later', 'upload-2')")).toThrow();
     insert(database, "UPDATE task_attempts SET status = 'expired' WHERE id = 'attempt-1'");
     insert(database, "INSERT INTO task_attempts (id, task_id, device_id, attempt_number, status, claimed_at, lease_expires_at, upload_idempotency_key) VALUES ('attempt-2', 'task-2', 'device-1', 1, 'active', 'now', 'later', 'upload-2')");
+  });
+
+  it("stores progress as current Attempt state, not an audit log", () => {
+    const database = createDatabase();
+    const columns = database.prepare("PRAGMA table_info(task_attempts)").all().map((row) => String(row.name));
+    expect(columns).toEqual(expect.arrayContaining(["progress_stage", "progress_current", "progress_target", "progress_updated_at"]));
   });
 
   it("enforces schedule trigger and upload idempotency uniqueness", () => {

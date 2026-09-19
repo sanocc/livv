@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const migration = readFileSync(fileURLToPath(new URL("../../migrations/0001_initial.sql", import.meta.url)), "utf8");
 const deviceMigration = readFileSync(fileURLToPath(new URL("../../migrations/0002_device_authorization.sql", import.meta.url)), "utf8");
+const taskMigration = readFileSync(fileURLToPath(new URL("../../migrations/0003_task_progress.sql", import.meta.url)), "utf8");
 
 export class TestD1Statement {
   constructor(private readonly database: DatabaseSync, private readonly sql: string, private readonly values: SQLInputValue[] = []) {}
@@ -24,8 +25,8 @@ export class TestD1Statement {
   }
 
   async run(): Promise<D1Result<unknown>> {
-    this.database.prepare(this.sql).run(...this.values);
-    return { results: [], success: true, meta: {} } as unknown as D1Result<unknown>;
+    const result = this.database.prepare(this.sql).run(...this.values);
+    return { results: [], success: true, meta: { changes: Number(result.changes) } } as unknown as D1Result<unknown>;
   }
 }
 
@@ -37,6 +38,7 @@ export class TestD1 {
     this.sqlite.exec("PRAGMA foreign_keys = ON;");
     this.sqlite.exec(migration);
     this.sqlite.exec(deviceMigration);
+    this.sqlite.exec(taskMigration);
   }
 
   prepare(query: string): D1PreparedStatement {

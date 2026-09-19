@@ -3,6 +3,10 @@ import type { D1Database } from "@cloudflare/workers-types";
 
 export interface Env {
   DB?: D1Database;
+  /** Injectable only for deterministic tests; production does not set this. */
+  clock?: () => Date;
+  /** Injectable only for deterministic tests; production does not set this. */
+  idFactory?: () => string;
 }
 
 export interface AppContext {
