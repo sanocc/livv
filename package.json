@@ -1,0 +1,18 @@
+{
+  "name": "livv-ota-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LIVV OTA V2",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "wrangler:dry-run": "XDG_CONFIG_HOME=/tmp/livv-v2-xdg WRANGLER_LOG_PATH=/tmp/livv-v2-wrangler.log wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260919.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.35.0"
+  }
+}

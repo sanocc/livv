@@ -1,0 +1,6 @@
+name = "livv-api-v2"
+main = "api/src/index.ts"
+compatibility_date = "2026-09-19"
+
+[observability]
+enabled = false
