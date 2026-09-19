@@ -17,8 +17,12 @@ Install dependencies and run the M01 checks:
 npm install
 npm run typecheck
 npm test
+npm run test:db
+npm run test:device
 npm run wrangler:dry-run
 ```
 
 The Worker currently exposes only `GET /health` and
-`GET /api/v1/health`. M01 intentionally has no D1 binding or business routes.
+`GET /api/v1/health`, plus the M03 device identity and authorization routes.
+Local D1 migration checks use `wrangler.d1.local.toml`; no remote D1 is
+configured in this repository.

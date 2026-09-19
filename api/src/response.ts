@@ -1,4 +1,12 @@
-export type ErrorCode = "NOT_FOUND" | "INTERNAL_ERROR";
+export type ErrorCode =
+  | "AUTH_REQUIRED"
+  | "DEVICE_PENDING"
+  | "DEVICE_REVOKED"
+  | "FORBIDDEN"
+  | "INVALID_PAYLOAD"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "INTERNAL_ERROR";
 
 export interface ErrorBody {
   error: {
@@ -28,6 +36,10 @@ export function json<T>(body: T, status = 200): Response {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
   });
+}
+
+export function envelope<T>(data: T, id: string, status = 200): Response {
+  return json({ data, request_id: id }, status);
 }
 
 export function errorResponse(error: unknown, id: string): Response {

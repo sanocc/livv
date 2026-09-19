@@ -7,11 +7,16 @@ const migration = readFileSync(
   fileURLToPath(new URL("../../migrations/0001_initial.sql", import.meta.url)),
   "utf8",
 );
+const deviceMigration = readFileSync(
+  fileURLToPath(new URL("../../migrations/0002_device_authorization.sql", import.meta.url)),
+  "utf8",
+);
 
 function createDatabase(): DatabaseSync {
   const database = new DatabaseSync(":memory:");
   database.exec("PRAGMA foreign_keys = ON;");
   database.exec(migration);
+  database.exec(deviceMigration);
   return database;
 }
 

@@ -84,6 +84,10 @@ Stores the binary watched/not-watched relationship between a Market and Master H
 
 Stores append-oriented actor/device, action, target, before/after summary, reason, outcome, and timestamp for security, mapping, watch, device, Batch, Schedule, Task, and upload decisions. It is separate from operational Workers Logs.
 
+For the database enum, `audit_events.actor_type = 'user'` represents a human
+Access User actor. `AccessIdentity` and `access_user` are API/runtime terms and
+are not additional database `actor_type` values.
+
 ## 6. Required constraints
 
 - One device has at most one active lease.
