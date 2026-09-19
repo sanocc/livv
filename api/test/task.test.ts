@@ -109,6 +109,13 @@ describe("M04 batch, task, claim, lease, retry", () => {
     expect(claim.response.status).toBe(200);
     expect(claim.body.data.task).toMatchObject({ attempt_number: 1, platform: "ctrip", check_in: "2026-03-02", check_out: "2026-03-03", market_id: batch.body.data.batch.market_id });
     expect(new Date(claim.body.data.task.lease_expires_at).getTime() - clock.now().getTime()).toBe(600000);
+    const current = await call(database, "/api/v1/collector/tasks/current", { headers: auth(firstCredential) }, undefined, clock);
+    expect(current.response.status).toBe(200);
+    expect(current.body.data.task.attempt_id).toBe(claim.body.data.task.attempt_id);
+    const leaseBeforeHeartbeat = database.sqlite.prepare("SELECT lease_expires_at FROM task_attempts WHERE id = ?").get(claim.body.data.task.attempt_id);
+    const heartbeat = await call(database, "/api/v1/collector/heartbeat", { method: "POST", headers: { ...auth(firstCredential), "content-type": "application/json" }, body: JSON.stringify({}) }, undefined, clock);
+    expect(heartbeat.response.status).toBe(200);
+    expect(database.sqlite.prepare("SELECT lease_expires_at FROM task_attempts WHERE id = ?").get(claim.body.data.task.attempt_id)).toEqual(leaseBeforeHeartbeat);
     const busy = await call(database, "/api/v1/collector/tasks/claim", { method: "POST", headers: auth(firstCredential) }, undefined, clock);
     expect(busy.response.status).toBe(409);
     expect(busy.body.error.code).toBe("DEVICE_BUSY");

@@ -44,6 +44,10 @@ export async function claimTask(env: Env, deviceId: string): Promise<ClaimView |
   return null;
 }
 
+export async function currentTask(env: Env, deviceId: string): Promise<ClaimView | null> {
+  return repo(env).currentTask(deviceId);
+}
+
 function isRetryable(code: FailureCode): boolean {
   return code === "NAVIGATION_FAILED" || code === "ADAPTER_ERROR" || code === "TIMEOUT";
 }

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "LIVV OTA V2 Collector",
+  "version": "0.1.0",
+  "description": "LIVV cloud task execution terminal.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["http://localhost:8787/*"],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "LIVV Collector",
+    "default_popup": "popup/popup.html"
+  }
+}

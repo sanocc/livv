@@ -108,6 +108,15 @@ export class TaskRepository {
     return this.db.prepare("SELECT id, task_id FROM task_attempts WHERE device_id = ? AND status = 'active' LIMIT 1").bind(deviceId).first<{ id: string; task_id: string }>();
   }
 
+  async currentTask(deviceId: string): Promise<ClaimView | null> {
+    const row = await this.db.prepare(`SELECT t.id AS task_id, a.id AS attempt_id, a.attempt_number, a.lease_expires_at,
+      t.market_id, m.city, m.keyword, m.timezone, t.platform, t.check_in, t.check_out, t.target_hotels
+      FROM task_attempts a JOIN collection_tasks t ON t.id = a.task_id
+      JOIN markets m ON m.id = t.market_id
+      WHERE a.device_id = ? AND a.status = 'active' LIMIT 1`).bind(deviceId).first<ClaimView>();
+    return row ?? null;
+  }
+
   async claim(candidate: CandidateRow, deviceId: string, now: string, leaseExpires: string, attemptId: string): Promise<ClaimView | null> {
     const results = await this.db.batch([
       this.db.prepare(`UPDATE collection_tasks SET status = 'leased', attempt_count = attempt_count + 1, updated_at = ?

@@ -1,7 +1,7 @@
 import type { AppContext } from "./env";
 import { authenticateDevice, requireAuthorizedDevice } from "./deviceAuth";
 import { authorizeDevice, getDevice, heartbeat, listDevices, register, revokeDevice } from "./deviceService";
-import { claimTask, createBatch, failTask, updateProgress } from "./taskService";
+import { claimTask, createBatch, currentTask, failTask, updateProgress } from "./taskService";
 import { requireRole } from "./rbac";
 import { envelope, HttpError, json } from "./response";
 import { parseHeartbeat, parseRegistration } from "./validation";
@@ -37,6 +37,13 @@ export async function route(context: AppContext): Promise<Response> {
     const authenticated = await authenticateDevice(context.request, context.env);
     requireAuthorizedDevice(authenticated);
     const task = await claimTask(context.env, authenticated.device_id);
+    return task ? envelope({ task }, context.requestId) : new Response(null, { status: 204 });
+  }
+
+  if (context.request.method === "GET" && url.pathname === "/api/v1/collector/tasks/current") {
+    const authenticated = await authenticateDevice(context.request, context.env);
+    requireAuthorizedDevice(authenticated);
+    const task = await currentTask(context.env, authenticated.device_id);
     return task ? envelope({ task }, context.requestId) : new Response(null, { status: 204 });
   }
 
