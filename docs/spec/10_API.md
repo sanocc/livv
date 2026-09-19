@@ -4,14 +4,14 @@
 
 Workers APIs are the only business interface. The Collector MUST NOT access D1 directly. HTTP status and machine-readable business `error_code` are separate; clients MUST NOT branch on error messages.
 
-Every JSON response, except the no-content claim response, MUST use a stable envelope containing `data` or `error`, a request correlation identifier, and pagination metadata where applicable. Exact serialization belongs to implementation review, but the semantic fields below are mandatory.
+Every JSON response, except the no-content claim response and the health endpoints, MUST use a stable envelope containing `data` or `error`, a request correlation identifier, and pagination metadata where applicable. Exact serialization belongs to implementation review, but the semantic fields below are mandatory. `GET /health` and `GET /api/v1/health` are explicit liveness/readiness exceptions and retain the minimal `{ "ok": true, "service": "livv-api-v2" }` response.
 
 ## 2. Authentication classes
 
 ### Public
 
 - `GET /api/v1/health`: unauthenticated liveness/readiness signal;
-- `POST /collector/register`: bootstrap device registration, rate limited.
+- `POST /api/v1/collector/register`: bootstrap device registration, rate limited.
 
 ### Device Auth
 

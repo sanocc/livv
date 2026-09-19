@@ -1,0 +1,8 @@
+name = "livv-ota-v2-d1-local-review"
+compatibility_date = "2026-09-19"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "livv-ota-v2-local-review"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "migrations"
