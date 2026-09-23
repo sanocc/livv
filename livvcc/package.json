@@ -1,0 +1,5 @@
+{
+  "name": "livv-main",
+  "private": true,
+  "scripts": { "start": "python3 -m http.server 4180 -d public" }
+}
