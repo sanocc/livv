@@ -33,6 +33,14 @@
     node.textContent = `目标：${result.requested_city}　页面：${result.actual_city}　状态：✓ 设置成功`;
   }
 
+  function showDateResult(result, errorCode) {
+    const node = $('#date-result');
+    node.classList.remove('hidden', 'bad');
+    if (!result) { node.classList.add('bad'); node.textContent = '状态：✕ DATE_CONTROL_NO_RESPONSE'; return; }
+    if (errorCode || result.ok !== true) { node.classList.add('bad'); node.textContent = `状态：✕ ${errorCode || result.error?.code || 'DATE_CONTROL_FAILED'}${result.stage ? `　阶段：${result.stage}` : ''}`; return; }
+    node.textContent = `目标：${result.requested_checkin} → ${result.requested_checkout}　页面：${result.actual_checkin} → ${result.actual_checkout}　${result.nights}晚　状态：✓ 设置成功`;
+  }
+
   async function setCity() {
     const button = $('#set-city');
     const requested = $('#city-input').value.trim();
@@ -57,6 +65,20 @@
       button.disabled = false;
       button.textContent = '设置城市';
     }
+  }
+
+  async function setDates() {
+    const button = $('#set-dates');
+    const checkin = $('#checkin-input').value.trim(); const checkout = $('#checkout-input').value.trim();
+    button.disabled = true; button.textContent = '设置中…';
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url || !tab.url.startsWith('https://hotels.ctrip.com/')) { showDateResult(null, 'UNSUPPORTED_PAGE'); return; }
+      await chrome.scripting.executeScript({target:{tabId:tab.id}, files:['platforms/ctrip/controller.js']});
+      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(from, to) => globalThis.LivvCtripController.setDatesResult(from, to), args:[checkin, checkout]});
+      showDateResult(result || null);
+    } catch (error) { showDateResult(null, error?.message || 'DATE_CONTROL_FAILED'); }
+    finally { button.disabled = false; button.textContent = '设置日期'; }
   }
 
   function renderContext(result) {
@@ -130,6 +152,7 @@
 
   $('#read-page').addEventListener('click', readCurrentPage);
   $('#set-city').addEventListener('click', () => { setCity().catch((error) => showCityResult(null, error?.message || 'CITY_INPUT_FAILED')); });
+  $('#set-dates').addEventListener('click', () => { setDates().catch((error) => showDateResult(null, error?.message || 'DATE_CONTROL_FAILED')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });
   $('#copy-json').addEventListener('click', async () => { if (!latest) return; await navigator.clipboard.writeText(JSON.stringify(latest, null, 2)); $('#copy-json').textContent = '已复制'; setTimeout(() => $('#copy-json').textContent = '复制JSON', 1200); });
   chrome.tabs.query({active:true,currentWindow:true}).then(([tab]) => {

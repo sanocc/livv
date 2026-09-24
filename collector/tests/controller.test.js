@@ -6,6 +6,7 @@ class FakeInput {
   get value() { return this._value; }
   set value(value) { this._value = value; }
   focus() { this.focused = true; }
+  click() {}
   dispatchEvent(event) { this.events.push(event.type || 'event'); }
 }
 
@@ -73,6 +74,26 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   const rerenderedResult = await controller.setCityResult('长沙', rerendered);
   assert.strictEqual(rerenderedResult.ok, true);
   assert.deepStrictEqual(rerenderedResult.selected_candidate, {name: '长沙', subtitle: '中国-湖南', type: 'city'});
+
+  assert.deepStrictEqual(controller.parseISODate('2026-10-01'), {year: 2026, month: 10, day: 1, iso: '2026-10-01'});
+  assert.strictEqual(controller.parseISODate('2026-02-30'), null);
+  assert.strictEqual(controller.nightsBetween(controller.parseISODate('2026-10-01'), controller.parseISODate('2026-10-02')), 1);
+  assert.strictEqual((await controller.setDatesResult('2026-10-01', '2026-10-01', {})).error.code, 'INVALID_DATE_RANGE');
+
+  const dateInputs = {checkin: new FakeInput('10月1日(周四)'), checkout: new FakeInput('10月2日(周五)')};
+  const month = {textContent: '2026年10月', hidden: false, getAttribute: () => null};
+  const dateCell = (day, input, weekday) => ({textContent: String(day), hidden: false, getAttribute: (name) => name === 'aria-label' ? `2026年10月${day}日(${weekday}), Select the date` : null, click: () => { input.value = `10月${day}日(${weekday})`; }});
+  const checkinCell = dateCell(1, dateInputs.checkin, '周四');
+  const checkoutCell = dateCell(2, dateInputs.checkout, '周五');
+  const dateDoc = {
+    defaultView: {getComputedStyle: () => ({display: 'block', visibility: 'visible'})},
+    querySelector(selector) { if (selector === '#checkInInput') return dateInputs.checkin; if (selector === '#checkOutInput') return dateInputs.checkout; return null; },
+    querySelectorAll(selector) { if (selector === '*') return [month]; if (selector === '[aria-label], [title]') return [checkinCell, checkoutCell]; if (selector === 'button, [role="button"]') return []; return []; }
+  };
+  assert.strictEqual((await controller.setDatesResult('2026-10-01', '2026-10-02', dateDoc)).ok, true);
+  const disabledCell = {...checkinCell, disabled: true};
+  const disabledDoc = {...dateDoc, querySelectorAll(selector) { if (selector === '*') return [month]; if (selector === '[aria-label], [title]') return [disabledCell]; if (selector === 'button, [role="button"]') return []; return []; }};
+  assert.strictEqual((await controller.setDatesResult('2026-10-01', '2026-10-02', disabledDoc)).error.code, 'CHECKIN_NOT_SELECTABLE');
 
   console.log('controller tests passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

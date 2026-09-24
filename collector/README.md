@@ -1,4 +1,4 @@
-# 酒店助手 V1.0.18
+# 酒店助手 V1.0.19
 
 Phase 3A — City Control State Verification Fix
 
