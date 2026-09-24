@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const VERSION = '1.0.11';
+  const VERSION = '1.0.18';
   const READER_KEY = '__LIVV_HOTEL_ASSISTANT_READER__';
   const supported = location.hostname === 'hotels.ctrip.com';
 

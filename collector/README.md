@@ -1,6 +1,6 @@
-# 酒店助手 V1.0.11
+# 酒店助手 V1.0.18
 
-Phase 2K — Dynamic Semantic Model V1
+Phase 3A — City Control State Verification Fix
 
 Parser principle: Specific DOM Field Mapping First.
 
