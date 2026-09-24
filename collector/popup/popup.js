@@ -50,6 +50,18 @@
     node.textContent = `目标：${result.requested_keyword}　页面：${result.actual_keyword}${type}　状态：✓ 设置成功`;
   }
 
+  function showSearchResult(result, errorCode) {
+    const node = $('#search-result');
+    node.classList.remove('hidden', 'bad');
+    if (!result) { node.classList.add('bad'); node.textContent = '状态：✕ SEARCH_CONTROL_NO_RESPONSE'; return; }
+    if (errorCode || result.ok !== true) {
+      node.classList.add('bad');
+      node.textContent = `状态：✕ ${errorCode || result.error?.code || 'SEARCH_RUNTIME_ERROR'}${result.stage ? `　阶段：${result.stage}` : ''}`;
+      return;
+    }
+    node.textContent = `任务：${result.request.city} · ${result.request.keyword}　日期：${result.request.checkin} → ${result.request.checkout}　页面：${result.context.city} · ${result.context.keyword}　酒店：${result.hotel_count}家已加载　状态：✓ 搜索完成`;
+  }
+
   async function setCity() {
     const button = $('#set-city');
     const requested = $('#city-input').value.trim();
@@ -102,6 +114,85 @@
       showKeywordResult(result || null);
     } catch (error) { showKeywordResult(null, error?.message || 'KEYWORD_INPUT_FAILED'); }
     finally { button.disabled = false; button.textContent = '设置关键词'; }
+  }
+
+  async function injectReader(tabId) {
+    await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','content/ctrip-reader.js']});
+    return chrome.tabs.sendMessage(tabId, {type:'LIVV_READ_CURRENT_PAGE'});
+  }
+
+  function contextMatches(context, request) {
+    return context?.platform === 'ctrip'
+      && context.city === request.city
+      && context.checkin === request.checkin
+      && context.checkout === request.checkout
+      && context.keyword === request.keyword;
+  }
+
+  async function waitForSearchPage(tabId, request, timeoutMs = 15000) {
+    const started = Date.now();
+    let lastResult = null;
+    while (Date.now() - started < timeoutMs) {
+      try {
+        lastResult = await injectReader(tabId);
+        if (lastResult?.ok && contextMatches(lastResult.page_context, request) && lastResult.hotel_count > 0) return lastResult;
+      } catch (_) {}
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    if (lastResult?.ok && !contextMatches(lastResult.page_context, request)) {
+      const error = new Error('搜索完成后页面条件与任务不一致'); error.code = 'SEARCH_CONTEXT_MISMATCH'; throw error;
+    }
+    if (lastResult?.ok && lastResult.hotel_count === 0) {
+      const error = new Error('搜索完成后没有已加载酒店'); error.code = 'SEARCH_RESULT_EMPTY'; throw error;
+    }
+    const error = new Error('搜索结果未在限定时间内稳定'); error.code = 'SEARCH_RESULT_TIMEOUT'; throw error;
+  }
+
+  async function executeSearch() {
+    const button = $('#execute-search');
+    const request = {
+      city: $('#city-input').value.trim(),
+      checkin: $('#checkin-input').value.trim(),
+      checkout: $('#checkout-input').value.trim(),
+      keyword: $('#keyword-input').value.trim()
+    };
+    button.disabled = true; button.textContent = '执行中…';
+    $('#search-result').classList.add('hidden');
+    localStorage.setItem('LIVV_PENDING_SEARCH', JSON.stringify(request));
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url || !tab.url.startsWith('https://hotels.ctrip.com/')) { localStorage.removeItem('LIVV_PENDING_SEARCH'); showSearchResult(null, 'UNSUPPORTED_PAGE'); return; }
+      await chrome.scripting.executeScript({target:{tabId:tab.id}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','platforms/ctrip/controller.js']});
+      let controlResult = null;
+      try {
+        const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(task) => globalThis.LivvCtripController.executeSearchResult(task), args:[request]});
+        controlResult = result;
+      } catch (_) {
+        // A full navigation can invalidate the execution context after the real button click.
+      }
+      if (controlResult && controlResult.ok !== true) { localStorage.removeItem('LIVV_PENDING_SEARCH'); showSearchResult(controlResult); return; }
+      const result = await waitForSearchPage(tab.id, request);
+      const success = {ok:true, action:'execute_search', request, context:result.page_context, matched:true, hotel_count:result.hotel_count};
+      showSearchResult(success);
+      renderResult(result);
+    } catch (error) {
+      showSearchResult(null, error?.code || error?.message || 'SEARCH_RUNTIME_ERROR');
+    } finally { button.disabled = false; button.textContent = '执行搜索'; }
+  }
+
+  async function restorePendingSearch() {
+    let request;
+    try { request = JSON.parse(localStorage.getItem('LIVV_PENDING_SEARCH') || 'null'); } catch (_) { request = null; }
+    if (!request) return;
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) return;
+      const result = await waitForSearchPage(tab.id, request, 5000);
+      const success = {ok:true, action:'execute_search', request, context:result.page_context, matched:true, hotel_count:result.hotel_count};
+      localStorage.removeItem('LIVV_PENDING_SEARCH');
+      showSearchResult(success);
+      renderResult(result);
+    } catch (_) {}
   }
 
   function renderContext(result) {
@@ -177,10 +268,12 @@
   $('#set-city').addEventListener('click', () => { setCity().catch((error) => showCityResult(null, error?.message || 'CITY_INPUT_FAILED')); });
   $('#set-dates').addEventListener('click', () => { setDates().catch((error) => showDateResult(null, error?.message || 'DATE_CONTROL_FAILED')); });
   $('#set-keyword').addEventListener('click', () => { setKeyword().catch((error) => showKeywordResult(null, error?.message || 'KEYWORD_INPUT_FAILED')); });
+  $('#execute-search').addEventListener('click', () => { executeSearch().catch((error) => showSearchResult(null, error?.message || 'SEARCH_RUNTIME_ERROR')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });
   $('#copy-json').addEventListener('click', async () => { if (!latest) return; await navigator.clipboard.writeText(JSON.stringify(latest, null, 2)); $('#copy-json').textContent = '已复制'; setTimeout(() => $('#copy-json').textContent = '复制JSON', 1200); });
   chrome.tabs.query({active:true,currentWindow:true}).then(([tab]) => {
     if (tab?.url?.startsWith('https://hotels.ctrip.com/')) setPageState('携程酒店列表', '✓ 可读取', true);
     else setPageState('未识别', '✕ 当前不是支持的携程酒店列表页', false);
   }).catch((error) => showError(`当前页面检测失败：${error.message || '未知错误'}`));
+  restorePendingSearch();
 })();

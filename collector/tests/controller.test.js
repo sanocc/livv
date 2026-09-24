@@ -18,7 +18,10 @@ function keywordFixture({input = new FakeInput(''), suggestions = [], rerender =
       if (selector === 'input[placeholder="位置/品牌/酒店 (选填)"]' || selector === 'input[placeholder*="位置/品牌/酒店"]') return rerender ? rerender.current : input;
       return null;
     },
-    querySelectorAll() { return []; }
+    querySelectorAll(selector) {
+      if (selector.startsWith('input[')) return [rerender ? rerender.current : input];
+      return [];
+    }
   };
 }
 
@@ -130,6 +133,58 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   const disabledCell = {...checkinCell, disabled: true};
   const disabledDoc = {...dateDoc, querySelectorAll(selector) { if (selector === '*') return [month]; if (selector === '[aria-label], [title]') return [disabledCell]; if (selector === 'button, [role="button"]') return []; return []; }};
   assert.strictEqual((await controller.setDatesResult('2026-10-01', '2026-10-02', disabledDoc)).error.code, 'CHECKIN_NOT_SELECTABLE');
+
+  const searchCity = new FakeInput('南京');
+  const searchCheckin = new FakeInput('10月1日(周四)');
+  const searchCheckout = new FakeInput('10月2日(周五)');
+  const searchKeyword = new FakeInput('玄武湖景区');
+  const searchButton = {textContent: '搜索', disabled: false, click() { this.clicked = true; }};
+  const searchScope = {
+    parentElement: null,
+    querySelector(selector) {
+      if (selector === '#destinationInput') return searchCity;
+      if (selector === '#checkInInput') return searchCheckin;
+      if (selector === '[placeholder*="位置/品牌/酒店"]') return searchKeyword;
+      return null;
+    }
+  };
+  searchButton.parentElement = searchScope;
+  const searchDoc = {
+    defaultView: {getComputedStyle: () => ({display: 'block', visibility: 'visible'})},
+    querySelector(selector) {
+      if (selector === '#destinationInput') return searchCity;
+      if (selector === '#checkInInput') return searchCheckin;
+      if (selector === '#checkOutInput') return searchCheckout;
+      if (selector === 'input[placeholder="位置/品牌/酒店 (选填)"]' || selector === 'input[placeholder*="位置/品牌/酒店"]') return searchKeyword;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === 'button, [role="button"]') return [searchButton];
+      if (selector.startsWith('input[')) return [searchKeyword];
+      return [];
+    }
+  };
+  assert.deepStrictEqual(controller.readSearchContext({checkin: '2026-10-01', checkout: '2026-10-02'}, searchDoc), {city: '南京', checkin: '2026-10-01', checkout: '2026-10-02', keyword: '玄武湖景区'});
+  assert.strictEqual(controller.verifySearchPreflight({city: '南京', checkin: '2026-10-01', checkout: '2026-10-02', keyword: '玄武湖景区'}, searchDoc).matched, true);
+  assert.throws(() => controller.verifySearchPreflight({city: '武汉', checkin: '2026-10-01', checkout: '2026-10-02', keyword: '玄武湖景区'}, searchDoc), (error) => error.code === 'SEARCH_PREFLIGHT_MISMATCH');
+  assert.strictEqual(controller.findSearchButton(searchDoc), searchButton);
+  assert.strictEqual(controller.findSearchButton({querySelectorAll: () => [], body: {}}), null);
+
+  let loaded = 0;
+  const resultButton = {textContent: '搜索', disabled: false, parentElement: searchScope};
+  const resultDoc = {
+    body: {},
+    defaultView: {getComputedStyle: () => ({display: 'block', visibility: 'visible'})},
+    querySelectorAll(selector) {
+      if (selector === 'button, [role="button"]') return [resultButton];
+      if (selector === '[data-offline-hotelid], [data-hotelid], [data-hotel-id]') return loaded ? [{}] : [];
+      return [];
+    }
+  };
+  loaded = 1;
+  assert.strictEqual((await controller.waitForSearchResult(resultDoc, '', 1000, 0)).hotel_count, 1);
+  const emptyResultDoc = {...resultDoc, querySelectorAll(selector) { if (selector === 'button, [role="button"]') return [resultButton]; if (selector === '[data-offline-hotelid], [data-hotelid], [data-hotel-id]') return []; return []; }};
+  await assert.rejects(() => controller.waitForSearchResult(emptyResultDoc, '', 350, 0), (error) => error.code === 'SEARCH_RESULT_TIMEOUT');
 
   console.log('controller tests passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

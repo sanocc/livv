@@ -1,6 +1,6 @@
-# 酒店助手 V1.0.20
+# 酒店助手 V1.0.25
 
-Phase 3C — Ctrip Keyword / POI Control
+Phase 3D — Ctrip Search Control
 
 Parser principle: Specific DOM Field Mapping First.
 
@@ -15,7 +15,7 @@ Parser principle: Specific DOM Field Mapping First.
 5. 手工打开携程酒店搜索结果页
 6. 打开“酒店助手”，点击“读取当前页面”
 
-读取时 Popup 会按需注入 parser 与 reader，因此扩展重新加载后不需要刷新已经打开的携程页面；城市、日期和位置/品牌/酒店关键词控制仅在用户点击对应按钮后操作携程真实候选，不点击搜索。
+读取时 Popup 会按需注入 parser 与 reader，因此扩展重新加载后不需要刷新已经打开的携程页面；城市、日期和位置/品牌/酒店关键词控制仅在用户点击对应按钮后操作携程真实候选；执行搜索时才点击携程真实搜索按钮，不自动滚动或翻页。
 
 ## 边界
 

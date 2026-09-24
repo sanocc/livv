@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.20';
+  const VERSION = '1.0.25';
 
   class CityControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'CityControlError'; this.code = code; this.stage = stage; }
@@ -13,6 +13,10 @@
 
   class KeywordControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'KeywordControlError'; this.code = code; this.stage = stage; }
+  }
+
+  class SearchControlError extends Error {
+    constructor(code, message, stage) { super(message || code); this.name = 'SearchControlError'; this.code = code; this.stage = stage; }
   }
 
   function normalize(value) { return value == null ? '' : String(value).replace(/\s+/g, ' ').trim(); }
@@ -165,9 +169,10 @@
 
   function findKeywordInput(doc = root.document) {
     if (!doc?.querySelector) return null;
-    return doc.querySelector('input[placeholder="位置/品牌/酒店 (选填)"]')
-      || doc.querySelector('input[placeholder*="位置/品牌/酒店"]')
-      || doc.querySelector('input[aria-label*="位置/品牌/酒店"]');
+    const selectors = ['input[placeholder="位置/品牌/酒店 (选填)"]', 'input[placeholder*="位置/品牌/酒店"]', 'input[aria-label*="位置/品牌/酒店"]'];
+    const nodes = [];
+    selectors.forEach((selector) => (doc.querySelectorAll?.(selector) || []).forEach((node) => { if (!nodes.includes(node)) nodes.push(node); }));
+    return nodes.find((node) => isVisible(node, doc)) || nodes[0] || null;
   }
 
   function keywordScopes(input) {
@@ -299,6 +304,114 @@
     } catch (error) {
       const failure = { ok: false, action: 'set_keyword', stage: error?.stage || 'START', error: { code: error?.code || 'KEYWORD_INPUT_FAILED', message: error?.message || '关键词设置失败' } };
       console.log(`[酒店助手 v${VERSION}] Keyword control result`, failure);
+      return failure;
+    }
+  }
+
+  function readSearchContext(request, doc = root.document) {
+    const checkin = parseISODate(request.checkin);
+    const checkout = parseISODate(request.checkout);
+    if (!checkin || !checkout) return { city: readCurrentCity(doc), checkin: null, checkout: null, keyword: readCurrentKeyword(doc) };
+    const dates = readCurrentDates(doc, checkin, checkout);
+    return { city: readCurrentCity(doc), checkin: dates.actual_checkin, checkout: dates.actual_checkout, keyword: readCurrentKeyword(doc) };
+  }
+
+  function normalizeSearchRequest(request) {
+    return {
+      city: normalize(request?.city),
+      checkin: normalize(request?.checkin),
+      checkout: normalize(request?.checkout),
+      keyword: normalize(request?.keyword)
+    };
+  }
+
+  function verifySearchPreflight(request, doc = root.document) {
+    const wanted = normalizeSearchRequest(request);
+    const context = readSearchContext(wanted, doc);
+    const matched = context.city === wanted.city && context.checkin === wanted.checkin
+      && context.checkout === wanted.checkout && context.keyword === wanted.keyword;
+    if (!matched) throw new SearchControlError('SEARCH_PREFLIGHT_MISMATCH', '搜索前页面条件与目标不一致', 'PREFLIGHT_VERIFIED');
+    const result = { request: wanted, context, matched: true };
+    console.log(`[酒店助手 v${VERSION}] Search preflight verified`, result);
+    return result;
+  }
+
+  function findSearchButton(doc = root.document) {
+    const controls = Array.from(doc?.querySelectorAll?.('button, [role="button"]') || []);
+    return controls.find((node) => {
+      if (!visible(node, doc) || normalize(node.textContent) !== '搜索') return false;
+      for (let current = node; current && current !== doc.body; current = current.parentElement) {
+        if (current.querySelector?.('#destinationInput') && current.querySelector?.('#checkInInput') && current.querySelector?.('[placeholder*="位置/品牌/酒店"]')) return true;
+      }
+      return false;
+    }) || controls.find((node) => visible(node, doc) && normalize(node.textContent) === '搜索') || null;
+  }
+
+  function searchLoading(doc = root.document) {
+    return Array.from(doc?.querySelectorAll?.('button, [role="button"], [aria-busy="true"], [class*="loading"], [class*="skeleton"]') || [])
+      .some((node) => visible(node, doc) && (node.disabled || node.getAttribute?.('aria-busy') === 'true' || /loading|加载中|搜索中/i.test(normalize(node.textContent))));
+  }
+
+  function loadedHotelCount(doc = root.document) {
+    try {
+      const cards = root.LivvCtripParser?.findHotelCards?.(doc);
+      if (Array.isArray(cards)) return cards.length;
+    } catch (_) {}
+    return doc?.querySelectorAll?.('[data-offline-hotelid], [data-hotelid], [data-hotel-id]')?.length || 0;
+  }
+
+  function waitForSearchResult(doc, beforeUrl, timeoutMs = 15000, initialCount = loadedHotelCount(doc)) {
+    const started = Date.now();
+    let loadingObserved = false;
+    let mutationObserved = false;
+    const observer = root.MutationObserver && doc?.body ? new root.MutationObserver(() => { mutationObserved = true; }) : null;
+    observer?.observe(doc.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    return new Promise((resolve, reject) => {
+      const finish = (error, result) => { observer?.disconnect(); error ? reject(error) : resolve(result); };
+      const check = () => {
+        loadingObserved = loadingObserved || searchLoading(doc);
+        const count = loadedHotelCount(doc);
+        const urlChanged = String(root.location?.href || '') !== beforeUrl;
+        const ready = !searchLoading(doc) && count > 0;
+        const changed = urlChanged || loadingObserved || mutationObserved || count !== initialCount;
+        if (Date.now() - started >= 300 && ready && changed) return finish(null, { url: String(root.location?.href || ''), hotel_count: count });
+        if (Date.now() - started >= timeoutMs) return finish(new SearchControlError('SEARCH_RESULT_TIMEOUT', '搜索结果未在限定时间内稳定', 'RESULT_LOADING'));
+        root.setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+
+  async function executeSearch(request, doc = root.document) {
+    const wanted = normalizeSearchRequest(request);
+    console.log(`[酒店助手 v${VERSION}] Search control start`, wanted);
+    let current = readSearchContext(wanted, doc);
+    if (current.city !== wanted.city) await setCity(wanted.city, doc);
+    current = readSearchContext(wanted, doc);
+    if (current.checkin !== wanted.checkin || current.checkout !== wanted.checkout) await setDates(wanted.checkin, wanted.checkout, doc);
+    current = readSearchContext(wanted, doc);
+    if (current.keyword !== wanted.keyword) await setKeyword(wanted.keyword, doc);
+    const preflight = verifySearchPreflight(wanted, doc);
+    const button = findSearchButton(doc);
+    if (!button) throw new SearchControlError('SEARCH_BUTTON_NOT_FOUND', '未找到携程搜索按钮', 'PREFLIGHT_VERIFIED');
+    const beforeUrl = String(root.location?.href || '');
+    const beforeCount = loadedHotelCount(doc);
+    try { button.click(); } catch (error) { throw new SearchControlError('SEARCH_CLICK_FAILED', error.message, 'SEARCH_BUTTON_FOUND'); }
+    console.log(`[酒店助手 v${VERSION}] Search clicked`, { url: beforeUrl });
+    const result = await waitForSearchResult(doc, beforeUrl, 15000, beforeCount);
+    console.log(`[酒店助手 v${VERSION}] Search result ready`, result);
+    return { request: wanted, preflight, result, matched: true };
+  }
+
+  async function executeSearchResult(request, doc = root.document) {
+    try {
+      const result = await executeSearch(request, doc);
+      const success = { ok: true, action: 'execute_search', request: result.request, context: result.preflight.context, matched: true, hotel_count: result.result.hotel_count, url: result.result.url };
+      console.log(`[酒店助手 v${VERSION}] Search control result`, success);
+      return success;
+    } catch (error) {
+      const failure = { ok: false, action: 'execute_search', stage: error?.stage || 'START', error: { code: error?.code || 'SEARCH_RUNTIME_ERROR', message: error?.message || '搜索执行失败' } };
+      console.log(`[酒店助手 v${VERSION}] Search control result`, failure);
       return failure;
     }
   }
@@ -465,7 +578,7 @@
     }
   }
 
-  const api = { findCityInput, findCitySuggestions, waitForCitySuggestions, readCurrentCity, setCity, setCityResult, CityControlError, findKeywordInput, findKeywordSuggestions, waitForKeywordSuggestions, readCurrentKeyword, setKeyword, setKeywordResult, KeywordControlError, parseISODate, nightsBetween, findDateTrigger, readVisibleMonths, findDateNodes, readCurrentDates, setDates, setDatesResult, DateControlError };
+  const api = { findCityInput, findCitySuggestions, waitForCitySuggestions, readCurrentCity, setCity, setCityResult, CityControlError, findKeywordInput, findKeywordSuggestions, waitForKeywordSuggestions, readCurrentKeyword, setKeyword, setKeywordResult, KeywordControlError, parseISODate, nightsBetween, findDateTrigger, readVisibleMonths, findDateNodes, readCurrentDates, setDates, setDatesResult, DateControlError, readSearchContext, verifySearchPreflight, findSearchButton, waitForSearchResult, executeSearch, executeSearchResult, SearchControlError };
   root.LivvCtripController = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);
