@@ -62,6 +62,43 @@
     node.textContent = `任务：${result.request.city} · ${result.request.keyword}　日期：${result.request.checkin} → ${result.request.checkout}　页面：${result.context.city} · ${result.context.keyword}　酒店：${result.hotel_count}家已加载　状态：✓ 搜索完成`;
   }
 
+  function showObserverResult(snapshot, errorCode) {
+    const node = $('#observer-result');
+    node.classList.remove('hidden', 'bad');
+    if (!snapshot) { node.classList.add('bad'); node.textContent = `状态：✕ ${errorCode || 'RESULT_OBSERVER_NO_RESPONSE'}`; return; }
+    node.textContent = `页面总数：${value(snapshot.page_reported_total)}　当前DOM：${snapshot.current_dom_hotel_count}　累计发现：${snapshot.discovered_unique_hotels}\n新增：${snapshot.added_ids.length}　删除：${snapshot.removed_ids.length}　滚动位置：${snapshot.scroll_y}`;
+  }
+
+  async function injectObserver(tabId) {
+    await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/result-observer.js']});
+  }
+
+  async function recordSnapshot() {
+    const button = $('#record-snapshot');
+    button.disabled = true; button.textContent = '记录中…';
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) { showObserverResult(null, 'UNSUPPORTED_PAGE'); return; }
+      await injectObserver(tab.id);
+      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripResultObserver.observeResultState()});
+      showObserverResult(result);
+    } catch (error) { showObserverResult(null, error?.message || 'RESULT_OBSERVER_FAILED'); }
+    finally { button.disabled = false; button.textContent = '记录快照'; }
+  }
+
+  async function resetObserver() {
+    const button = $('#reset-observer');
+    button.disabled = true;
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) { showObserverResult(null, 'UNSUPPORTED_PAGE'); return; }
+      await injectObserver(tab.id);
+      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripResultObserver.reset()});
+      if (result?.ok) showObserverResult(null, '观察已重置');
+    } catch (error) { showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED'); }
+    finally { button.disabled = false; }
+  }
+
   async function setCity() {
     const button = $('#set-city');
     const requested = $('#city-input').value.trim();
@@ -269,6 +306,8 @@
   $('#set-dates').addEventListener('click', () => { setDates().catch((error) => showDateResult(null, error?.message || 'DATE_CONTROL_FAILED')); });
   $('#set-keyword').addEventListener('click', () => { setKeyword().catch((error) => showKeywordResult(null, error?.message || 'KEYWORD_INPUT_FAILED')); });
   $('#execute-search').addEventListener('click', () => { executeSearch().catch((error) => showSearchResult(null, error?.message || 'SEARCH_RUNTIME_ERROR')); });
+  $('#record-snapshot').addEventListener('click', () => { recordSnapshot().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_FAILED')); });
+  $('#reset-observer').addEventListener('click', () => { resetObserver().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });
   $('#copy-json').addEventListener('click', async () => { if (!latest) return; await navigator.clipboard.writeText(JSON.stringify(latest, null, 2)); $('#copy-json').textContent = '已复制'; setTimeout(() => $('#copy-json').textContent = '复制JSON', 1200); });
   chrome.tabs.query({active:true,currentWindow:true}).then(([tab]) => {

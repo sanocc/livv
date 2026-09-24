@@ -1,4 +1,4 @@
-# 酒店助手 V1.0.25
+# 酒店助手 V1.0.26
 
 Phase 3D — Ctrip Search Control
 

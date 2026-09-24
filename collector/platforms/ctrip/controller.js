@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.25';
+  const VERSION = '1.0.26';
 
   class CityControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'CityControlError'; this.code = code; this.stage = stage; }

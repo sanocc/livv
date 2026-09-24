@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>酒店助手</title>
   <link rel="stylesheet" href="popup.css" />
-  <style>.control-card{background:#fff;border:1px solid #e1e8f1;border-radius:11px;padding:12px 15px;margin-top:12px;box-shadow:0 5px 18px #14345d0a}.control-label{display:block;color:#73839a;font-size:11px;margin:2px 0 5px}.control-row{display:flex;gap:8px}.control-row input{min-width:0;flex:1;border:1px solid #e1e8f1;border-radius:7px;padding:8px 10px;color:#14233a;font:inherit}.control-result{margin-top:8px;padding:8px 10px;border-radius:7px;background:#f2faf6;color:#169465;font-size:12px}.control-result.bad{background:#fff2f2;color:#d95252}</style>
+  <style>.control-card{background:#fff;border:1px solid #e1e8f1;border-radius:11px;padding:12px 15px;margin-top:12px;box-shadow:0 5px 18px #14345d0a}.control-label{display:block;color:#73839a;font-size:11px;margin:2px 0 5px}.control-row{display:flex;gap:8px}.control-row input{min-width:0;flex:1;border:1px solid #e1e8f1;border-radius:7px;padding:8px 10px;color:#14233a;font:inherit}.control-result{margin-top:8px;padding:8px 10px;border-radius:7px;background:#f2faf6;color:#169465;font-size:12px}.control-result.bad{background:#fff2f2;color:#d95252}.observer-actions{display:flex;gap:8px}.observer-result{white-space:pre-line;margin-top:8px;padding:8px 10px;border-radius:7px;background:#f2f6fb;color:#52647b;font-size:12px}.observer-result.bad{background:#fff2f2;color:#d95252}</style>
 </head>
 <body>
   <main class="popup">
-    <header class="topbar"><div><strong>酒店助手</strong><span>LIVV · 携程页面读取器</span></div><span class="version">v1.0.25</span></header>
+    <header class="topbar"><div><strong>酒店助手</strong><span>LIVV · 携程页面读取器</span></div><span class="version">v1.0.26</span></header>
     <section class="state-card"><div class="state-row"><span>当前页面</span><b id="page-name">检测中…</b></div><div class="state-row"><span>页面状态</span><b id="page-status" class="muted">正在检查</b></div></section>
     <button id="read-page" class="primary">读取当前页面</button>
     <section class="control-card"><div class="section-head"><h2>页面控制测试</h2></div><label class="control-label" for="city-input">城市</label><div class="control-row"><input id="city-input" value="咸宁" autocomplete="off" /><button id="set-city" class="secondary">设置城市</button></div><div id="city-result" class="control-result hidden"></div><label class="control-label" for="checkin-input">日期</label><div class="control-row"><input id="checkin-input" value="2026-10-01" inputmode="numeric" /><input id="checkout-input" value="2026-10-02" inputmode="numeric" /><button id="set-dates" class="secondary">设置日期</button></div><div id="date-result" class="control-result hidden"></div><label class="control-label" for="keyword-input">位置 / 品牌 / 酒店</label><div class="control-row"><input id="keyword-input" value="玄武湖景区" autocomplete="off" /><button id="set-keyword" class="secondary">设置关键词</button></div><div id="keyword-result" class="control-result hidden"></div></section>
     <button id="execute-search" class="primary">执行搜索</button>
     <section id="search-result" class="control-result hidden"></section>
+    <section class="control-card"><div class="section-head"><h2>结果加载观察</h2></div><div class="observer-actions"><button id="record-snapshot" class="secondary">记录快照</button><button id="reset-observer" class="secondary">重置观察</button></div><div id="observer-result" class="observer-result hidden"></div></section>
     <section id="error" class="error hidden"></section>
     <section id="result" class="hidden">
       <div class="section-head"><h2>页面信息</h2><span id="hotel-count">0家</span></div>
