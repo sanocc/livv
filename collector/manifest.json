@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "酒店助手",
+  "version": "1.0.11",
+  "description": "LIVV 酒店助手，读取当前酒店平台页面中的已加载酒店市场信息。",
+  "action": {
+    "default_title": "酒店助手",
+    "default_popup": "popup/popup.html"
+  },
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://hotels.ctrip.com/*"]
+}

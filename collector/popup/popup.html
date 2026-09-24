@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>酒店助手</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="popup">
+    <header class="topbar"><div><strong>酒店助手</strong><span>LIVV · 携程页面读取器</span></div><span class="version">v1.0.11</span></header>
+    <section class="state-card"><div class="state-row"><span>当前页面</span><b id="page-name">检测中…</b></div><div class="state-row"><span>页面状态</span><b id="page-status" class="muted">正在检查</b></div></section>
+    <button id="read-page" class="primary">读取当前页面</button>
+    <section id="error" class="error hidden"></section>
+    <section id="result" class="hidden">
+      <div class="section-head"><h2>页面信息</h2><span id="hotel-count">0家</span></div>
+      <div id="context" class="context-card"></div>
+      <div class="section-head coverage-head"><h2>字段覆盖率</h2></div>
+      <div id="coverage" class="coverage"></div>
+      <div class="section-head"><h2>检测酒店</h2><span id="result-count"></span></div>
+      <div id="hotels" class="hotels"></div>
+      <div class="debug-actions"><button id="copy-json" class="secondary">复制JSON</button><button id="toggle-json" class="secondary">展开JSON</button></div>
+      <pre id="json" class="json hidden"></pre>
+    </section>
+    <p class="note">只读取当前携程页面已经加载到 DOM 中的内容，不会自动操作页面。</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
