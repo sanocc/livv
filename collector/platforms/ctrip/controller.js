@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.19';
+  const VERSION = '1.0.20';
 
   class CityControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'CityControlError'; this.code = code; this.stage = stage; }
@@ -9,6 +9,10 @@
 
   class DateControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'DateControlError'; this.code = code; this.stage = stage; }
+  }
+
+  class KeywordControlError extends Error {
+    constructor(code, message, stage) { super(message || code); this.name = 'KeywordControlError'; this.code = code; this.stage = stage; }
   }
 
   function normalize(value) { return value == null ? '' : String(value).replace(/\s+/g, ' ').trim(); }
@@ -155,6 +159,146 @@
         error: { code: error?.code || 'CITY_INPUT_FAILED', message: error?.message || '城市设置失败' }
       };
       console.log(`[酒店助手 v${VERSION}] City control result`, failure);
+      return failure;
+    }
+  }
+
+  function findKeywordInput(doc = root.document) {
+    if (!doc?.querySelector) return null;
+    return doc.querySelector('input[placeholder="位置/品牌/酒店 (选填)"]')
+      || doc.querySelector('input[placeholder*="位置/品牌/酒店"]')
+      || doc.querySelector('input[aria-label*="位置/品牌/酒店"]');
+  }
+
+  function keywordScopes(input) {
+    const scopes = [];
+    for (let node = input?.parentElement, depth = 0; node && depth < 7; node = node.parentElement, depth += 1) scopes.push(node);
+    return scopes;
+  }
+
+  function keywordCandidateRoot(node, input) {
+    for (let current = node, depth = 0; current && depth < 6; current = current.parentElement, depth += 1) {
+      if (current === input || current.contains?.(input)) continue;
+      if (current.getAttribute?.('role') === 'option' || current.getAttribute?.('tabindex') === '-1' || current.hasAttribute?.('data-value')) return current;
+    }
+    return null;
+  }
+
+  function findKeywordSuggestions(doc, requested, input) {
+    const seen = new Set();
+    const candidates = [];
+    keywordScopes(input).forEach((scope) => {
+      Array.from(scope.querySelectorAll?.('*') || []).forEach((node) => {
+        if (seen.has(node) || node === input || node.contains?.(input) || !isVisible(node, doc)) return;
+        if (normalize(node.textContent) !== requested) return;
+        const candidate = keywordCandidateRoot(node, input);
+        if (candidate && !seen.has(candidate) && isVisible(candidate, doc)) { seen.add(candidate); candidates.push(candidate); }
+      });
+    });
+    return candidates;
+  }
+
+  function hasSimilarKeywordSuggestion(doc, requested, input) {
+    return keywordScopes(input).some((scope) => Array.from(scope.querySelectorAll?.('*') || []).some((node) => {
+      if (node === input || node.contains?.(input) || !isVisible(node, doc)) return false;
+      const text = normalize(node.textContent);
+      const isCandidateLike = node.getAttribute?.('role') === 'option'
+        || node.getAttribute?.('tabindex') === '-1'
+        || node.hasAttribute?.('data-value');
+      return isCandidateLike && text && text !== requested;
+    }));
+  }
+
+  function keywordType(node, subtitle) {
+    const explicit = normalize(node?.getAttribute?.('data-type') || node?.getAttribute?.('aria-label-type') || node?.getAttribute?.('data-category'));
+    if (explicit) return explicit;
+    const role = normalize(node?.getAttribute?.('role'));
+    if (role && role !== 'option') return role;
+    return 'unknown';
+  }
+
+  function describeKeywordCandidate(node, requested) {
+    const text = normalize(node?.textContent);
+    const subtitle = text.replace(requested, '').trim();
+    return { name: requested, subtitle, type: keywordType(node, subtitle) };
+  }
+
+  function waitForKeywordSuggestions(doc, requested, input, timeoutMs = 5000) {
+    const started = Date.now();
+    let similarFound = false;
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const candidates = findKeywordSuggestions(doc, requested, input);
+        if (candidates.length) return resolve(candidates);
+        similarFound = similarFound || hasSimilarKeywordSuggestion(doc, requested, input);
+        if (Date.now() - started >= timeoutMs) return reject(new KeywordControlError(similarFound ? 'KEYWORD_SUGGESTION_NOT_FOUND' : 'KEYWORD_SUGGESTION_TIMEOUT', '未找到精确关键词候选', 'SUGGESTIONS_VISIBLE'));
+        root.setTimeout(check, 50);
+      };
+      check();
+    });
+  }
+
+  function updateKeywordInput(input, value) {
+    const prototype = Object.getPrototypeOf(input);
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+    if (!descriptor?.set) throw new KeywordControlError('KEYWORD_INPUT_FAILED', '关键词文字未写入输入控件', 'TEXT_ENTERED');
+    descriptor.set.call(input, value);
+    const InputEventCtor = root.InputEvent || root.Event || function SyntheticEvent(type) { this.type = type; };
+    input.dispatchEvent(new InputEventCtor('input', { bubbles: true, inputType: 'insertText', data: value }));
+    const EventCtor = root.Event || function SyntheticEvent(type) { this.type = type; };
+    input.dispatchEvent(new EventCtor('change', { bubbles: true }));
+  }
+
+  function readCurrentKeyword(doc = root.document) { return normalize(findKeywordInput(doc)?.value); }
+
+  function waitForKeywordValue(doc, expected, timeoutMs = 3000) {
+    const started = Date.now();
+    return new Promise((resolve) => {
+      const check = () => {
+        const actual = readCurrentKeyword(doc);
+        if (actual === expected || Date.now() - started >= timeoutMs) return resolve(actual);
+        root.setTimeout(check, 50);
+      };
+      check();
+    });
+  }
+
+  async function setKeyword(requested, doc = root.document) {
+    const keyword = normalize(requested);
+    console.log(`[酒店助手 v${VERSION}] Keyword control start`, { requested_keyword: keyword });
+    if (!keyword) throw new KeywordControlError('KEYWORD_INPUT_FAILED', '关键词不能为空', 'START');
+    const input = findKeywordInput(doc);
+    if (!input) throw new KeywordControlError('KEYWORD_INPUT_NOT_FOUND', '未找到关键词输入控件', 'START');
+    try {
+      input.focus();
+      updateKeywordInput(input, keyword);
+      if (readCurrentKeyword(doc) !== keyword) throw new KeywordControlError('KEYWORD_INPUT_FAILED', '关键词文字未写入输入控件', 'TEXT_ENTERED');
+    } catch (error) {
+      if (error instanceof KeywordControlError) throw error;
+      throw new KeywordControlError('KEYWORD_INPUT_FAILED', error.message, 'TEXT_ENTERED');
+    }
+    let candidates;
+    try { candidates = await waitForKeywordSuggestions(doc, keyword, input); }
+    catch (error) { throw error; }
+    const selectedCandidate = describeKeywordCandidate(candidates[0], keyword);
+    try { candidates[0].click(); } catch (error) { throw new KeywordControlError('KEYWORD_SELECTION_FAILED', error.message, 'CANDIDATE_FOUND'); }
+    console.log(`[酒店助手 v${VERSION}] Keyword candidate selected`, selectedCandidate);
+    const actual = await waitForKeywordValue(doc, keyword);
+    const result = { requested_keyword: keyword, actual_keyword: actual, matched: actual === keyword, selected_candidate: selectedCandidate };
+    if (!result.matched) throw new KeywordControlError('KEYWORD_SELECTION_MISMATCH', '候选选择后关键词不一致', 'CANDIDATE_SELECTED');
+    console.log(`[酒店助手 v${VERSION}] Keyword verified`, result);
+    return result;
+  }
+
+  async function setKeywordResult(requested, doc = root.document) {
+    try {
+      const result = await setKeyword(requested, doc);
+      const success = { ok: true, action: 'set_keyword', ...result };
+      console.log(`[酒店助手 v${VERSION}] Keyword control result`, success);
+      return success;
+    } catch (error) {
+      const failure = { ok: false, action: 'set_keyword', stage: error?.stage || 'START', error: { code: error?.code || 'KEYWORD_INPUT_FAILED', message: error?.message || '关键词设置失败' } };
+      console.log(`[酒店助手 v${VERSION}] Keyword control result`, failure);
       return failure;
     }
   }
@@ -321,7 +465,7 @@
     }
   }
 
-  const api = { findCityInput, findCitySuggestions, waitForCitySuggestions, readCurrentCity, setCity, setCityResult, CityControlError, parseISODate, nightsBetween, findDateTrigger, readVisibleMonths, findDateNodes, readCurrentDates, setDates, setDatesResult, DateControlError };
+  const api = { findCityInput, findCitySuggestions, waitForCitySuggestions, readCurrentCity, setCity, setCityResult, CityControlError, findKeywordInput, findKeywordSuggestions, waitForKeywordSuggestions, readCurrentKeyword, setKeyword, setKeywordResult, KeywordControlError, parseISODate, nightsBetween, findDateTrigger, readVisibleMonths, findDateNodes, readCurrentDates, setDates, setDatesResult, DateControlError };
   root.LivvCtripController = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : window);

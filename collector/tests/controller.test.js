@@ -10,6 +10,18 @@ class FakeInput {
   dispatchEvent(event) { this.events.push(event.type || 'event'); }
 }
 
+function keywordFixture({input = new FakeInput(''), suggestions = [], rerender = null} = {}) {
+  input.parentElement = {querySelectorAll: () => suggestions};
+  return {
+    defaultView: { getComputedStyle: () => ({display: 'block', visibility: 'visible'}) },
+    querySelector(selector) {
+      if (selector === 'input[placeholder="位置/品牌/酒店 (选填)"]' || selector === 'input[placeholder*="位置/品牌/酒店"]') return rerender ? rerender.current : input;
+      return null;
+    },
+    querySelectorAll() { return []; }
+  };
+}
+
 function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   return {
     defaultView: { getComputedStyle: () => ({display: 'block', visibility: 'visible'}) },
@@ -74,6 +86,30 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   const rerenderedResult = await controller.setCityResult('长沙', rerendered);
   assert.strictEqual(rerenderedResult.ok, true);
   assert.deepStrictEqual(rerenderedResult.selected_candidate, {name: '长沙', subtitle: '中国-湖南', type: 'city'});
+
+  const keywordInput = new FakeInput('');
+  const keywordCandidate = {textContent: '玄武湖风景区', getAttribute: (name) => name === 'tabindex' ? '-1' : null, contains: () => false, click: () => { keywordInput.value = '玄武湖风景区'; }};
+  const keywordDoc = keywordFixture({input: keywordInput, suggestions: [keywordCandidate]});
+  assert.strictEqual(controller.findKeywordInput(keywordDoc), keywordInput);
+  assert.deepStrictEqual(controller.findKeywordSuggestions(keywordDoc, '玄武湖风景区', keywordInput), [keywordCandidate]);
+  const keywordResult = await controller.setKeywordResult('玄武湖风景区', keywordDoc);
+  assert.strictEqual(keywordResult.ok, true);
+  assert.deepStrictEqual(keywordResult.selected_candidate, {name: '玄武湖风景区', subtitle: '', type: 'unknown'});
+
+  const similarKeyword = keywordFixture({input: new FakeInput(''), suggestions: [{textContent: '玄武湖景区', getAttribute: (name) => name === 'tabindex' ? '-1' : null, contains: () => false}]});
+  assert.deepStrictEqual(controller.findKeywordSuggestions(similarKeyword, '玄武湖风景区', similarKeyword.querySelector('input[placeholder="位置/品牌/酒店 (选填)"]')), []);
+  assert.strictEqual((await controller.setKeywordResult('玄武湖风景区', similarKeyword)).error.code, 'KEYWORD_SUGGESTION_NOT_FOUND');
+  assert.strictEqual((await controller.setKeywordResult('玄武湖风景区', keywordFixture({input: new FakeInput('')}))).error.code, 'KEYWORD_SUGGESTION_TIMEOUT');
+  assert.strictEqual((await controller.setKeywordResult('玄武湖风景区', {querySelector: () => null})).error.code, 'KEYWORD_INPUT_NOT_FOUND');
+
+  let rerenderKeywordInput = new FakeInput('');
+  const keywordRerender = {current: rerenderKeywordInput};
+  const rerenderKeywordCandidate = {textContent: '武汉站', getAttribute: (name) => name === 'tabindex' ? '-1' : null, contains: () => false, click: () => { rerenderKeywordInput = new FakeInput('武汉站'); keywordRerender.current = rerenderKeywordInput; }};
+  const rerenderKeywordDoc = keywordFixture({input: rerenderKeywordInput, suggestions: [rerenderKeywordCandidate], rerender: keywordRerender});
+  assert.strictEqual((await controller.setKeywordResult('武汉站', rerenderKeywordDoc)).ok, true);
+  const mismatchKeywordInput = new FakeInput('');
+  const mismatchKeyword = keywordFixture({input: mismatchKeywordInput, suggestions: [{textContent: '武汉站', getAttribute: (name) => name === 'tabindex' ? '-1' : null, contains: () => false, click: () => { mismatchKeywordInput.value = '武汉'; }}]});
+  assert.strictEqual((await controller.setKeywordResult('武汉站', mismatchKeyword)).error.code, 'KEYWORD_SELECTION_MISMATCH');
 
   assert.deepStrictEqual(controller.parseISODate('2026-10-01'), {year: 2026, month: 10, day: 1, iso: '2026-10-01'});
   assert.strictEqual(controller.parseISODate('2026-02-30'), null);
