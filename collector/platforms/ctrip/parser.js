@@ -156,14 +156,29 @@
       const node = inputs.find((input) => patterns.some((pattern) => pattern.test(`${input.name || ''} ${input.id || ''} ${input.placeholder || ''} ${input.getAttribute('aria-label') || ''}`)));
       return normalizeText(node && node.value);
     };
+    const readSpecificInput = (selectors) => {
+      for (const selector of selectors) {
+        const node = document?.querySelector?.(selector);
+        if (node) return { found: true, value: normalizeText(node.value) };
+      }
+      return { found: false, value: null };
+    };
     const readParam = (names) => names.map((name) => query.get(name)).find(Boolean) || null;
     const text = normalizeText(document && document.body && document.body.textContent) || '';
+    const cityInput = readSpecificInput(['#destinationInput']);
+    const checkinInput = readSpecificInput(['#checkInInput']);
+    const checkoutInput = readSpecificInput(['#checkOutInput']);
+    const keywordInput = readSpecificInput([
+      'input[placeholder="位置/品牌/酒店 (选填)"]',
+      'input[placeholder*="位置/品牌/酒店"]',
+      'input[aria-label*="位置/品牌/酒店"]'
+    ]);
     return {
       platform: 'ctrip',
-      city: readParam(['cityName', 'city', 'destName']) || readInput([/城市|city/i]) || null,
-      checkin: readParam(['checkin', 'checkIn', 'startDate']) || readInput([/入住|check.?in/i]) || null,
-      checkout: readParam(['checkout', 'checkOut', 'endDate']) || readInput([/离店|退房|check.?out/i]) || null,
-      keyword: readParam(['keyword', 'kw', 'searchWord']) || readInput([/关键词|keyword|搜索/i]) || null,
+      city: cityInput.found ? cityInput.value : readParam(['cityName', 'city', 'destName']) || readInput([/城市|city/i]) || null,
+      checkin: checkinInput.found ? checkinInput.value : readParam(['checkin', 'checkIn', 'startDate']) || readInput([/入住|check.?in/i]) || null,
+      checkout: checkoutInput.found ? checkoutInput.value : readParam(['checkout', 'checkOut', 'endDate']) || readInput([/离店|退房|check.?out/i]) || null,
+      keyword: keywordInput.found ? keywordInput.value : readParam(['keyword', 'kw', 'searchWord']) || null,
       url: href,
       hasHotelListText: /酒店|住宿|房型|价格/.test(text)
     };

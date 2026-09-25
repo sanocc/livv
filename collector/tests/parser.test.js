@@ -10,6 +10,30 @@ class Node {
 }
 
 const text = (value, attrs = {}) => new Node(value, attrs);
+function contextDocument({city = '', checkin = '', checkout = '', keyword, extraInputs = []} = {}) {
+  const map = {};
+  const inputs = [];
+  const addInput = (selector, value, attrs = {}) => {
+    const node = text('', attrs);
+    node.value = value;
+    map[selector] = [node];
+    inputs.push(node);
+  };
+  addInput('#destinationInput', city, {id: 'destinationInput'});
+  addInput('#checkInInput', checkin, {id: 'checkInInput'});
+  addInput('#checkOutInput', checkout, {id: 'checkOutInput'});
+  if (keyword !== undefined) addInput('input[placeholder="位置/品牌/酒店 (选填)"]', keyword, {placeholder: '位置/品牌/酒店 (选填)'});
+  extraInputs.forEach(({value, placeholder}) => {
+    const node = text('', {placeholder});
+    node.value = value;
+    inputs.push(node);
+  });
+  return {
+    body: {textContent: '酒店列表 价格 房型'},
+    querySelector(selector) { return map[selector]?.[0] || null; },
+    querySelectorAll(selector) { return selector === 'input, select' ? inputs : []; }
+  };
+}
 function card({name = '白玉兰酒店(咸宁万达广场龙潭里店)', id = '125435763', ad = false, score = '4.7', reviews = '598条点评', original = '¥347', display = '¥319', hasOriginal = true, tags = ['十亿豪补', '早鸟优惠'], dynamic = '热卖！低价房仅剩3间', breakfast = '含早餐'} = {}) {
   const all = [text('白玉兰酒店(咸宁万达广场龙潭里店)')];
   const map = {
@@ -44,6 +68,30 @@ assert.deepStrictEqual(parser.parseDiscountSummary('优惠17'), {count: null, am
 assert.deepStrictEqual(parser.parseDiscountSummary('3项优惠93'), {count: 3, amount: 93, text: '3项优惠93'});
 assert.deepStrictEqual(parser.parseDiscountSummary('4项优惠199'), {count: 4, amount: 199, text: '4项优惠199'});
 assert.strictEqual(parser.parseDiscountSummary(null), null);
+
+const completeContext = parser.parsePageContext(
+  contextDocument({city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', keyword: '武汉站'}),
+  'https://hotels.ctrip.com/hotels/list?cityName=南京&checkin=2026-09-01&checkout=2026-09-02&keyword=旧关键词'
+);
+assert.deepStrictEqual(
+  {city: completeContext.city, checkin: completeContext.checkin, checkout: completeContext.checkout, keyword: completeContext.keyword},
+  {city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', keyword: '武汉站'}
+);
+
+const domWithoutUrlFields = parser.parsePageContext(
+  contextDocument({city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', keyword: ''}),
+  'https://hotels.ctrip.com/hotels/list?v2_mod=95&v2_version=E'
+);
+assert.deepStrictEqual(
+  {city: domWithoutUrlFields.city, checkin: domWithoutUrlFields.checkin, checkout: domWithoutUrlFields.checkout, keyword: domWithoutUrlFields.keyword},
+  {city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', keyword: null}
+);
+
+const emptyKeywordWithDateText = parser.parsePageContext(
+  contextDocument({city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', extraInputs: [{value: '(周六)-(周日)', placeholder: '日期搜索'}]}),
+  'https://hotels.ctrip.com/hotels/list?cityName=武汉&checkin=2026-10-03&checkout=2026-10-04'
+);
+assert.strictEqual(emptyKeywordWithDateText.keyword, null);
 
 const idFromCard = new Node('白玉兰酒店', {id: '125435763'});
 assert.strictEqual(parser.parseHotelCard(idFromCard, 1).platform_hotel_id, '125435763');

@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.26';
+  const VERSION = '1.0.30';
 
   class CityControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'CityControlError'; this.code = code; this.stage = stage; }
@@ -34,6 +34,13 @@
     return !style || (style.display !== 'none' && style.visibility !== 'hidden');
   }
 
+  function isCitySuggestionNode(node, input, doc) {
+    if (!isVisible(node, doc)) return false;
+    const inputRect = input?.getBoundingClientRect?.();
+    const nodeRect = node?.getBoundingClientRect?.();
+    return !inputRect || !nodeRect || nodeRect.top >= inputRect.bottom;
+  }
+
   function findCitySuggestions(doc, requested, input) {
     const selectors = ['[role="option"]', 'li', '[class*="suggest"]', '[class*="city"]', '[class*="destination"]'];
     const seen = new Set();
@@ -41,14 +48,20 @@
     selectors.forEach((selector) => (doc?.querySelectorAll?.(selector) || []).forEach((node) => {
       if (seen.has(node) || node === input || node.contains?.(input)) return;
       seen.add(node);
-      if (isVisible(node, doc) && normalize(node.textContent) === requested) candidates.push(node);
+      if (isCitySuggestionNode(node, input, doc) && hasCityLocationSemantic(node) && normalize(node.textContent) === requested) {
+        const target = cityCandidateClickTarget(node, requested);
+        if (!candidates.includes(target)) candidates.push(target);
+      }
     }));
-    [input?.parentElement, input?.parentElement?.parentElement, input?.parentElement?.parentElement?.parentElement]
+    cityScopes(input)
       .filter(Boolean)
       .forEach((scope) => Array.from(scope.querySelectorAll?.('*') || []).forEach((node) => {
         if (seen.has(node) || node === input || node.contains?.(input)) return;
         seen.add(node);
-        if (isVisible(node, doc) && normalize(node.textContent) === requested) candidates.push(node);
+        if (isCitySuggestionNode(node, input, doc) && hasCityLocationSemantic(node) && normalize(node.textContent) === requested) {
+          const target = cityCandidateClickTarget(node, requested);
+          if (!candidates.includes(target)) candidates.push(target);
+        }
       }));
     return candidates;
   }
@@ -59,6 +72,32 @@
     return { name: requested, subtitle, type: 'city' };
   }
 
+  function cityCandidateClickTarget(node, requested) {
+    let target = node;
+    for (let current = node?.parentElement, depth = 0; current && depth < 4; current = current.parentElement, depth += 1) {
+      if (normalize(current.textContent) === requested && (current.children?.length || 0) > 1) target = current;
+    }
+    const descendant = Array.from(node?.querySelectorAll?.('*') || [])
+      .find(child => normalize(child.textContent) === requested && (child.children?.length || 0) > 1);
+    return descendant || target;
+  }
+
+  function cityScopes(input) {
+    const scopes = [];
+    for (let node = input?.parentElement, depth = 0; node && depth < 8; node = node.parentElement, depth += 1) {
+      scopes.push(node);
+    }
+    return scopes;
+  }
+
+  function hasCityLocationSemantic(node) {
+    if (typeof node?.getBoundingClientRect !== 'function') return true;
+    for (let current = node?.parentElement, depth = 0; current && depth < 3; current = current.parentElement, depth += 1) {
+      if (normalize(current.textContent).includes('中国-')) return true;
+    }
+    return false;
+  }
+
   function hasSimilarCitySuggestion(doc, requested, input) {
     const selectors = ['[role="option"]', 'li', '[class*="suggest"]', '[class*="city"]', '[class*="destination"]'];
     const matches = selectors.some((selector) => Array.from(doc?.querySelectorAll?.(selector) || []).some((node) => {
@@ -67,7 +106,7 @@
       return text && text !== requested && text.includes(requested);
     }));
     if (matches) return true;
-    return [input?.parentElement, input?.parentElement?.parentElement, input?.parentElement?.parentElement?.parentElement]
+    return cityScopes(input)
       .filter(Boolean)
       .some((scope) => Array.from(scope.querySelectorAll?.('*') || []).some((node) => {
         if (node === input || node.contains?.(input) || !isVisible(node, doc)) return false;
@@ -117,6 +156,32 @@
     });
   }
 
+  function waitForCitySelectionToSettle(doc, expected, timeoutMs = 3000) {
+    const started = Date.now();
+    let stableValue = '';
+    let stableChecks = 0;
+    return new Promise((resolve, reject) => {
+      const check = () => {
+        const input = findCityInput(doc);
+        const actual = normalize(input?.value);
+        const candidates = input && typeof input.getBoundingClientRect === 'function'
+          ? findCitySuggestions(doc, expected, input)
+          : [];
+        if (actual === expected && candidates.length === 0) {
+          stableChecks = actual === stableValue ? stableChecks + 1 : 1;
+          stableValue = actual;
+          if (stableChecks >= 2) return resolve(actual);
+        } else {
+          stableChecks = 0;
+          stableValue = actual;
+        }
+        if (Date.now() - started >= timeoutMs) return reject(new CityControlError('CITY_SELECTION_NOT_SETTLED', '城市候选面板未完成收尾', 'CITY_SELECTED'));
+        root.setTimeout(check, 50);
+      };
+      check();
+    });
+  }
+
   async function setCity(requested, doc = root.document) {
     const city = normalize(requested);
     console.log(`[酒店助手 v${VERSION}] City control start`, { requested_city: city });
@@ -145,6 +210,7 @@
     const actual = await waitForCityValue(doc, city);
     const result = { requested_city: city, actual_city: actual, matched: actual === city };
     if (!result.matched) throw new CityControlError('CITY_SELECTION_MISMATCH', '候选选择后城市不一致', 'CITY_SELECTED');
+    await waitForCitySelectionToSettle(doc, city);
     console.log(`[酒店助手 v${VERSION}] City verification`, result);
     return { ...result, selected_candidate: selectedCandidate };
   }

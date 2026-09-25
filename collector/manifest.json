@@ -1,12 +1,29 @@
 {
   "manifest_version": 3,
   "name": "酒店助手",
-  "version": "1.0.26",
+  "version": "1.0.30",
   "description": "LIVV 酒店助手，读取当前酒店平台页面中的已加载酒店市场信息。",
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
   "action": {
     "default_title": "酒店助手",
-    "default_popup": "popup/popup.html"
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
   },
-  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "sidePanel", "tabs"],
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
   "host_permissions": ["https://hotels.ctrip.com/*"]
 }

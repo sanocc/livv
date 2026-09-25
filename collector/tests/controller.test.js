@@ -72,6 +72,20 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   const compoundResult = await controller.setCityResult('长沙', compoundDoc);
   assert.strictEqual(compoundResult.ok, true);
   assert.deepStrictEqual(compoundResult.selected_candidate, {name: '长沙', subtitle: '中国-湖南', type: 'city'});
+
+  let promotedClicked = false;
+  const promotedParent = {textContent: '武汉', children: [{}, {}], click: () => { promotedClicked = true; }};
+  const promotedNode = {textContent: '武汉', parentElement: promotedParent, contains: () => false};
+  const promotedInput = new FakeInput('武汉');
+  const promotedDoc = {
+    defaultView: { getComputedStyle: () => ({display: 'block', visibility: 'visible'}) },
+    querySelector(selector) { return selector === '#destinationInput' ? promotedInput : null; },
+    querySelectorAll() { return [promotedNode]; }
+  };
+  assert.strictEqual(controller.findCitySuggestions(promotedDoc, '武汉', promotedInput)[0], promotedParent);
+  const promotedResult = await controller.setCityResult('武汉', promotedDoc);
+  assert.strictEqual(promotedResult.ok, true);
+  assert.strictEqual(promotedClicked, true);
   const empty = fixture({input: new FakeInput('武汉'), suggestions: []});
   await assert.rejects(() => controller.waitForCitySuggestions(empty, '咸宁', empty.querySelector('#destinationInput'), 1), (error) => error.code === 'CITY_SUGGESTION_TIMEOUT');
 

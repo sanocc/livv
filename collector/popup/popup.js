@@ -2,11 +2,47 @@
   'use strict';
   const $ = (selector) => document.querySelector(selector);
   let latest = null;
+  let observerSessionKey = null;
 
   function setPageState(name, status, good) {
     $('#page-name').textContent = name;
     $('#page-status').textContent = status;
-    $('#page-status').className = good ? 'ok' : 'bad';
+    $('#page-status').className = 'page-status-tag ' + (good ? 'ok' : 'bad');
+  }
+
+  function setPageVersion() {
+    const node = $('#page-version');
+    if (node) node.textContent = 'v' + chrome.runtime.getManifest().version;
+  }
+
+  function setRefreshLoading(loading) {
+    const button = $('#read-page');
+    if (!button) return;
+    button.disabled = loading;
+    button.classList.toggle('loading', loading);
+    button.textContent = '↻';
+  }
+
+  function setPageFavicon(tab) {
+    const image = $('#page-favicon');
+    const wrapper = image?.parentElement;
+    if (!image || !wrapper) return;
+    wrapper.classList.remove('is-fallback');
+    image.onerror = () => wrapper.classList.add('is-fallback');
+    if (tab?.favIconUrl) image.src = tab.favIconUrl;
+    else wrapper.classList.add('is-fallback');
+  }
+
+  async function readPageContext(tab) {
+    if (!tab?.id || !tab.url?.startsWith('https://hotels.ctrip.com/')) return null;
+    try {
+      await chrome.scripting.executeScript({target:{tabId:tab.id}, files:['platforms/ctrip/parser.js']});
+      const [{result}] = await chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        func: () => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null
+      });
+      return result || null;
+    } catch (_) { return null; }
   }
 
   function showError(message) {
@@ -17,35 +53,59 @@
 
   function value(value) { return value == null ? '—' : String(value); }
 
+  function formatContextDate(value) {
+    const text = value == null ? '' : String(value);
+    const iso = text.match(/^(?:\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+    if (iso) return iso[0].slice(5).replace('-', '/');
+    const ctrip = text.match(/(\d{1,2})月(\d{1,2})日/);
+    return ctrip ? `${ctrip[1].padStart(2, '0')}/${ctrip[2].padStart(2, '0')}` : '';
+  }
+
+  function compactContextText(context) {
+    return context && [context.city, context.checkin && context.checkout ? `${formatContextDate(context.checkin)}–${formatContextDate(context.checkout)}` : '', context.keyword || ''].filter(Boolean).join(' · ');
+  }
+
+  function setTaskStatus(id, state) {
+    const node = $(`#${id}-status`);
+    if (!node) return;
+    node.textContent = `${state === 'ok' ? '✓' : state === 'bad' ? '!' : '○'} ${id === 'city' ? '城市' : id === 'date' ? '日期' : '关键词'}`;
+    node.className = state;
+  }
+
   function showCityResult(result, errorCode) {
     const node = $('#city-result');
     node.classList.remove('hidden', 'bad');
     if (!result) {
+      setTaskStatus('city', 'bad');
       node.classList.add('bad');
       node.textContent = '状态：✕ CITY_CONTROL_NO_RESPONSE';
       return;
     }
     if (errorCode || result.ok !== true) {
+      setTaskStatus('city', 'bad');
       node.classList.add('bad');
-      node.textContent = `状态：✕ ${errorCode || result.error?.code || 'CITY_INPUT_FAILED'}${result.stage ? `　阶段：${result.stage}` : ''}`;
+      node.textContent = `! 未找到完全匹配的携程候选\n${errorCode || result.error?.code || 'CITY_INPUT_FAILED'}${result.stage ? ` · ${result.stage}` : ''}`;
       return;
     }
+    setTaskStatus('city', 'ok');
     node.textContent = `目标：${result.requested_city}　页面：${result.actual_city}　状态：✓ 设置成功`;
   }
 
   function showDateResult(result, errorCode) {
     const node = $('#date-result');
     node.classList.remove('hidden', 'bad');
-    if (!result) { node.classList.add('bad'); node.textContent = '状态：✕ DATE_CONTROL_NO_RESPONSE'; return; }
-    if (errorCode || result.ok !== true) { node.classList.add('bad'); node.textContent = `状态：✕ ${errorCode || result.error?.code || 'DATE_CONTROL_FAILED'}${result.stage ? `　阶段：${result.stage}` : ''}`; return; }
+    if (!result) { setTaskStatus('date', 'bad'); node.classList.add('bad'); node.textContent = '状态：✕ DATE_CONTROL_NO_RESPONSE'; return; }
+    if (errorCode || result.ok !== true) { setTaskStatus('date', 'bad'); node.classList.add('bad'); node.textContent = `! 日期设置未完成\n${errorCode || result.error?.code || 'DATE_CONTROL_FAILED'}${result.stage ? ` · ${result.stage}` : ''}`; return; }
+    setTaskStatus('date', 'ok');
     node.textContent = `目标：${result.requested_checkin} → ${result.requested_checkout}　页面：${result.actual_checkin} → ${result.actual_checkout}　${result.nights}晚　状态：✓ 设置成功`;
   }
 
   function showKeywordResult(result, errorCode) {
     const node = $('#keyword-result');
     node.classList.remove('hidden', 'bad');
-    if (!result) { node.classList.add('bad'); node.textContent = '状态：✕ KEYWORD_CONTROL_NO_RESPONSE'; return; }
-    if (errorCode || result.ok !== true) { node.classList.add('bad'); node.textContent = `状态：✕ ${errorCode || result.error?.code || 'KEYWORD_INPUT_FAILED'}${result.stage ? `　阶段：${result.stage}` : ''}`; return; }
+    if (!result) { setTaskStatus('keyword', 'bad'); node.classList.add('bad'); node.textContent = '状态：✕ KEYWORD_CONTROL_NO_RESPONSE'; return; }
+    if (errorCode || result.ok !== true) { setTaskStatus('keyword', 'bad'); node.classList.add('bad'); node.textContent = `! 未找到完全匹配的携程候选\n${errorCode || result.error?.code || 'KEYWORD_INPUT_FAILED'}${result.stage ? ` · ${result.stage}` : ''}`; return; }
+    setTaskStatus('keyword', 'ok');
     const type = result.selected_candidate?.type && result.selected_candidate.type !== 'unknown' ? `　类型：${result.selected_candidate.type}` : '';
     node.textContent = `目标：${result.requested_keyword}　页面：${result.actual_keyword}${type}　状态：✓ 设置成功`;
   }
@@ -53,12 +113,13 @@
   function showSearchResult(result, errorCode) {
     const node = $('#search-result');
     node.classList.remove('hidden', 'bad');
-    if (!result) { node.classList.add('bad'); node.textContent = '状态：✕ SEARCH_CONTROL_NO_RESPONSE'; return; }
+    if (!result) { node.classList.add('bad'); node.textContent = `搜索未完成\n${errorCode || 'SEARCH_CONTROL_NO_RESPONSE'}`; return; }
     if (errorCode || result.ok !== true) {
       node.classList.add('bad');
-      node.textContent = `状态：✕ ${errorCode || result.error?.code || 'SEARCH_RUNTIME_ERROR'}${result.stage ? `　阶段：${result.stage}` : ''}`;
+      node.textContent = `搜索未完成\n${errorCode || result.error?.code || 'SEARCH_RUNTIME_ERROR'}${result.stage ? ` · ${result.stage}` : ''}`;
       return;
     }
+    setTaskStatus('city', 'ok'); setTaskStatus('date', 'ok'); setTaskStatus('keyword', 'ok');
     node.textContent = `任务：${result.request.city} · ${result.request.keyword}　日期：${result.request.checkin} → ${result.request.checkout}　页面：${result.context.city} · ${result.context.keyword}　酒店：${result.hotel_count}家已加载　状态：✓ 搜索完成`;
   }
 
@@ -66,11 +127,23 @@
     const node = $('#observer-result');
     node.classList.remove('hidden', 'bad');
     if (!snapshot) { node.classList.add('bad'); node.textContent = `状态：✕ ${errorCode || 'RESULT_OBSERVER_NO_RESPONSE'}`; return; }
-    node.textContent = `页面总数：${value(snapshot.page_reported_total)}　当前DOM：${snapshot.current_dom_hotel_count}　累计发现：${snapshot.discovered_unique_hotels}\n新增：${snapshot.added_ids.length}　删除：${snapshot.removed_ids.length}　滚动位置：${snapshot.scroll_y}`;
+    node.innerHTML = `<div class="observer-metrics"><span><b>${value(snapshot.page_reported_total)}</b><small>页面结果</small></span><span><b>${snapshot.current_dom_hotel_count}</b><small>当前DOM</small></span><span><b>${snapshot.discovered_unique_hotels}</b><small>累计发现</small></span><span><b>+${snapshot.added_ids.length}</b><small>本次新增</small></span><span><b>${snapshot.removed_ids.length}</b><small>本次删除</small></span></div><div class="observer-scroll">滚动位置：${snapshot.scroll_y} / ${snapshot.document_height}</div>`;
   }
 
   async function injectObserver(tabId) {
     await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/result-observer.js']});
+  }
+
+  async function syncObserverSession(tab) {
+    const [{result: context}] = await chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      func: () => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null
+    });
+    const sessionKey = [tab.id, context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
+    if (observerSessionKey !== sessionKey) {
+      await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripResultObserver?.reset?.()});
+      observerSessionKey = sessionKey;
+    }
   }
 
   async function recordSnapshot() {
@@ -80,6 +153,7 @@
       const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
       if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) { showObserverResult(null, 'UNSUPPORTED_PAGE'); return; }
       await injectObserver(tab.id);
+      await syncObserverSession(tab);
       const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripResultObserver.observeResultState()});
       showObserverResult(result);
     } catch (error) { showObserverResult(null, error?.message || 'RESULT_OBSERVER_FAILED'); }
@@ -94,6 +168,7 @@
       if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) { showObserverResult(null, 'UNSUPPORTED_PAGE'); return; }
       await injectObserver(tab.id);
       const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripResultObserver.reset()});
+      observerSessionKey = null;
       if (result?.ok) showObserverResult(null, '观察已重置');
     } catch (error) { showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED'); }
     finally { button.disabled = false; }
@@ -158,25 +233,101 @@
     return chrome.tabs.sendMessage(tabId, {type:'LIVV_READ_CURRENT_PAGE'});
   }
 
-  function contextMatches(context, request) {
-    return context?.platform === 'ctrip'
-      && context.city === request.city
-      && context.checkin === request.checkin
-      && context.checkout === request.checkout
-      && context.keyword === request.keyword;
+  async function readCurrentPageSnapshot(tabId) {
+    const [{result}] = await chrome.scripting.executeScript({
+      target: {tabId},
+      func: () => {
+        const page_context = globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null;
+        const metadata = globalThis.LivvCtripParser?.findHotelCards?.(document) || [];
+        const observedAt = new Date().toISOString();
+        const hotels = metadata.map((item, index) => {
+          const hotel = globalThis.LivvCtripParser.parseHotelCard(item, index + 1);
+          return {...hotel, dynamic: globalThis.LivvDynamicSemantic?.parseDynamic?.(hotel.latest_dynamic, observedAt)};
+        });
+        return {ok: true, page_context, hotels, hotel_count: hotels.length};
+      }
+    });
+    return result;
   }
 
-  async function waitForSearchPage(tabId, request, timeoutMs = 15000) {
+  function contextMatches(context, request) {
+    const query = context?.url ? new URL(context.url).searchParams : null;
+    const urlCity = query?.get('cityName') || query?.get('city') || query?.get('destName') || null;
+    const urlCheckin = query?.get('checkin') || query?.get('checkIn') || query?.get('startDate') || null;
+    const urlCheckout = query?.get('checkout') || query?.get('checkOut') || query?.get('endDate') || null;
+    const urlKeyword = query?.get('searchWord') || query?.get('keyword') || query?.get('kw') || null;
+    const cityMatches = context?.city === request.city || (!context?.city && urlCity === request.city);
+    const checkinMatches = context?.checkin === request.checkin || urlCheckin === request.checkin;
+    const checkoutMatches = context?.checkout === request.checkout || urlCheckout === request.checkout;
+    const keywordMatches = context?.keyword === request.keyword
+      || (!context?.keyword && urlKeyword === request.keyword);
+    return context?.platform === 'ctrip'
+      && cityMatches
+      && checkinMatches
+      && checkoutMatches
+      && keywordMatches;
+  }
+
+  async function waitForTabAfterSearch(tabId, beforeUrl, timeoutMs = 15000) {
+    const started = Date.now();
+    let navigationObserved = false;
+    let settled = false;
+    const onUpdated = (updatedTabId, changeInfo, tab) => {
+      if (updatedTabId !== tabId) return;
+      if (changeInfo.status === 'loading' || (changeInfo.url && changeInfo.url !== beforeUrl)) navigationObserved = true;
+      if (changeInfo.status === 'complete') settled = true;
+    };
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    try {
+      while (Date.now() - started < timeoutMs) {
+        const tab = await chrome.tabs.get(tabId).catch(() => null);
+        const urlChanged = Boolean(tab?.url && tab.url !== beforeUrl);
+        if (tab?.status === 'complete' && (settled || navigationObserved || urlChanged || Date.now() - started >= 600)) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          return tab;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      const error = new Error('搜索页面导航未完成');
+      error.code = 'SEARCH_NAVIGATION_TIMEOUT';
+      throw error;
+    } finally {
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+    }
+  }
+
+  async function waitForSearchPage(tabId, request, beforeUrl, timeoutMs = 15000) {
+    await waitForTabAfterSearch(tabId, beforeUrl, timeoutMs);
     const started = Date.now();
     let lastResult = null;
+    let lastContext = null;
     while (Date.now() - started < timeoutMs) {
       try {
-        lastResult = await injectReader(tabId);
+        const tab = await chrome.tabs.get(tabId);
+        if (tab?.status && tab.status !== 'complete') {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          continue;
+        }
+        try { lastResult = await injectReader(tabId); } catch (_) { lastResult = null; }
+        const [{result: currentPageState}] = await chrome.scripting.executeScript({
+          target: {tabId},
+          func: () => ({
+            context: globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null,
+            hotel_count: globalThis.LivvCtripParser?.findHotelCards?.(document)?.length || 0
+          })
+        });
+        const currentContext = currentPageState?.context || null;
+        const currentHotelCount = currentPageState?.hotel_count || 0;
+        lastContext = currentContext;
         if (lastResult?.ok && contextMatches(lastResult.page_context, request) && lastResult.hotel_count > 0) return lastResult;
+        if (contextMatches(currentContext, request) && currentHotelCount > 0) {
+          const snapshot = await readCurrentPageSnapshot(tabId);
+          if (snapshot?.ok && contextMatches(snapshot.page_context, request) && snapshot.hotel_count > 0) return snapshot;
+        }
       } catch (_) {}
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    if (lastResult?.ok && !contextMatches(lastResult.page_context, request)) {
+    if (lastContext && !contextMatches(lastContext, request)) {
       const error = new Error('搜索完成后页面条件与任务不一致'); error.code = 'SEARCH_CONTEXT_MISMATCH'; throw error;
     }
     if (lastResult?.ok && lastResult.hotel_count === 0) {
@@ -208,7 +359,7 @@
         // A full navigation can invalidate the execution context after the real button click.
       }
       if (controlResult && controlResult.ok !== true) { localStorage.removeItem('LIVV_PENDING_SEARCH'); showSearchResult(controlResult); return; }
-      const result = await waitForSearchPage(tab.id, request);
+      const result = await waitForSearchPage(tab.id, request, tab.url);
       const success = {ok:true, action:'execute_search', request, context:result.page_context, matched:true, hotel_count:result.hotel_count};
       showSearchResult(success);
       renderResult(result);
@@ -224,7 +375,7 @@
     try {
       const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
       if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) return;
-      const result = await waitForSearchPage(tab.id, request, 5000);
+      const result = await waitForSearchPage(tab.id, request, tab.url, 5000);
       const success = {ok:true, action:'execute_search', request, context:result.page_context, matched:true, hotel_count:result.hotel_count};
       localStorage.removeItem('LIVV_PENDING_SEARCH');
       showSearchResult(success);
@@ -240,6 +391,16 @@
     ].map(([label, text]) => `<div class="context-item"><span>${label}</span><b title="${text}">${text}</b></div>`).join('');
     $('#hotel-count').textContent = `${result.hotel_count}家`;
     $('#result-count').textContent = `${result.hotel_count}家`;
+    const contextText = compactContextText(context);
+    const contextNode = $('#page-context');
+    if (contextNode) contextNode.textContent = contextText || '当前页面 context 未读取';
+  }
+
+  function setCompactContext(context, fallbackText) {
+    const node = $('#page-context');
+    if (!node) return;
+    const contextText = compactContextText(context);
+    node.textContent = contextText || fallbackText || '当前页面 context 未读取';
   }
 
   function renderCoverage(hotels) {
@@ -269,12 +430,40 @@
     $('#json').textContent = JSON.stringify(result, null, 2);
   }
 
+  async function refreshActiveTabState() {
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      setPageVersion();
+      setPageFavicon(tab);
+      const supported = Boolean(tab?.url?.startsWith('https://hotels.ctrip.com/'));
+      if (supported) {
+        setPageState('酒店列表页', '✓ 可读取', true);
+        setCompactContext(await readPageContext(tab), '携程酒店列表');
+        $('#error').classList.add('hidden');
+      } else {
+        setPageState('当前页面', '× 不支持', false);
+        let host = '当前页面';
+        try { host = new URL(tab?.url || '').hostname || host; } catch (_) {}
+        setCompactContext(null, host);
+        $('#result').classList.add('hidden');
+        $('#search-result').classList.add('hidden');
+        $('#observer-result').classList.add('hidden');
+        $('#error').classList.add('hidden');
+      }
+    } catch (error) {
+      setPageVersion();
+      setPageState('当前页面', '× 不支持', false);
+      setCompactContext(null, '当前页面');
+      $('#error').classList.add('hidden');
+    }
+  }
+
   async function readCurrentPage() {
-    $('#read-page').disabled = true; $('#read-page').textContent = '读取中…';
+    setRefreshLoading(true);
     try {
       const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
       if (!tab?.url || !tab.url.startsWith('https://hotels.ctrip.com/')) {
-        setPageState('未识别', '✕ 当前页面不是支持的携程酒店页面', false);
+        setPageState('当前页面', '× 不支持', false);
         showError('请先手工打开 hotels.ctrip.com 的酒店搜索结果页。'); return;
       }
       setPageState('携程酒店列表', '✓ 可读取', true);
@@ -298,7 +487,7 @@
       }
       renderResult(result);
     } catch (error) { setPageState('读取失败', '✕ 无法读取当前页面', false); showError(error.message || '读取失败'); }
-    finally { $('#read-page').disabled = false; $('#read-page').textContent = '读取当前页面'; }
+    finally { setRefreshLoading(false); }
   }
 
   $('#read-page').addEventListener('click', readCurrentPage);
@@ -310,9 +499,10 @@
   $('#reset-observer').addEventListener('click', () => { resetObserver().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });
   $('#copy-json').addEventListener('click', async () => { if (!latest) return; await navigator.clipboard.writeText(JSON.stringify(latest, null, 2)); $('#copy-json').textContent = '已复制'; setTimeout(() => $('#copy-json').textContent = '复制JSON', 1200); });
-  chrome.tabs.query({active:true,currentWindow:true}).then(([tab]) => {
-    if (tab?.url?.startsWith('https://hotels.ctrip.com/')) setPageState('携程酒店列表', '✓ 可读取', true);
-    else setPageState('未识别', '✕ 当前不是支持的携程酒店列表页', false);
-  }).catch((error) => showError(`当前页面检测失败：${error.message || '未知错误'}`));
+  chrome.tabs.onActivated.addListener(() => { observerSessionKey = null; refreshActiveTabState(); });
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'complete') refreshActiveTabState();
+  });
+  refreshActiveTabState();
   restorePendingSearch();
 })();

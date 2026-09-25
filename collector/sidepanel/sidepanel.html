@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>酒店助手</title>
+  <link rel="stylesheet" href="../popup/popup.css" />
+  <link rel="stylesheet" href="sidepanel.css" />
+  <style>
+    .control-card{background:#fff;border:1px solid #e1e8f1;border-radius:10px;padding:11px 13px;margin-top:10px;box-shadow:0 4px 14px #14345d08}.control-label{display:block;color:#73839a;font-size:11px;margin:2px 0 5px}.control-row{display:flex;gap:7px}.control-row input{min-width:0;flex:1;border:1px solid #e1e8f1;border-radius:7px;padding:7px 9px;color:#14233a;font:inherit}.control-result{margin-top:7px;padding:6px 9px;border-radius:7px;background:#f2faf6;color:#169465;font-size:11px}.control-result.bad{background:#fff2f2;color:#d95252}.observer-actions{display:flex;gap:7px}.observer-result{white-space:pre-line;margin-top:8px;padding:8px 9px;border-radius:8px;background:#f2f6fb;color:#52647b;font-size:11px}.observer-result.bad{background:#fff2f2;color:#d95252}
+  </style>
+</head>
+<body>
+  <main class="popup sidepanel">
+    <section class="page-status-card" aria-label="当前页面状态">
+      <div class="page-status-row">
+        <div class="page-identity">
+          <span class="site-icon" aria-hidden="true"><img id="page-favicon" alt="" /><span id="page-favicon-fallback">◎</span></span>
+          <span id="page-name" class="page-name">当前页面</span>
+          <b id="page-status" class="page-status-tag">正在检查</b>
+        </div>
+        <span id="page-version" class="version">v—</span>
+      </div>
+      <div class="page-context-row"><span id="page-context">等待读取页面 context</span><button id="read-page" class="refresh-button" title="重新读取" aria-label="重新读取当前页面">↻</button></div>
+    </section>
+    <section class="control-card task-card" aria-label="采集任务"><div class="control-line"><label class="control-label" for="city-input">城市：</label><div class="control-row"><input id="city-input" value="咸宁" autocomplete="off" /><button id="set-city" class="secondary">设置城市</button></div></div><div class="control-line"><label class="control-label" for="checkin-input">日期：</label><div class="control-row date-row"><input id="checkin-input" value="2026-10-01" inputmode="numeric" aria-label="入住日期" /><span>→</span><input id="checkout-input" value="2026-10-02" inputmode="numeric" aria-label="离店日期" /><button id="set-dates" class="secondary">设置时间</button></div></div><div class="control-line"><label class="control-label" for="keyword-input">关键词：</label><div class="control-row"><input id="keyword-input" value="玄武湖景区" placeholder="位置 / 品牌 / 酒店" autocomplete="off" /><button id="set-keyword" class="secondary">设置关键词</button></div></div><div id="city-result" class="control-result compact-result hidden"></div><div id="date-result" class="control-result compact-result hidden"></div><div id="keyword-result" class="control-result compact-result hidden"></div></section>
+    <button id="execute-search" class="primary search-button">执行搜索</button>
+    <section id="search-result" class="control-result search-result hidden"></section>
+    <section class="control-card observer-card"><div class="section-head"><h2>结果观察</h2><span class="task-hint">只读</span></div><div id="observer-result" class="observer-result hidden"></div><div class="observer-actions"><button id="record-snapshot" class="secondary">记录快照</button><button id="reset-observer" class="secondary">重置观察</button></div><div class="collection-state"><span>采集状态</span><b>观察模式</b></div></section>
+    <section id="error" class="error hidden"></section>
+    <section id="result" class="hidden"><div class="section-head"><h2>页面信息</h2><span id="hotel-count">0家</span></div><div id="context" class="context-card"></div><div class="section-head coverage-head"><h2>字段覆盖率</h2></div><div id="coverage" class="coverage"></div><div class="section-head"><h2>检测酒店</h2><span id="result-count"></span></div><div id="hotels" class="hotels"></div><div class="debug-actions"><button id="copy-json" class="secondary">复制JSON</button><button id="toggle-json" class="secondary">展开JSON</button></div><pre id="json" class="json hidden"></pre></section>
+    <p class="note">只读取当前携程页面已经加载到 DOM 中的内容；控制仅在点击按钮后操作，不会自动搜索或滚动。</p>
+  </main>
+  <script src="../popup/popup.js"></script>
+</body>
+</html>
