@@ -3,6 +3,8 @@
   const $ = (selector) => document.querySelector(selector);
   let latest = null;
   let observerSessionKey = null;
+  let collectionTabId = null;
+  let collectionPollTimer = null;
 
   function setPageState(name, status, good) {
     $('#page-name').textContent = name;
@@ -132,6 +134,153 @@
 
   async function injectObserver(tabId) {
     await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/result-observer.js']});
+  }
+
+  async function injectCollector(tabId) {
+    await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','platforms/ctrip/result-observer.js','platforms/ctrip/scroll-collector.js']});
+  }
+
+  function setCollectionStatus(status, reason) {
+    const node = $('#collection-status');
+    if (!node) return;
+    const labels = {IDLE:'观察模式', RUNNING:'正在采集', STOPPING:'正在停止', PAUSED:'已暂停', STOPPED:'已停止', COMPLETED:'采集完成', ERROR:'采集错误'};
+    node.textContent = labels[status] || reason || status || '观察模式';
+    node.className = String(status || '').toLowerCase();
+  }
+
+  function setCollectionButtons(mode) {
+    const running = mode === 'running';
+    const paused = mode === 'paused';
+    const start = $('#start-collection');
+    const stop = $('#stop-collection');
+    start?.classList.toggle('hidden', running);
+    stop?.classList.toggle('hidden', !running);
+    if (start) {
+      start.textContent = paused ? '继续采集' : '开始采集';
+      start.disabled = mode === 'unavailable';
+      start.title = paused ? '继续当前采集任务' : '开始新的采集任务';
+    }
+  }
+
+  function showCollectionState(state) {
+    if (!state) return;
+    setCollectionStatus(state.status, state.reason);
+    showObserverResult({
+      page_reported_total: state.reported_total,
+      current_dom_hotel_count: state.current_dom_count || 0,
+      discovered_unique_hotels: state.cumulative_unique || 0,
+      added_ids: Array.from({length: state.added_count || 0}),
+      removed_ids: Array.from({length: state.removed_count || 0}),
+      scroll_y: state.scroll_y || 0,
+      document_height: state.document_height || 0
+    });
+  }
+
+  async function pollCollection() {
+    if (!collectionTabId) return;
+    try {
+      const [{result: state}] = await chrome.scripting.executeScript({target:{tabId:collectionTabId}, func:() => globalThis.LivvCtripScrollCollector?.getState?.() || null});
+      showCollectionState(state);
+      const running = ['RUNNING', 'WAITING', 'STOPPING'].includes(state?.status);
+      setCollectionButtons(running ? 'running' : 'idle');
+      if (running) collectionPollTimer = setTimeout(pollCollection, 250);
+      else if (state?.status !== 'PAUSED') {
+        collectionTabId = null;
+      }
+    } catch (_) {
+      setCollectionButtons('idle');
+      setCollectionStatus('ERROR', 'PAGE_CHANGED');
+      collectionTabId = null;
+    }
+  }
+
+  async function getCollectionState(tabId) {
+    const [{result}] = await chrome.scripting.executeScript({target:{tabId}, func:() => globalThis.LivvCtripScrollCollector?.getState?.() || null});
+    return result;
+  }
+
+  async function getCollectionSessionKey(tabId) {
+    const [{result: context}] = await chrome.scripting.executeScript({target:{tabId}, func:() => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null});
+    return [context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
+  }
+
+  async function startCollection() {
+    const button = $('#start-collection');
+    button.disabled = true;
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.id || !tab.url?.startsWith('https://hotels.ctrip.com/')) { setCollectionStatus('ERROR', 'UNSUPPORTED_PAGE'); return; }
+      if (collectionTabId === tab.id) {
+        const pausedState = await getCollectionState(tab.id);
+        if (pausedState?.status === 'PAUSED') {
+          const sessionKey = await getCollectionSessionKey(tab.id);
+          const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key) => globalThis.LivvCtripScrollCollector.resume({sessionKey:key}), args:[sessionKey]});
+          if (!result?.ok) {
+            showCollectionState({ ...pausedState, status: 'STOPPED', reason: result?.reason || 'SESSION_CHANGED' });
+            setCollectionButtons('idle');
+            collectionTabId = null;
+            return;
+          }
+          setCollectionButtons('running');
+          setCollectionStatus('RUNNING');
+          collectionPollTimer = setTimeout(pollCollection, 100);
+          return;
+        }
+      }
+      await injectCollector(tab.id);
+      const [{result: context}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null});
+      const sessionKey = [context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
+      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key) => globalThis.LivvCtripScrollCollector.start({sessionKey:key}), args:[sessionKey]});
+      if (!result?.ok) { setCollectionStatus('ERROR', result?.error?.code || 'COLLECTION_START_FAILED'); return; }
+      collectionTabId = tab.id;
+      setCollectionButtons('running');
+      setCollectionStatus('RUNNING');
+      clearTimeout(collectionPollTimer);
+      collectionPollTimer = setTimeout(pollCollection, 100);
+    } catch (error) { setCollectionStatus('ERROR', error?.message || 'COLLECTION_START_FAILED'); }
+    finally { button.disabled = false; }
+  }
+
+  async function stopCollection() {
+    const button = $('#stop-collection');
+    button.disabled = true;
+    try {
+      if (collectionTabId) await chrome.scripting.executeScript({target:{tabId:collectionTabId}, func:() => globalThis.LivvCtripScrollCollector?.stop?.('USER_STOPPED')});
+      await pollCollection();
+    } catch (_) {}
+    finally { button.disabled = false; }
+  }
+
+  async function pauseCollectionForTabChange() {
+    if (!collectionTabId) return;
+    try {
+      const state = await getCollectionState(collectionTabId);
+      if (['RUNNING', 'WAITING', 'STOPPING'].includes(state?.status)) {
+        await chrome.scripting.executeScript({target:{tabId:collectionTabId}, func:() => globalThis.LivvCtripScrollCollector?.pause?.()});
+        showCollectionState({ ...state, status: 'PAUSED', reason: 'TAB_CHANGED' });
+      }
+      setCollectionButtons('unavailable');
+    } catch (_) { setCollectionStatus('ERROR', 'TAB_CHANGED'); }
+  }
+
+  async function resumeButtonForActiveTab(tabId) {
+    if (!collectionTabId || collectionTabId !== tabId) return;
+    try {
+      const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+      if (!tab?.url?.startsWith('https://hotels.ctrip.com/')) { setCollectionButtons('unavailable'); return; }
+      const state = await getCollectionState(tabId);
+      if (state?.status !== 'PAUSED') return;
+      const sessionKey = await getCollectionSessionKey(tabId);
+      if (sessionKey !== state.session_key) {
+        await chrome.scripting.executeScript({target:{tabId}, func:() => globalThis.LivvCtripScrollCollector?.stop?.('SESSION_CHANGED')});
+        showCollectionState({ ...state, status: 'STOPPED', reason: 'SESSION_CHANGED' });
+        setCollectionButtons('idle');
+        collectionTabId = null;
+        return;
+      }
+      showCollectionState(state);
+      setCollectionButtons('paused');
+    } catch (_) { setCollectionButtons('unavailable'); }
   }
 
   async function syncObserverSession(tab) {
@@ -495,14 +644,29 @@
   $('#set-dates').addEventListener('click', () => { setDates().catch((error) => showDateResult(null, error?.message || 'DATE_CONTROL_FAILED')); });
   $('#set-keyword').addEventListener('click', () => { setKeyword().catch((error) => showKeywordResult(null, error?.message || 'KEYWORD_INPUT_FAILED')); });
   $('#execute-search').addEventListener('click', () => { executeSearch().catch((error) => showSearchResult(null, error?.message || 'SEARCH_RUNTIME_ERROR')); });
+  $('#start-collection').addEventListener('click', () => { startCollection().catch((error) => setCollectionStatus('ERROR', error?.message || 'COLLECTION_START_FAILED')); });
+  $('#stop-collection').addEventListener('click', () => { stopCollection().catch(() => {}); });
   $('#record-snapshot').addEventListener('click', () => { recordSnapshot().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_FAILED')); });
   $('#reset-observer').addEventListener('click', () => { resetObserver().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });
   $('#copy-json').addEventListener('click', async () => { if (!latest) return; await navigator.clipboard.writeText(JSON.stringify(latest, null, 2)); $('#copy-json').textContent = '已复制'; setTimeout(() => $('#copy-json').textContent = '复制JSON', 1200); });
-  chrome.tabs.onActivated.addListener(() => { observerSessionKey = null; refreshActiveTabState(); });
+  chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    if (collectionTabId && collectionTabId !== activeInfo.tabId) {
+      await pauseCollectionForTabChange();
+    } else if (collectionTabId === activeInfo.tabId) {
+      await resumeButtonForActiveTab(activeInfo.tabId);
+    }
+    observerSessionKey = null; refreshActiveTabState();
+  });
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-    if (changeInfo.status === 'complete') refreshActiveTabState();
+    if (changeInfo.status === 'complete') {
+      refreshActiveTabState();
+      resumeButtonForActiveTab(tabId);
+    }
   });
   refreshActiveTabState();
   restorePendingSearch();
+  window.addEventListener('pagehide', () => {
+    if (collectionTabId) chrome.scripting.executeScript({target:{tabId:collectionTabId}, func:() => globalThis.LivvCtripScrollCollector?.stop?.('PANEL_CLOSED')}).catch(() => {});
+  });
 })();

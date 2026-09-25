@@ -7,7 +7,7 @@ const css = fs.readFileSync('collector/sidepanel/sidepanel.css', 'utf8');
 const background = fs.readFileSync('collector/background.js', 'utf8');
 const popup = fs.readFileSync('collector/popup/popup.js', 'utf8');
 
-assert.strictEqual(manifest.version, '1.0.30');
+assert.strictEqual(manifest.version, '1.0.32');
 assert.deepStrictEqual(manifest.icons, {
   '16': 'assets/icons/icon-16.png', '32': 'assets/icons/icon-32.png', '48': 'assets/icons/icon-48.png', '128': 'assets/icons/icon-128.png'
 });
@@ -32,5 +32,9 @@ assert.ok(css.includes('observer-metrics'));
 assert.ok(background.includes('openPanelOnActionClick'));
 assert.ok(popup.includes('chrome.tabs.onActivated'));
 assert.ok(popup.includes('syncObserverSession'));
+assert.ok(popup.includes('pauseCollectionForTabChange'));
+assert.ok(popup.includes('resumeButtonForActiveTab'));
+assert.ok(popup.includes("stop?.('PANEL_CLOSED')"));
+assert.ok(popup.includes("stop?.('USER_STOPPED')"));
 
 console.log('side panel checks passed');
