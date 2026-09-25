@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.32';
+  const VERSION = '1.0.34';
   const KEY = '__LIVV_CTRIP_SCROLL_COLLECTOR__';
   const DEFAULTS = {
     stepRatio: 0.8,
@@ -10,8 +10,6 @@
     settleTimeoutMs: 5000,
     maxIterations: 100,
     maxDurationMs: 5 * 60 * 1000,
-    zeroNewStreakLimit: 3,
-    bottomThreshold: 8,
     manualScrollThreshold: 0.35
   };
   const HOTEL_FIELDS = [
@@ -22,6 +20,11 @@
 
   const normalize = (value) => value == null ? '' : String(value).trim();
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function normalizeLimit(value) {
+    const number = typeof value === 'number' ? value : Number(String(value ?? '').trim());
+    return Number.isInteger(number) && number >= 1 && number <= 200 ? number : null;
+  }
 
   function mergeHotel(previous, next) {
     if (!previous) return { ...next };
@@ -44,7 +47,9 @@
     observer = root.LivvCtripResultObserver,
     onUpdate = () => {},
     now = () => Date.now(),
-    config = {}
+    config = {},
+    collectionLimit = 30,
+    completionDetector = root.LivvCtripCompletionDetector?.createDetector?.({ now, config })
   } = {}) {
     const options = { ...DEFAULTS, ...config };
     const state = {
@@ -52,10 +57,11 @@
       current_dom_count: 0, added_count: 0, removed_count: 0,
       scroll_y: 0, document_height: 0, viewport_height: 0,
       reported_total: null, session_key: null, started_at: null,
-      last_observed_at: null
+      last_observed_at: null, completion_status: null, completion_reason: null,
+      completed_at: null, duration_ms: null, collection_limit: normalizeLimit(collectionLimit) || 30,
+      collected_count: 0
     };
     let hotels = new Map();
-    let zeroNewStreak = 0;
     let cancelled = false;
     let pauseRequested = false;
     let stopReason = null;
@@ -70,13 +76,14 @@
       return snapshot;
     }
 
-    function reset(sessionKey = null) {
+    function reset(sessionKey = null, limit = state.collection_limit) {
+      const normalizedLimit = normalizeLimit(limit);
       cancelled = true;
       pauseRequested = false;
       stopReason = null;
       observer?.reset?.();
+      completionDetector?.reset?.();
       hotels = new Map();
-      zeroNewStreak = 0;
       runPromise = null;
       lastSettledScroll = null;
       Object.assign(state, {
@@ -86,9 +93,11 @@
         document_height: Number(doc?.documentElement?.scrollHeight || doc?.body?.scrollHeight || 0),
         viewport_height: Number(win.innerHeight || doc?.documentElement?.clientHeight || 0),
         reported_total: null, session_key: sessionKey, started_at: null,
-        last_observed_at: null
+        last_observed_at: null, completion_status: null, completion_reason: null,
+        completed_at: null, duration_ms: null, collection_limit: normalizedLimit,
+        collected_count: 0
       });
-      return { ok: true, action: 'reset_collection', session_key: sessionKey };
+      return { ok: true, action: 'reset_collection', session_key: sessionKey, collection_limit: normalizedLimit };
     }
 
     function readBatch() {
@@ -105,14 +114,19 @@
       let added = 0;
       batch.forEach((hotel) => {
         const id = normalize(hotel.platform_hotel_id);
+        if (!hotels.has(id) && hotels.size >= state.collection_limit) return;
         const merged = mergeHotel(hotels.get(id), hotel);
-        if (!hotels.has(id)) added += 1;
+        if (!hotels.has(id)) {
+          added += 1;
+          merged.collection_rank = hotels.size + 1;
+        }
         hotels.set(id, merged);
       });
       state.current_dom_count = batch.length;
       state.added_count = added;
       state.removed_count = Array.from(previousIds).filter((id) => !batch.some((hotel) => normalize(hotel.platform_hotel_id) === id)).length;
       state.cumulative_unique = hotels.size;
+      state.collected_count = hotels.size;
       state.last_observed_at = observedAt;
       return { batch, added };
     }
@@ -124,14 +138,22 @@
       state.document_height = Number(doc?.documentElement?.scrollHeight || doc?.body?.scrollHeight || 0);
       state.viewport_height = Number(win.innerHeight || doc?.documentElement?.clientHeight || 0);
       state.reported_total = snapshot?.page_reported_total ?? state.reported_total;
-      return snapshot;
+      const completion = completionDetector?.observe?.({
+        scroll_y: state.scroll_y,
+        viewport_height: state.viewport_height,
+        document_height: state.document_height,
+        current_dom_ids: snapshot?.unique_hotel_ids || [],
+        cumulative_unique: hotels.size,
+        added_count: state.added_count,
+        loading_indicator_present: snapshot?.loading_indicator_present ?? hasLoading(),
+        end_marker_present: false
+      }) || { status: 'CONTINUE', reason: null };
+      state.completion_status = completion.status;
+      state.completion_reason = completion.reason;
+      return { snapshot, completion };
     }
 
     function hasLoading() { return Boolean(observer?.hasLoadingIndicator?.(doc)); }
-
-    function atBottom() {
-      return state.scroll_y + state.viewport_height >= state.document_height - options.bottomThreshold;
-    }
 
     function currentContextKey() {
       if (root.location?.hostname && root.location.hostname !== 'hotels.ctrip.com') return null;
@@ -164,9 +186,12 @@
       return { ok: false, reason: 'SETTLE_TIMEOUT' };
     }
 
-    function shouldStop(snapshot) {
-      const loading = snapshot?.loading_indicator_present ?? hasLoading();
-      return zeroNewStreak >= options.zeroNewStreakLimit && atBottom() && !loading;
+    function shouldStop(completion) { return completion?.status === 'COMPLETED'; }
+
+    function finalize() {
+      if (state.status === 'PAUSED' || !state.started_at) return;
+      state.completed_at = state.completed_at || new Date(now()).toISOString();
+      state.duration_ms = Math.max(0, now() - Date.parse(state.started_at));
     }
 
     async function run(sessionKey, { resume = false } = {}) {
@@ -181,20 +206,22 @@
         let initial = readBatch();
         observe();
         state.iterations = 0;
-        zeroNewStreak = initial.added === 0 ? 1 : 0;
         emit({ phase: 'initial_batch' });
+        if (hotels.size >= state.collection_limit) {
+          state.status = 'COMPLETED'; state.reason = 'TARGET_REACHED';
+        }
       } else {
         lastSettledScroll = Number(win.scrollY || 0);
         emit({ phase: 'resumed' });
       }
       lastSettledScroll = Number(win.scrollY || 0);
 
-      while (!cancelled) {
+      while (!cancelled && state.status === 'RUNNING') {
         if (now() - Date.parse(state.started_at) >= options.maxDurationMs) {
-          state.status = 'COMPLETED'; state.reason = 'SAFETY_LIMIT'; break;
+          state.status = 'STOPPED'; state.reason = 'SAFETY_LIMIT'; break;
         }
         if (state.iterations >= options.maxIterations) {
-          state.status = 'COMPLETED'; state.reason = 'SAFETY_LIMIT'; break;
+          state.status = 'STOPPED'; state.reason = 'SAFETY_LIMIT'; break;
         }
         if (root.location?.hostname && root.location.hostname !== 'hotels.ctrip.com') {
           state.status = 'STOPPED'; state.reason = 'PAGE_CHANGED'; break;
@@ -218,16 +245,17 @@
           break;
         }
         const result = readBatch();
-        zeroNewStreak = result.added === 0 ? zeroNewStreak + 1 : 0;
-        const snapshot = observe();
+        const observation = observe();
         lastSettledScroll = Number(win.scrollY || 0);
-        emit({ phase: 'iteration', snapshot });
-        if (shouldStop(snapshot)) { state.status = 'COMPLETED'; state.reason = 'NO_MORE_RESULTS'; break; }
+        emit({ phase: 'iteration', snapshot: observation.snapshot, completion: observation.completion });
+        if (hotels.size >= state.collection_limit) { state.status = 'COMPLETED'; state.reason = 'TARGET_REACHED'; break; }
+        if (shouldStop(observation.completion)) { state.status = 'COMPLETED'; state.reason = 'PAGE_EXHAUSTED'; break; }
       }
       if (cancelled && state.status === 'RUNNING') {
         state.status = pauseRequested ? 'PAUSED' : 'STOPPED';
         state.reason = pauseRequested ? 'TAB_CHANGED' : (stopReason || 'USER_STOPPED');
       }
+      finalize();
       state.cumulative_unique = hotels.size;
       emit({ phase: 'finished' });
       return getResult();
@@ -242,13 +270,17 @@
       return promise;
     }
 
-    function start({ sessionKey = null } = {}) {
+    function start({ sessionKey = null, collection_limit: requestedLimit = state.collection_limit } = {}) {
+      const limit = normalizeLimit(requestedLimit);
+      if (!limit) {
+        return { ok: false, action: 'collect_loaded_results', error: { code: 'INVALID_COLLECTION_LIMIT', message: '采集数量必须是1到200的整数' } };
+      }
       if (runPromise && (state.status === 'RUNNING' || state.status === 'WAITING' || state.status === 'STOPPING')) {
         return { ok: false, action: 'collect_loaded_results', error: { code: 'COLLECTION_ALREADY_RUNNING', message: '采集已在运行' } };
       }
-      reset(sessionKey);
+      reset(sessionKey, limit);
       launch(sessionKey);
-      return { ok: true, action: 'collect_loaded_results', status: 'running', session_key: sessionKey };
+      return { ok: true, action: 'collect_loaded_results', status: 'running', session_key: sessionKey, collection_limit: limit };
     }
 
     function pause() {
@@ -256,17 +288,19 @@
         return { ok: false, status: state.status, reason: state.reason || 'NOT_RUNNING' };
       }
       pauseRequested = true;
+      completionDetector?.pause?.();
       state.status = 'PAUSED';
       state.reason = 'TAB_CHANGED';
       cancelled = true;
       return { ok: true, status: 'paused', reason: 'TAB_CHANGED', cumulative_unique: hotels.size };
     }
 
-    function resume({ sessionKey = null } = {}) {
+    function resume({ sessionKey = null, collection_limit: requestedLimit = state.collection_limit } = {}) {
+      const limit = normalizeLimit(requestedLimit);
       if (state.status !== 'PAUSED') {
         return { ok: false, status: state.status, error: { code: 'COLLECTION_NOT_PAUSED', message: '当前采集任务不可恢复' } };
       }
-      if (sessionKey !== state.session_key) {
+      if (!limit || sessionKey !== state.session_key || limit !== state.collection_limit) {
         state.status = 'STOPPED';
         state.reason = 'SESSION_CHANGED';
         return { ok: false, status: 'stopped', reason: 'SESSION_CHANGED', error: { code: 'SESSION_CHANGED', message: '采集任务已变化' } };
@@ -275,14 +309,18 @@
         const previousRun = runPromise;
         state.status = 'WAITING';
         previousRun.then(() => {
-          if (state.status === 'WAITING' && state.session_key === sessionKey) launch(sessionKey, true);
+          if (state.status === 'WAITING' && state.session_key === sessionKey) {
+            completionDetector?.resume?.();
+            launch(sessionKey, true);
+          }
         });
-        return { ok: true, action: 'resume_collection', status: 'waiting', session_key: sessionKey, cumulative_unique: hotels.size };
+        return { ok: true, action: 'resume_collection', status: 'waiting', session_key: sessionKey, collection_limit: limit, cumulative_unique: hotels.size };
       }
       pauseRequested = false;
       cancelled = false;
+      completionDetector?.resume?.();
       launch(sessionKey, true);
-      return { ok: true, action: 'resume_collection', status: 'running', session_key: sessionKey, cumulative_unique: hotels.size };
+      return { ok: true, action: 'resume_collection', status: 'running', session_key: sessionKey, collection_limit: limit, cumulative_unique: hotels.size };
     }
 
     function stop(reason = 'USER_STOPPED') {
@@ -306,7 +344,10 @@
         ok: state.status === 'COMPLETED' || state.status === 'STOPPED',
         action: 'collect_loaded_results', status: state.status.toLowerCase(),
         reason: state.reason, iterations: state.iterations,
-        reported_total: state.reported_total, cumulative_unique: hotels.size,
+        reported_total: state.reported_total, collection_limit: state.collection_limit,
+        collected_count: hotels.size, cumulative_unique: hotels.size,
+        completion_reason: state.completion_reason || state.reason,
+        started_at: state.started_at, completed_at: state.completed_at, duration_ms: state.duration_ms,
         hotels: Array.from(hotels.values()), state: copyState()
       };
     }
@@ -321,5 +362,5 @@
     root[KEY] = { version: VERSION, api };
     root.LivvCtripScrollCollector = api;
   }
-  if (typeof module !== 'undefined' && module.exports) module.exports = { createCollector, mergeHotel, DEFAULTS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = { createCollector, mergeHotel, normalizeLimit, DEFAULTS };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

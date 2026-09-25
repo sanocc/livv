@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "酒店助手",
-  "version": "1.0.32",
+  "version": "1.0.34",
   "description": "LIVV 酒店助手，读取当前酒店平台页面中的已加载酒店市场信息。",
   "icons": {
     "16": "assets/icons/icon-16.png",

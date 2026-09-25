@@ -137,14 +137,18 @@
   }
 
   async function injectCollector(tabId) {
-    await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','platforms/ctrip/result-observer.js','platforms/ctrip/scroll-collector.js']});
+    await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','platforms/ctrip/result-observer.js','platforms/ctrip/completion-detector.js','platforms/ctrip/scroll-collector.js']});
   }
 
   function setCollectionStatus(status, reason) {
     const node = $('#collection-status');
     if (!node) return;
-    const labels = {IDLE:'观察模式', RUNNING:'正在采集', STOPPING:'正在停止', PAUSED:'已暂停', STOPPED:'已停止', COMPLETED:'采集完成', ERROR:'采集错误'};
-    node.textContent = labels[status] || reason || status || '观察模式';
+    const labels = {IDLE:'观察模式', RUNNING:'正在采集', WAITING:'正在恢复', STOPPING:'正在停止', PAUSED:'已暂停', STOPPED:'已停止', COMPLETED:'采集完成', ERROR:'采集错误'};
+    const completedLabel = status === 'COMPLETED' && reason === 'TARGET_REACHED' ? '采集完成 · 已达到目标数量'
+      : status === 'COMPLETED' && reason === 'PAGE_EXHAUSTED' ? '采集完成 · 页面无更多结果'
+      : status === 'COMPLETED' && reason === 'BOTTOM_STABLE' ? '采集完成 · 页面已稳定到底' : null;
+    const safetyLabel = status === 'STOPPED' && reason === 'SAFETY_LIMIT' ? '达到安全上限' : null;
+    node.textContent = completedLabel || safetyLabel || labels[status] || reason || status || '观察模式';
     node.className = String(status || '').toLowerCase();
   }
 
@@ -165,6 +169,11 @@
   function showCollectionState(state) {
     if (!state) return;
     setCollectionStatus(state.status, state.reason);
+    const limit = Number(state.collection_limit || $('#collection-limit')?.value || 30);
+    const collected = Number(state.collected_count ?? state.cumulative_unique ?? 0);
+    const percent = limit > 0 ? Math.min(100, Math.floor(collected / limit * 100)) : 0;
+    const progress = $('#collection-progress');
+    if (progress) progress.textContent = `累计发现 ${collected} / ${limit} 家　${percent}%`;
     showObserverResult({
       page_reported_total: state.reported_total,
       current_dom_hotel_count: state.current_dom_count || 0,
@@ -204,6 +213,12 @@
     return [context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
   }
 
+  function selectedCollectionLimit() {
+    const selected = $('#collection-limit')?.value || '30';
+    const value = Number(selected === 'custom' ? $('#collection-limit-custom')?.value : selected);
+    return Number.isInteger(value) && value >= 1 && value <= 200 ? value : null;
+  }
+
   async function startCollection() {
     const button = $('#start-collection');
     button.disabled = true;
@@ -214,7 +229,8 @@
         const pausedState = await getCollectionState(tab.id);
         if (pausedState?.status === 'PAUSED') {
           const sessionKey = await getCollectionSessionKey(tab.id);
-          const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key) => globalThis.LivvCtripScrollCollector.resume({sessionKey:key}), args:[sessionKey]});
+          const limit = selectedCollectionLimit();
+          const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key, requestedLimit) => globalThis.LivvCtripScrollCollector.resume({sessionKey:key, collection_limit:requestedLimit}), args:[sessionKey, limit]});
           if (!result?.ok) {
             showCollectionState({ ...pausedState, status: 'STOPPED', reason: result?.reason || 'SESSION_CHANGED' });
             setCollectionButtons('idle');
@@ -230,7 +246,8 @@
       await injectCollector(tab.id);
       const [{result: context}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null});
       const sessionKey = [context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
-      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key) => globalThis.LivvCtripScrollCollector.start({sessionKey:key}), args:[sessionKey]});
+      const limit = selectedCollectionLimit();
+      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key, requestedLimit) => globalThis.LivvCtripScrollCollector.start({sessionKey:key, collection_limit:requestedLimit}), args:[sessionKey, limit]});
       if (!result?.ok) { setCollectionStatus('ERROR', result?.error?.code || 'COLLECTION_START_FAILED'); return; }
       collectionTabId = tab.id;
       setCollectionButtons('running');
@@ -271,7 +288,8 @@
       const state = await getCollectionState(tabId);
       if (state?.status !== 'PAUSED') return;
       const sessionKey = await getCollectionSessionKey(tabId);
-      if (sessionKey !== state.session_key) {
+      const limit = selectedCollectionLimit();
+      if (sessionKey !== state.session_key || limit !== state.collection_limit) {
         await chrome.scripting.executeScript({target:{tabId}, func:() => globalThis.LivvCtripScrollCollector?.stop?.('SESSION_CHANGED')});
         showCollectionState({ ...state, status: 'STOPPED', reason: 'SESSION_CHANGED' });
         setCollectionButtons('idle');
@@ -646,6 +664,12 @@
   $('#execute-search').addEventListener('click', () => { executeSearch().catch((error) => showSearchResult(null, error?.message || 'SEARCH_RUNTIME_ERROR')); });
   $('#start-collection').addEventListener('click', () => { startCollection().catch((error) => setCollectionStatus('ERROR', error?.message || 'COLLECTION_START_FAILED')); });
   $('#stop-collection').addEventListener('click', () => { stopCollection().catch(() => {}); });
+  $('#collection-limit').addEventListener('change', () => {
+    const custom = $('#collection-limit-custom');
+    if (!custom) return;
+    custom.classList.toggle('hidden', $('#collection-limit').value !== 'custom');
+    if ($('#collection-limit').value === 'custom') custom.focus();
+  });
   $('#record-snapshot').addEventListener('click', () => { recordSnapshot().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_FAILED')); });
   $('#reset-observer').addEventListener('click', () => { resetObserver().catch((error) => showObserverResult(null, error?.message || 'RESULT_OBSERVER_RESET_FAILED')); });
   $('#toggle-json').addEventListener('click', () => { $('#json').classList.toggle('hidden'); $('#toggle-json').textContent = $('#json').classList.contains('hidden') ? '展开JSON' : '收起JSON'; });

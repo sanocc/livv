@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.32';
+  const VERSION = '1.0.34';
   const OBSERVER_KEY = '__LIVV_CTRIP_RESULT_OBSERVER__';
 
   function normalize(value) {
