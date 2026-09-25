@@ -6,10 +6,76 @@
   let collectionTabId = null;
   let collectionPollTimer = null;
 
+  function renderManagedTaskState(state) {
+    const status = $('#managed-status');
+    const detail = $('#managed-detail');
+    const audit = $('#managed-audit');
+    if (!status || !detail || !state) return;
+    const labels = {IDLE:'未运行', CREATING_TAB:'创建中', RUNNING:'运行中', COMPLETED:'已完成', FAILED:'失败', STOPPED:'已停止'};
+    status.textContent = labels[state.status] || state.phase || state.status || '未运行';
+    status.className = `task-hint ${String(state.status || '').toLowerCase()}`;
+    const task = state.task || {};
+    const snapshot = state.task_snapshot || task;
+    const progress = state.progress || (state.result?.collected_count != null ? `${state.result.collected_count} / ${task.collection_limit || 30}` : '等待任务');
+    const phase = state.phase ? ` · 阶段：${state.status === 'FAILED' && state.error?.stage ? state.error.stage : state.phase}` : '';
+    const reason = state.reason ? ` · ${state.reason}` : '';
+    const failureStage = state.error?.stage ? ` · 失败阶段：${state.error.stage}` : '';
+    const userFailure = state.error?.code === 'DIRECT_CONTEXT_MISMATCH' ? ' · 页面任务条件不一致' : '';
+    const taskText = snapshot.city ? `${snapshot.city} · ${snapshot.checkin || '—'}→${snapshot.checkout || '—'} · ${snapshot.keyword || '—'} · ${snapshot.collection_limit || 30}家` : '等待任务';
+    detail.textContent = `${taskText} · ${progress}${phase}${reason}${failureStage}${userFailure}`;
+    if (audit) {
+      const value = state.city_audit;
+      const context = state.error?.context_audit;
+      audit.textContent = context
+        ? `Expected: ${JSON.stringify(context.expected)}\nActual: ${JSON.stringify(context.actual)}\nMismatch: ${context.mismatch_fields.join(', ') || '—'}`
+        : value ? `窗口审计：input=${value.input_found ? 'Y' : 'N'} value=${value.input_value || '—'} visibility=${value.visibility_state || '—'} docFocus=${value.has_focus ? 'Y' : 'N'} candidates=${value.suggestion_count ?? '—'} controller=${value.controller_present ? 'Y' : 'N'}/${value.controller_method_present ? 'Y' : 'N'} time=${value.time_to_suggestions ?? '—'}ms${value.candidate_texts?.length ? ` · ${value.candidate_texts.slice(0, 2).join(' / ')}` : ''}` : '';
+    }
+    const log = $('#managed-log');
+    if (log) {
+      const formatTime = (timestamp) => new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const contextLine = (value) => value ? `${value.city || '—'} · ${value.checkin || '—'}→${value.checkout || '—'} · ${value.keyword || '—'}` : '—';
+      const details = (item) => item.event === 'DIRECT_CONTEXT_OBSERVED' || item.event === 'DIRECT_CONTEXT_TIMEOUT'
+        ? `<small>期望：${contextLine(item.metadata?.expected)}<br>实际：${contextLine(item.metadata?.actual)}<br>不一致：${item.metadata?.mismatch_fields?.join('、') || '无'}<br>来源：${Object.entries(item.metadata?.sources || {}).map(([field, source]) => `${field} ${source}`).join('；') || '—'}${item.event === 'DIRECT_CONTEXT_TIMEOUT' ? '<br>技术码：DIRECT_CONTEXT_MISMATCH' : ''}</small>` : '';
+      log.innerHTML = (state.events || []).map((item) => `<div class="managed-event"><time>${formatTime(item.timestamp)}</time><span>${item.message}${details(item)}</span></div>`).join('');
+      log.scrollTop = log.scrollHeight;
+    }
+    const button = $('#start-managed-task');
+    if (button) button.disabled = ['CREATING_TAB', 'RUNNING'].includes(state.status);
+  }
+
+  async function startManagedTask() {
+    const button = $('#start-managed-task');
+    button.disabled = true;
+    const task = {
+      city: $('#city-input')?.value.trim() || '',
+      checkin: $('#checkin-input')?.value.trim() || '',
+      checkout: $('#checkout-input')?.value.trim() || '',
+      keyword: $('#keyword-input')?.value.trim() || '',
+      collection_limit: selectedCollectionLimit()
+    };
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'LIVV_START_MANAGED_TASK',
+        task
+      });
+      if (!result?.ok) renderManagedTaskState(result?.state || { status: 'FAILED', reason: result?.error?.code || 'MANAGED_TASK_FAILED', error: result?.error, task, task_snapshot: task, events: [] });
+      else renderManagedTaskState({ status: 'CREATING_TAB', phase: 'CREATING_TAB', task, task_snapshot: task, events: [] });
+    } catch (error) {
+      renderManagedTaskState({ status: 'FAILED', reason: error?.message || 'MANAGED_TASK_FAILED', task });
+    } finally { button.disabled = false; }
+  }
+
   function setPageState(name, status, good) {
     $('#page-name').textContent = name;
     $('#page-status').textContent = status;
     $('#page-status').className = 'page-status-tag ' + (good ? 'ok' : 'bad');
+  }
+
+  function setManualControlsEnabled(enabled) {
+    ['#set-city', '#set-dates', '#set-keyword', '#execute-search', '#start-collection'].forEach((selector) => {
+      const node = $(selector);
+      if (node) node.disabled = !enabled;
+    });
   }
 
   function setPageVersion() {
@@ -247,7 +313,10 @@
       const [{result: context}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:() => globalThis.LivvCtripParser?.parsePageContext?.(document, location.href) || null});
       const sessionKey = [context?.city, context?.checkin, context?.checkout, context?.keyword].map((part) => part || '').join('|');
       const limit = selectedCollectionLimit();
-      const [{result}] = await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key, requestedLimit) => globalThis.LivvCtripScrollCollector.start({sessionKey:key, collection_limit:requestedLimit}), args:[sessionKey, limit]});
+      const invocation = globalThis.LivvCollectionInvocation?.createCollectionInvocation?.(chrome);
+      const result = invocation
+        ? await invocation.startCollection(tab.id, { sessionKey, collectionLimit: limit, executionMode: 'manual' })
+        : (await chrome.scripting.executeScript({target:{tabId:tab.id}, func:(key, requestedLimit) => globalThis.LivvCtripScrollCollector.start({sessionKey:key, collection_limit:requestedLimit, execution_mode:'manual'}), args:[sessionKey, limit]}))[0]?.result;
       if (!result?.ok) { setCollectionStatus('ERROR', result?.error?.code || 'COLLECTION_START_FAILED'); return; }
       collectionTabId = tab.id;
       setCollectionButtons('running');
@@ -396,8 +465,10 @@
   }
 
   async function injectReader(tabId) {
+    const reader = globalThis.LivvReaderInvocation?.createReaderInvocation?.(chrome);
+    if (reader) return reader.readCurrentPage(tabId);
     await chrome.scripting.executeScript({target:{tabId}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','content/ctrip-reader.js']});
-    return chrome.tabs.sendMessage(tabId, {type:'LIVV_READ_CURRENT_PAGE'});
+    return await chrome.tabs.sendMessage(tabId, {type:'LIVV_READ_CURRENT_PAGE'});
   }
 
   async function readCurrentPageSnapshot(tabId) {
@@ -603,6 +674,7 @@
       setPageVersion();
       setPageFavicon(tab);
       const supported = Boolean(tab?.url?.startsWith('https://hotels.ctrip.com/'));
+      setManualControlsEnabled(supported);
       if (supported) {
         setPageState('酒店列表页', '✓ 可读取', true);
         setCompactContext(await readPageContext(tab), '携程酒店列表');
@@ -618,6 +690,7 @@
         $('#error').classList.add('hidden');
       }
     } catch (error) {
+      setManualControlsEnabled(false);
       setPageVersion();
       setPageState('当前页面', '× 不支持', false);
       setCompactContext(null, '当前页面');
@@ -634,23 +707,10 @@
         showError('请先手工打开 hotels.ctrip.com 的酒店搜索结果页。'); return;
       }
       setPageState('携程酒店列表', '✓ 可读取', true);
-      try {
-        await chrome.scripting.executeScript({target:{tabId:tab.id}, files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','content/ctrip-reader.js']});
-      } catch (error) {
-        const injectionError = new Error(`READER_INJECTION_FAILED: ${error.message || '无法注入页面读取器'}`);
-        injectionError.code = 'READER_INJECTION_FAILED';
-        throw injectionError;
-      }
-      let result;
-      try {
-        result = await chrome.tabs.sendMessage(tab.id, {type:'LIVV_READ_CURRENT_PAGE'});
-      } catch (error) {
-        const executionError = new Error(`READER_EXECUTION_FAILED: ${error.message || '读取器未响应'}`);
-        executionError.code = 'READER_EXECUTION_FAILED';
-        throw executionError;
-      }
-      if (!result.ok) {
-        showError(result.reason === 'parser_error' ? result.message : '已识别携程，但当前页面未检测到酒店列表。'); return;
+      const reader = globalThis.LivvReaderInvocation?.createReaderInvocation?.(chrome);
+      const result = reader ? await reader.readCurrentPage(tab.id) : await injectReader(tab.id);
+      if (!result?.ok) {
+        showError(result?.error?.message || (result?.reason === 'parser_error' ? result.message : '已识别携程，但当前页面未检测到酒店列表。')); return;
       }
       renderResult(result);
     } catch (error) { setPageState('读取失败', '✕ 无法读取当前页面', false); showError(error.message || '读取失败'); }
@@ -664,6 +724,13 @@
   $('#execute-search').addEventListener('click', () => { executeSearch().catch((error) => showSearchResult(null, error?.message || 'SEARCH_RUNTIME_ERROR')); });
   $('#start-collection').addEventListener('click', () => { startCollection().catch((error) => setCollectionStatus('ERROR', error?.message || 'COLLECTION_START_FAILED')); });
   $('#stop-collection').addEventListener('click', () => { stopCollection().catch(() => {}); });
+  $('#start-managed-task').addEventListener('click', () => { startManagedTask().catch(() => {}); });
+  $('#managed-log-toggle')?.addEventListener('click', () => {
+    const log = $('#managed-log');
+    if (!log) return;
+    log.classList.toggle('hidden');
+    $('#managed-log-toggle').textContent = log.classList.contains('hidden') ? '展开日志' : '收起日志';
+  });
   $('#collection-limit').addEventListener('change', () => {
     const custom = $('#collection-limit-custom');
     if (!custom) return;
@@ -688,8 +755,12 @@
       resumeButtonForActiveTab(tabId);
     }
   });
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === 'LIVV_MANAGED_TASK_UPDATE' || message?.type === 'LIVV_MANAGED_WINDOW_UPDATE') renderManagedTaskState(message.state);
+  });
   refreshActiveTabState();
   restorePendingSearch();
+  chrome.runtime.sendMessage({ type: 'LIVV_GET_MANAGED_TASK_STATE' }).then(renderManagedTaskState).catch(() => {});
   window.addEventListener('pagehide', () => {
     if (collectionTabId) chrome.scripting.executeScript({target:{tabId:collectionTabId}, func:() => globalThis.LivvCtripScrollCollector?.stop?.('PANEL_CLOSED')}).catch(() => {});
   });

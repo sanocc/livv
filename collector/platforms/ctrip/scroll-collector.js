@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.34';
+  const VERSION = '1.0.49';
   const KEY = '__LIVV_CTRIP_SCROLL_COLLECTOR__';
   const DEFAULTS = {
     stepRatio: 0.8,
@@ -59,7 +59,8 @@
       reported_total: null, session_key: null, started_at: null,
       last_observed_at: null, completion_status: null, completion_reason: null,
       completed_at: null, duration_ms: null, collection_limit: normalizeLimit(collectionLimit) || 30,
-      collected_count: 0
+      collected_count: 0,
+      heartbeat: [], last_heartbeat: null
     };
     let hotels = new Map();
     let cancelled = false;
@@ -95,7 +96,7 @@
         reported_total: null, session_key: sessionKey, started_at: null,
         last_observed_at: null, completion_status: null, completion_reason: null,
         completed_at: null, duration_ms: null, collection_limit: normalizedLimit,
-        collected_count: 0
+        collected_count: 0, heartbeat: [], last_heartbeat: null
       });
       return { ok: true, action: 'reset_collection', session_key: sessionKey, collection_limit: normalizedLimit };
     }
@@ -176,14 +177,14 @@
         const same = previous && sample.scroll === previous.scroll && sample.height === previous.height && sample.ids === previous.ids;
         if (same) {
           stableSince ??= now();
-          if (now() - stableSince >= options.stableMs) return { ok: true };
+          if (now() - stableSince >= options.stableMs) return { ok: true, duration_ms: now() - started };
         } else {
           stableSince = null;
           previous = sample;
         }
         await sleep(options.pollMs);
       }
-      return { ok: false, reason: 'SETTLE_TIMEOUT' };
+      return { ok: false, reason: 'SETTLE_TIMEOUT', duration_ms: now() - started };
     }
 
     function shouldStop(completion) { return completion?.status === 'COMPLETED'; }
@@ -236,9 +237,28 @@
         }
         const step = Math.max(1, Math.round((Number(win.innerHeight || state.viewport_height || 1)) * options.stepRatio));
         if (typeof win.scrollBy !== 'function') { state.status = 'ERROR'; state.reason = 'SCROLL_UNAVAILABLE'; break; }
+        const heartbeatStartedAt = now();
+        const scrollYBefore = Number(win.scrollY || 0);
+        const documentHeightBefore = Number(doc?.documentElement?.scrollHeight || doc?.body?.scrollHeight || 0);
+        const viewportHeight = Number(win.innerHeight || state.viewport_height || 0);
         win.scrollBy({ top: step, behavior: 'smooth' });
         state.iterations += 1;
         const settled = await waitForStable();
+        const scrollYAfter = Number(win.scrollY || 0);
+        const documentHeightAfter = Number(doc?.documentElement?.scrollHeight || doc?.body?.scrollHeight || 0);
+        if (!settled.ok) {
+          const heartbeat = {
+            iteration: state.iterations, timestamp: new Date(now()).toISOString(), visibilityState: doc?.visibilityState || null,
+            hasFocus: Boolean(doc?.hasFocus?.()), scrollY_before: scrollYBefore, scrollY_after: scrollYAfter,
+            viewportHeight, documentHeight_before: documentHeightBefore, documentHeight_after: documentHeightAfter,
+            distanceToBottom: documentHeightAfter - (scrollYAfter + viewportHeight), current_dom_count: state.current_dom_count,
+            cumulative_unique: hotels.size, added_count: 0, settle_result: settled.reason || 'SETTLE_FAILED',
+            settle_duration_ms: settled.duration_ms ?? Math.max(0, now() - heartbeatStartedAt), loading_detected: hasLoading(),
+            collector_state: state.status
+          };
+          state.last_heartbeat = heartbeat;
+          state.heartbeat = [...state.heartbeat, heartbeat].slice(-100);
+        }
         if (!settled.ok) {
           state.status = settled.reason === 'TAB_CHANGED' ? 'PAUSED' : (settled.reason === 'USER_STOPPED' ? 'STOPPED' : 'ERROR');
           state.reason = settled.reason === 'USER_STOPPED' ? (stopReason || 'USER_STOPPED') : settled.reason;
@@ -247,6 +267,17 @@
         const result = readBatch();
         const observation = observe();
         lastSettledScroll = Number(win.scrollY || 0);
+        const heartbeat = {
+          iteration: state.iterations, timestamp: new Date(now()).toISOString(), visibilityState: doc?.visibilityState || null,
+          hasFocus: Boolean(doc?.hasFocus?.()), scrollY_before: scrollYBefore, scrollY_after: scrollYAfter,
+          viewportHeight, documentHeight_before: documentHeightBefore, documentHeight_after: documentHeightAfter,
+          distanceToBottom: documentHeightAfter - (scrollYAfter + viewportHeight), current_dom_count: state.current_dom_count,
+          cumulative_unique: hotels.size, added_count: result.added, settle_result: 'STABLE',
+          settle_duration_ms: settled.duration_ms ?? Math.max(0, now() - heartbeatStartedAt),
+          loading_detected: Boolean(observation.snapshot?.loading_indicator_present ?? hasLoading()), collector_state: state.status
+        };
+        state.last_heartbeat = heartbeat;
+        state.heartbeat = [...state.heartbeat, heartbeat].slice(-100);
         emit({ phase: 'iteration', snapshot: observation.snapshot, completion: observation.completion });
         if (hotels.size >= state.collection_limit) { state.status = 'COMPLETED'; state.reason = 'TARGET_REACHED'; break; }
         if (shouldStop(observation.completion)) { state.status = 'COMPLETED'; state.reason = 'PAGE_EXHAUSTED'; break; }

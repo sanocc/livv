@@ -148,6 +148,35 @@
     return amountOnly ? { count: null, amount: Number(amountOnly[1]), text } : null;
   }
 
+  function validISODate(value) {
+    const text = normalizeText(value);
+    const match = text?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return date.getUTCFullYear() === Number(match[1]) && date.getUTCMonth() + 1 === Number(match[2]) && date.getUTCDate() === Number(match[3]) ? text : null;
+  }
+
+  function normalizeDOMDate(value) {
+    const text = normalizeText(value);
+    if (!text) return null;
+    const iso = validISODate(text);
+    if (iso) return { value: iso, source: 'DOM canonical' };
+    const match = text.match(/(?:(\d{4})年)?\s*(\d{1,2})月\s*(\d{1,2})日/);
+    if (!match) return null;
+    const year = match[1] ? Number(match[1]) : null;
+    if (!year) return { value: null, source: 'DOM date year unresolved' };
+    const canonical = validISODate(`${year}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`);
+    return canonical ? { value: canonical, source: 'DOM normalized' } : null;
+  }
+
+  function canonicalDate(domValue, urlValue) {
+    const urlDate = validISODate(urlValue);
+    const domDate = normalizeDOMDate(domValue);
+    if (urlDate) return { value: urlDate, source: domValue ? 'URL canonical + DOM evidence' : 'URL canonical', raw: domValue || null };
+    if (domDate) return { ...domDate, raw: domValue || null };
+    return { value: null, source: domValue ? 'DOM date source uncertain' : 'unavailable', raw: domValue || null };
+  }
+
   function parsePageContext(document, url) {
     const href = String(url || (document && document.location && document.location.href) || '');
     const query = new URL(href || 'https://hotels.ctrip.com/').searchParams;
@@ -173,12 +202,21 @@
       'input[placeholder*="位置/品牌/酒店"]',
       'input[aria-label*="位置/品牌/酒店"]'
     ]);
+    const checkin = canonicalDate(checkinInput.value, readParam(['checkin', 'checkIn', 'startDate']));
+    const checkout = canonicalDate(checkoutInput.value, readParam(['checkout', 'checkOut', 'endDate']));
     return {
       platform: 'ctrip',
       city: cityInput.found ? cityInput.value : readParam(['cityName', 'city', 'destName']) || readInput([/城市|city/i]) || null,
-      checkin: checkinInput.found ? checkinInput.value : readParam(['checkin', 'checkIn', 'startDate']) || readInput([/入住|check.?in/i]) || null,
-      checkout: checkoutInput.found ? checkoutInput.value : readParam(['checkout', 'checkOut', 'endDate']) || readInput([/离店|退房|check.?out/i]) || null,
+      checkin: checkin.value || (!checkinInput.found ? normalizeDOMDate(readInput([/入住|check.?in/i]))?.value || null : null),
+      checkout: checkout.value || (!checkoutInput.found ? normalizeDOMDate(readInput([/离店|退房|check.?out/i]))?.value || null : null),
       keyword: keywordInput.found ? keywordInput.value : readParam(['keyword', 'kw', 'searchWord']) || null,
+      raw_context: { checkin_dom: checkinInput.value, checkout_dom: checkoutInput.value },
+      context_sources: {
+        city: cityInput.found ? 'DOM' : 'URL fallback',
+        checkin: checkin.source,
+        checkout: checkout.source,
+        keyword: keywordInput.found ? 'DOM' : 'URL fallback'
+      },
       url: href,
       hasHotelListText: /酒店|住宿|房型|价格/.test(text)
     };

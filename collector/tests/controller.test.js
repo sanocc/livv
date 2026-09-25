@@ -41,8 +41,23 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   assert.deepStrictEqual(controller.findCitySuggestions(doc, '咸宁', input), [selected]);
   const result = await controller.setCity('咸宁', doc);
   assert.deepStrictEqual(result, {requested_city: '咸宁', actual_city: '咸宁', matched: true, selected_candidate: {name: '咸宁', subtitle: '', type: 'city'}});
-  assert.deepStrictEqual(await controller.setCityResult('咸宁', doc), {ok: true, action: 'set_city', requested_city: '咸宁', actual_city: '咸宁', matched: true, selected_candidate: {name: '咸宁', subtitle: '', type: 'city'}});
-  assert.deepStrictEqual(input.events, ['input', 'change', 'input', 'change']);
+  const secondInput = new FakeInput('武汉');
+  const secondDoc = fixture({input: secondInput, suggestions: [selected]});
+  assert.deepStrictEqual(await controller.setCityResult('咸宁', secondDoc), {ok: true, action: 'set_city', requested_city: '咸宁', actual_city: '咸宁', matched: true, selected_candidate: {name: '咸宁', subtitle: '', type: 'city'}});
+  assert.deepStrictEqual(input.events, ['input', 'change']);
+
+  const alreadyMatchedInput = new FakeInput('咸宁');
+  const alreadyMatchedDoc = fixture({input: alreadyMatchedInput, suggestions: []});
+  assert.deepStrictEqual(await controller.setCityResult('咸宁', alreadyMatchedDoc), {
+    ok: true,
+    action: 'set_city',
+    requested_city: '咸宁',
+    actual_city: '咸宁',
+    matched: true,
+    selection_mode: 'already_matched'
+  });
+  assert.deepStrictEqual(alreadyMatchedInput.events, []);
+  assert.strictEqual(alreadyMatchedInput.focused, false);
 
   assert.deepStrictEqual(controller.findCitySuggestions(doc, '咸宁', input), [selected]);
   const similar = fixture({input: new FakeInput('武汉'), suggestions: [{textContent: '咸宁市', contains: () => false}]});
@@ -76,7 +91,7 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   let promotedClicked = false;
   const promotedParent = {textContent: '武汉', children: [{}, {}], click: () => { promotedClicked = true; }};
   const promotedNode = {textContent: '武汉', parentElement: promotedParent, contains: () => false};
-  const promotedInput = new FakeInput('武汉');
+  const promotedInput = new FakeInput('南京');
   const promotedDoc = {
     defaultView: { getComputedStyle: () => ({display: 'block', visibility: 'visible'}) },
     querySelector(selector) { return selector === '#destinationInput' ? promotedInput : null; },
@@ -112,6 +127,33 @@ function fixture({input = new FakeInput('武汉'), suggestions = []} = {}) {
   const keywordResult = await controller.setKeywordResult('玄武湖风景区', keywordDoc);
   assert.strictEqual(keywordResult.ok, true);
   assert.deepStrictEqual(keywordResult.selected_candidate, {name: '玄武湖风景区', subtitle: '', type: 'unknown'});
+
+  const alreadyKeywordInput = new FakeInput('中心花坛');
+  const alreadyKeywordDoc = keywordFixture({input: alreadyKeywordInput, suggestions: []});
+  assert.deepStrictEqual(await controller.setKeywordResult('中心花坛', alreadyKeywordDoc), {
+    ok: true,
+    action: 'set_keyword',
+    requested_keyword: '中心花坛',
+    actual_keyword: '中心花坛',
+    matched: true,
+    selection_mode: 'already_matched',
+    selected_candidate: null
+  });
+  assert.deepStrictEqual(alreadyKeywordInput.events, []);
+  assert.strictEqual(alreadyKeywordInput.focused, false);
+
+  const alreadyEmptyInput = new FakeInput('');
+  const alreadyEmptyDoc = keywordFixture({input: alreadyEmptyInput, suggestions: []});
+  assert.deepStrictEqual(await controller.setKeywordResult('', alreadyEmptyDoc), {
+    ok: true,
+    action: 'set_keyword',
+    requested_keyword: null,
+    actual_keyword: null,
+    matched: true,
+    selection_mode: 'already_empty',
+    selected_candidate: null
+  });
+  assert.strictEqual((await controller.setKeywordResult('', keywordFixture({input: new FakeInput('旧关键词')}))).error.code, 'KEYWORD_INPUT_FAILED');
 
   const similarKeyword = keywordFixture({input: new FakeInput(''), suggestions: [{textContent: '玄武湖景区', getAttribute: (name) => name === 'tabindex' ? '-1' : null, contains: () => false}]});
   assert.deepStrictEqual(controller.findKeywordSuggestions(similarKeyword, '玄武湖风景区', similarKeyword.querySelector('input[placeholder="位置/品牌/酒店 (选填)"]')), []);

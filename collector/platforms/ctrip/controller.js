@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.34';
+  const VERSION = '1.0.49';
 
   class CityControlError extends Error {
     constructor(code, message, stage) { super(message || code); this.name = 'CityControlError'; this.code = code; this.stage = stage; }
@@ -188,6 +188,23 @@
     if (!city) throw new CityControlError('CITY_INPUT_FAILED', '城市不能为空', 'START');
     const input = findCityInput(doc);
     if (!input) throw new CityControlError('CITY_INPUT_NOT_FOUND', '未找到城市输入控件', 'START');
+    // Read the existing page state before focusing or writing. Ctrip may show
+    // recent/hot-city suggestions for an already-selected city instead of a
+    // matching city candidate; that is not a selection failure.
+    const initialCity = normalize(input.value);
+    if (initialCity === city) {
+      const currentInput = findCityInput(doc);
+      const actual = normalize(currentInput?.value);
+      if (actual !== city) throw new CityControlError('CITY_SELECTION_MISMATCH', '当前城市状态不一致', 'CITY_VERIFIED');
+      const result = {
+        requested_city: city,
+        actual_city: actual,
+        matched: true,
+        selection_mode: 'already_matched'
+      };
+      console.log(`[酒店助手 v${VERSION}] City already matched`, result);
+      return result;
+    }
     try {
       input.focus();
       updateInput(input, city);
@@ -337,9 +354,26 @@
   async function setKeyword(requested, doc = root.document) {
     const keyword = normalize(requested);
     console.log(`[酒店助手 v${VERSION}] Keyword control start`, { requested_keyword: keyword });
-    if (!keyword) throw new KeywordControlError('KEYWORD_INPUT_FAILED', '关键词不能为空', 'START');
     const input = findKeywordInput(doc);
     if (!input) throw new KeywordControlError('KEYWORD_INPUT_NOT_FOUND', '未找到关键词输入控件', 'START');
+    // Read the page state before focusing or writing. Ctrip may keep the
+    // requested keyword in the input but not offer a new exact candidate.
+    const initialKeyword = normalize(input.value);
+    if (initialKeyword === keyword) {
+      const currentInput = findKeywordInput(doc);
+      const actual = normalize(currentInput?.value);
+      if (actual !== keyword) throw new KeywordControlError('KEYWORD_SELECTION_MISMATCH', '当前关键词状态不一致', 'KEYWORD_VERIFIED');
+      const result = {
+        requested_keyword: keyword || null,
+        actual_keyword: actual || null,
+        matched: true,
+        selection_mode: keyword ? 'already_matched' : 'already_empty',
+        selected_candidate: null
+      };
+      console.log(`[酒店助手 v${VERSION}] Keyword already matched`, result);
+      return result;
+    }
+    if (!keyword) throw new KeywordControlError('KEYWORD_INPUT_FAILED', '当前存在关键词，未执行未经验证的清空操作', 'START');
     try {
       input.focus();
       updateKeywordInput(input, keyword);

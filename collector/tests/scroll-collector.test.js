@@ -32,6 +32,10 @@ function makeHarness(ids, options = {}) {
   assert.deepStrictEqual(result.hotels.map((hotel) => hotel.platform_hotel_id), ['A', 'B', 'C']);
   assert.ok(['completed', 'stopped'].includes(result.status));
   assert.deepStrictEqual(result.hotels.map((hotel) => hotel.collection_rank), [1, 2, 3]);
+  assert.ok(Array.isArray(result.state.heartbeat));
+  assert.ok(result.state.last_heartbeat);
+  assert.ok(Object.prototype.hasOwnProperty.call(result.state.last_heartbeat, 'scrollY_before'));
+  assert.ok(Object.prototype.hasOwnProperty.call(result.state.last_heartbeat, 'settle_duration_ms'));
 
   const limited = makeHarness(['A', 'B', 'C', 'D']);
   assert.strictEqual(limited.collector.start({ sessionKey: '', collection_limit: 3 }).ok, true);

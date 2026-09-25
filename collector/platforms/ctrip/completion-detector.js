@@ -1,7 +1,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.0.34';
+  const VERSION = '1.0.49';
   const DEFAULTS = {
     nearBottomRatio: 0.5,
     nearBottomThreshold: 240,

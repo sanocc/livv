@@ -1,4 +1,4 @@
-# 酒店助手 V1.0.34
+# 酒店助手 V1.0.49
 
 UI-S1 — Chrome Side Panel
 

@@ -75,7 +75,7 @@ const completeContext = parser.parsePageContext(
 );
 assert.deepStrictEqual(
   {city: completeContext.city, checkin: completeContext.checkin, checkout: completeContext.checkout, keyword: completeContext.keyword},
-  {city: '武汉', checkin: '2026-10-03', checkout: '2026-10-04', keyword: '武汉站'}
+  {city: '武汉', checkin: '2026-09-01', checkout: '2026-09-02', keyword: '武汉站'}
 );
 
 const domWithoutUrlFields = parser.parsePageContext(
@@ -92,6 +92,22 @@ const emptyKeywordWithDateText = parser.parsePageContext(
   'https://hotels.ctrip.com/hotels/list?cityName=武汉&checkin=2026-10-03&checkout=2026-10-04'
 );
 assert.strictEqual(emptyKeywordWithDateText.keyword, null);
+
+const normalizedDateContext = parser.parsePageContext(
+  contextDocument({city: '咸宁', checkin: '10月1日(周四)', checkout: '10月2日(周五)', keyword: '中心花坛'}),
+  'https://hotels.ctrip.com/hotels/list?cityName=咸宁&checkin=2026-10-01&checkout=2026-10-02'
+);
+assert.strictEqual(normalizedDateContext.checkin, '2026-10-01');
+assert.strictEqual(normalizedDateContext.checkout, '2026-10-02');
+assert.strictEqual(normalizedDateContext.context_sources.checkin, 'URL canonical + DOM evidence');
+assert.strictEqual(normalizedDateContext.raw_context.checkin_dom, '10月1日(周四)');
+
+const crossMonthContext = parser.parsePageContext(
+  contextDocument({city: '咸宁', checkin: '10月30日', checkout: '11月2日', keyword: '中心花坛'}),
+  'https://hotels.ctrip.com/hotels/list?checkin=2026-10-30&checkout=2026-11-02'
+);
+assert.strictEqual(crossMonthContext.checkin, '2026-10-30');
+assert.strictEqual(crossMonthContext.checkout, '2026-11-02');
 
 const idFromCard = new Node('白玉兰酒店', {id: '125435763'});
 assert.strictEqual(parser.parseHotelCard(idFromCard, 1).platform_hotel_id, '125435763');

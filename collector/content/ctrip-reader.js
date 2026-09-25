@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const VERSION = '1.0.34';
+  const VERSION = '1.0.49';
   const READER_KEY = '__LIVV_HOTEL_ASSISTANT_READER__';
   const supported = location.hostname === 'hotels.ctrip.com';
 
@@ -13,6 +13,10 @@
   }
 
   function readerListener(message, _sender, sendResponse) {
+    if (message?.type === 'LIVV_PING_READER') {
+      sendResponse({ ok: true, type: 'LIVV_PING_READER', version: VERSION });
+      return false;
+    }
     if (message?.type !== 'LIVV_READ_CURRENT_PAGE') return false;
     if (!supported) {
       sendResponse({ ok: false, reason: 'unsupported_host' });

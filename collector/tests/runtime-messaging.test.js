@@ -4,10 +4,11 @@ const vm = require('vm');
 
 const manifest = JSON.parse(fs.readFileSync('collector/manifest.json', 'utf8'));
 const popup = fs.readFileSync('collector/popup/popup.js', 'utf8');
+const readerInvocation = fs.readFileSync('collector/shared/reader-invocation.js', 'utf8');
 const reader = fs.readFileSync('collector/content/ctrip-reader.js', 'utf8');
 
 assert.strictEqual(manifest.name, '酒店助手');
-assert.strictEqual(manifest.version, '1.0.34');
+assert.strictEqual(manifest.version, '1.0.49');
 assert.ok(!manifest.content_scripts, 'reader must be injected on demand');
 assert.deepStrictEqual(manifest.permissions, ['activeTab', 'scripting', 'sidePanel', 'tabs']);
 assert.ok(popup.includes('chrome.scripting.executeScript'));
@@ -24,12 +25,13 @@ assert.ok(popup.includes('DATE_CONTROL_NO_RESPONSE'));
 assert.ok(popup.includes("args:[checkin, checkout]"));
 assert.ok(popup.includes('result.ok !== true'));
 assert.ok(popup.includes('await chrome.tabs.sendMessage'));
-assert.ok(popup.includes('READER_INJECTION_FAILED'));
-assert.ok(popup.includes('READER_EXECUTION_FAILED'));
+assert.ok(readerInvocation.includes('INJECTION_FAILED'));
+assert.ok(readerInvocation.includes('READER_EXECUTION_FAILED'));
 assert.ok(reader.includes('chrome.runtime.onMessage.addListener'));
 assert.ok(reader.includes('__LIVV_HOTEL_ASSISTANT_READER__'));
 assert.ok(reader.includes('chrome.runtime.onMessage.removeListener(previousReader.listener)'));
-assert.ok(reader.includes("const VERSION = '1.0.34'"));
+assert.ok(reader.includes("const VERSION = '1.0.49'"));
+assert.ok(reader.includes('LIVV_PING_READER'));
 assert.ok(reader.includes('Reader ready'));
 
 const removed = [];
@@ -49,7 +51,7 @@ runtimeContext.__LIVV_HOTEL_ASSISTANT_READER__ = { version: '1.0.13', listener: 
 vm.runInNewContext(reader, runtimeContext);
 assert.deepStrictEqual(removed, [oldListener]);
 assert.strictEqual(added.length, 1);
-assert.strictEqual(runtimeContext.__LIVV_HOTEL_ASSISTANT_READER__.version, '1.0.34');
+assert.strictEqual(runtimeContext.__LIVV_HOTEL_ASSISTANT_READER__.version, '1.0.49');
 assert.strictEqual(runtimeContext.__LIVV_HOTEL_ASSISTANT_READER__.listener, added[0]);
 
 console.log('runtime messaging mock checks passed');
