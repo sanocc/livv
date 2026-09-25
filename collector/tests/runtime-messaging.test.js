@@ -8,9 +8,9 @@ const readerInvocation = fs.readFileSync('collector/shared/reader-invocation.js'
 const reader = fs.readFileSync('collector/content/ctrip-reader.js', 'utf8');
 
 assert.strictEqual(manifest.name, '酒店助手');
-assert.strictEqual(manifest.version, '1.0.49');
+assert.strictEqual(manifest.version, '1.0.50');
 assert.ok(!manifest.content_scripts, 'reader must be injected on demand');
-assert.deepStrictEqual(manifest.permissions, ['activeTab', 'scripting', 'sidePanel', 'tabs']);
+assert.deepStrictEqual(manifest.permissions, ['activeTab', 'alarms', 'scripting', 'sidePanel', 'storage', 'tabs']);
 assert.ok(popup.includes('chrome.scripting.executeScript'));
 assert.ok(popup.includes("files:['platforms/ctrip/parser.js','platforms/ctrip/semantic.js','content/ctrip-reader.js']"));
 assert.ok(popup.includes("files:['platforms/ctrip/controller.js']"));

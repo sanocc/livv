@@ -8,7 +8,7 @@ const background = fs.readFileSync('collector/background.js', 'utf8');
 const popup = fs.readFileSync('collector/popup/popup.js', 'utf8');
 const managedTab = fs.readFileSync('collector/background/managed-tab.js', 'utf8');
 
-assert.strictEqual(manifest.version, '1.0.49');
+assert.strictEqual(manifest.version, '1.0.50');
 assert.deepStrictEqual(manifest.icons, {
   '16': 'assets/icons/icon-16.png', '32': 'assets/icons/icon-32.png', '48': 'assets/icons/icon-48.png', '128': 'assets/icons/icon-128.png'
 });
@@ -50,6 +50,7 @@ assert.ok(popup.includes('setManualControlsEnabled'));
 assert.ok(popup.includes('DIRECT_CONTEXT_MISMATCH'));
 assert.ok(popup.includes('DIRECT_CONTEXT_OBSERVED'));
 assert.ok(html.includes('managed-log'));
+assert.ok(html.includes('cloud-device-status'));
 assert.ok(background.includes("importScripts('background/managed-tab.js')"));
 assert.ok(managedTab.includes('managed_tab_id'));
 

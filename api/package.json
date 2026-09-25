@@ -1,0 +1,8 @@
+{
+  "name": "livv-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types tests/run-tests.js"
+  }
+}

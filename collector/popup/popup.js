@@ -83,6 +83,17 @@
     if (node) node.textContent = 'v' + chrome.runtime.getManifest().version;
   }
 
+  async function refreshCloudDeviceStatus() {
+    const node = $('#cloud-device-status');
+    if (!node) return;
+    try {
+      const state = await chrome.runtime.sendMessage({ type: 'LIVV_REFRESH_CLOUD_DEVICE_STATUS' });
+      const labels = { pending: '等待批准', approved: '已批准', disabled: '已停用', revoked: '已撤销', unregistered: '等待配置', unavailable: '不可用' };
+      const version = chrome.runtime.getManifest().version;
+      node.textContent = `设备：${state?.registered ? '已注册' : '未注册'}　授权：${labels[state?.status] || '等待配置'}　版本：${version}`;
+    } catch (_) { node.textContent = '设备：未注册　授权：等待配置'; }
+  }
+
   function setRefreshLoading(loading) {
     const button = $('#read-page');
     if (!button) return;
@@ -759,6 +770,7 @@
     if (message?.type === 'LIVV_MANAGED_TASK_UPDATE' || message?.type === 'LIVV_MANAGED_WINDOW_UPDATE') renderManagedTaskState(message.state);
   });
   refreshActiveTabState();
+  refreshCloudDeviceStatus();
   restorePendingSearch();
   chrome.runtime.sendMessage({ type: 'LIVV_GET_MANAGED_TASK_STATE' }).then(renderManagedTaskState).catch(() => {});
   window.addEventListener('pagehide', () => {
