@@ -186,14 +186,7 @@ async function run(a) {
     const map = new Map((a.market ?? []).map((h) => [h.hotel_id, h])),
       before = map.size;
     for (const hotel of r.hotels) {
-      const key = hotel.hotel_id + "/" + hotel.is_ad;
-      let rank = a.positions?.[key];
-      if (rank === undefined) {
-        a.positions ??= {};
-        rank = Object.keys(a.positions).length + 1;
-        a.positions[key] = rank;
-      }
-      const h = { ...hotel, rank },
+      const h = hotel,
         old = map.get(h.hotel_id);
       if (!old || (old.is_ad && !h.is_ad)) map.set(h.hotel_id, h);
     }
@@ -294,7 +287,7 @@ async function run(a) {
     const h = a.market.find(
         (x) => x.hotel_id === a.details[a.detail_index].hotel_id,
       ),
-      r = await execute(a, inspectDetail, [h]);
+      r = await execute(a, inspectDetail, [h, a.task]);
     if (r?.rooms?.length) {
       a.rooms.push(...r.rooms);
       a.detail_results.push({ hotel_id: h.hotel_id, status: "SUCCESS" });
@@ -455,7 +448,11 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     });
     return;
   }
-  if (sender.tab || sender.url !== chrome.runtime.getURL("popup.html")) return;
+  if (
+    sender.id !== chrome.runtime.id ||
+    sender.url !== chrome.runtime.getURL("popup.html")
+  )
+    return;
   (async () => {
     if (m.type === "STATE") {
       const s = await read(),
@@ -481,6 +478,49 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       await tick(true);
       return { ok: true };
     }
+    if (m.type === "DEBUG_DOM") {
+      const state = await read();
+      if (!state.active) return { error: "NO_ACTIVE_ATTEMPT" };
+      return execute(state.active, () => ({
+        path: location.pathname,
+        inputs: Array.from(document.querySelectorAll("input")).map((e) => ({
+          type: e.type,
+          value: e.value,
+        })),
+        city: document.querySelector('[class*="dest-keyword-column"]')
+          ?.textContent,
+        candidates: Array.from(
+          document.querySelectorAll('[class*="keywordItemMainContainer"]'),
+        )
+          .slice(0, 3)
+          .map((e) => ({
+            text: e.textContent,
+            html: e.outerHTML.slice(0, 2000),
+          })),
+        query: Array.from(document.querySelectorAll("span,div"))
+          .filter(
+            (e) =>
+              e.children.length === 0 &&
+              e.textContent.replace(/\s/g, "") === "查询",
+          )
+          .map((e) => e.outerHTML),
+        body: document.body.innerText.slice(0, 1800),
+      }));
+    }
+    if (m.type === "PROBE_DISABLED") {
+      const cloud = await request("/v1/device/heartbeat", { version: VERSION });
+      await chrome.storage.local.set({ cloud, cloud_at: Date.now() });
+      if (cloud.status !== "disabled")
+        throw new Error("请先在OTA禁用此设备，避免探测领取真实任务");
+      try {
+        await request("/v1/device/claim");
+        throw new Error("禁用设备被错误允许领取任务");
+      } catch (e) {
+        if (e.code !== "DEVICE_NOT_APPROVED") throw e;
+        await log("DISABLED_REJECTED", "生产API已拒绝禁用设备领取任务");
+      }
+      return { ok: true };
+    }
     if (m.type === "TASK") {
       return request("/v1/device/tasks", m.task);
     }
@@ -494,3 +534,6 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     .catch((e) => reply({ error: e.code ?? e.message }));
   return true;
 });
+
+// Recover heartbeat alarms whenever the MV3 worker wakes, including re-enable.
+void tick(true);

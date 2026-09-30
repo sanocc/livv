@@ -5,10 +5,10 @@
 | Gate | 状态 | 实际证据 |
 |---|---|---|
 | A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；13项Node测试通过；架构/Schema/API文档已建立 |
-| B 云端基础 | IN PROGRESS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；实际Git构建和管理员登录待验证 |
-| C 设备 | NOT RUN | 尚未安装新Helper、人工批准设备 |
-| D 任务闭环 | LOCAL PASS / LIVE NOT RUN | 内存SQLite验证发布、领取、Attempt、失败回队列；生产未验收 |
-| E 携程自动化 | IN PROGRESS | 真实移动端已检查城市/关键词入口；发现城市显示与关键词路由上下文不同步，尚未通过自动化验收 |
+| B 云端基础 | PASS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；提交2d905d8三个Workers Builds均成功；Chrome真实Access登录后OTA市场页加载成功；生产表暂无采集数据 |
+| C 设备 | PASS | Chrome加载当前Helper；真实UUID注册待批准；用户人工批准；在线空闲；禁用后生产API拒绝claim；停止心跳后离线；恢复在线，同一Device ID保留 |
+| D 任务闭环 | IN PROGRESS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；Helper自动领取Attempt #1并开始执行；完整生产回队列/结果待验证 |
+| E 携程自动化 | IN PROGRESS | 真实移动端已检查城市/关键词入口；已实测列表城市入口、日历与关键词搜索；解析器核对真实DOM城市/日期/关键词，正式Helper自动执行尚未验收 |
 | F 真实列表 | NOT RUN | 没有正式生产采集数据；DOM适配与30家真实上传仍待验证 |
 | G 映射 | LOCAL PASS / LIVE NOT RUN | 本地验证手工confirm、改标准名、解除关联保留观察历史 |
 | H 房型 | NOT RUN | 极简解析及售罄证据校验已编码，真实详情尚未验收 |

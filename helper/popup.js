@@ -57,3 +57,18 @@ $("#task").onsubmit = (e) => {
   });
 };
 action(load);
+
+$("#probe").onclick = () =>
+  action(async () => {
+    await send({ type: "PROBE_DISABLED" });
+    await load();
+  });
+
+$("#debug").onclick = () =>
+  action(async () => {
+    $("#dom").textContent = JSON.stringify(
+      await send({ type: "DEBUG_DOM" }),
+      null,
+      2,
+    );
+  });

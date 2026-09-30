@@ -36,6 +36,7 @@ export function pageStep(task, phase) {
     return { phase: "CITY_INPUT" };
   }
   if (phase === "CITY_INPUT") {
+    if (u.pathname.endsWith("/search")) return { phase: "SEARCH" };
     if (!u.pathname.includes("citySearch")) return { wait: true };
     const e = pick('input[type="text"]');
     if (!e) return { wait: true };
@@ -50,8 +51,10 @@ export function pageStep(task, phase) {
         visible(e) && txt(e).includes(task.city) && txt(e).includes("城市"),
     );
     if (!candidate) return { wait: true };
-    candidate.click();
-    return { phase: task.keyword ? "KEYWORD_OPEN" : "SEARCH" };
+    const title = candidate.querySelector('[class*="keywordTitleContainer"]');
+    const target = title?.querySelector("span span") ?? title ?? candidate;
+    target.click();
+    return { wait: true };
   }
   if (phase === "KEYWORD_OPEN") {
     if (!u.pathname.endsWith("/search")) return { wait: true };
@@ -62,7 +65,7 @@ export function pageStep(task, phase) {
     e.click();
     return { phase: "KEYWORD_INPUT" };
   }
-  if (phase === "KEYWORD_INPUT") {
+  if (phase === "KEYWORD_INPUT" || phase === "LIST_KEYWORD_INPUT") {
     if (!u.pathname.includes("citySearch")) return { wait: true };
     const input = pick('input[type="text"]');
     if (!input) return { wait: true };
@@ -74,25 +77,21 @@ export function pageStep(task, phase) {
       document.querySelectorAll('[class*="keywordItemMainContainer"]'),
     ).filter((e) => visible(e) && txt(e).includes(task.keyword));
     if (!candidates.length) return { wait: true };
-    const exact = candidates.filter((e) =>
-      Array.from(e.querySelectorAll("span")).some(
-        (n) => txt(n) === task.keyword,
-      ),
+    const exact = candidates.filter(
+      (e) =>
+        txt(e.querySelector('[class*="keywordTitleContainer"]')) ===
+        task.keyword,
     );
     if (exact.length !== 1) return { error: "KEYWORD_AMBIGUOUS" };
-    exact[0].click();
-    return { phase: "SEARCH" };
+    const title = exact[0].querySelector('[class*="keywordTitleContainer"]');
+    (title?.querySelector("span span") ?? title ?? exact[0]).click();
+    return { phase: phase === "LIST_KEYWORD_INPUT" ? "LIST" : "SEARCH" };
   }
   if (phase === "SEARCH") {
+    if (u.pathname.includes("citySearch")) return { phase: "CITY_INPUT" };
     if (!u.pathname.endsWith("/search")) return { wait: true };
-    const city = pick('[class*="dest-keyword-column"]'),
-      keyword = pick(
-        '[class*="keyword-hint-container"],[class*="keyword-row"]',
-      );
-    if (
-      !txt(city).includes(task.city) ||
-      (task.keyword && !txt(keyword).includes(task.keyword))
-    )
+    const city = pick('[class*="dest-keyword-column"]');
+    if (!txt(city).includes(task.city))
       return { error: "SEARCH_CONTEXT_NOT_CONFIRMED" };
     const e = Array.from(document.querySelectorAll("span,div"))
       .filter(visible)
@@ -105,19 +104,47 @@ export function pageStep(task, phase) {
     e.click();
     return { phase: "SET_DATES" };
   }
+  if (phase === "LIST_KEYWORD_OPEN") {
+    if (!u.pathname.includes("listPage")) return { wait: true };
+    const entry = Array.from(document.querySelectorAll("span,div")).find(
+      (e) =>
+        visible(e) &&
+        e.children.length === 0 &&
+        !e.closest(".hotel-card") &&
+        txt(e) === "位置/品牌/酒店",
+    );
+    if (!entry) return { wait: true };
+    entry.click();
+    return { phase: "LIST_KEYWORD_INPUT" };
+  }
   if (phase === "SET_DATES") {
     if (!u.pathname.includes("listPage")) return { wait: true };
-    u.searchParams.set("c-in", task.checkin);
-    u.searchParams.set("c-out", task.checkout);
-    for (const key of [
-      "cache-key",
-      "cacheKey",
-      "page-token",
-      "dplinktracelogid",
-    ])
-      u.searchParams.delete(key);
-    u.searchParams.set("notCacheControl", "1");
-    return { navigate: u.href, phase: "LIST" };
+    const current = u.searchParams.get("c-in")?.slice(5);
+    const entry = Array.from(document.querySelectorAll("span")).find(
+      (e) => visible(e) && !e.closest(".hotel-card") && txt(e) === current,
+    );
+    if (!entry) return { wait: true };
+    entry.click();
+    return { phase: "DATE_CHECKIN" };
+  }
+  if (phase === "DATE_CHECKIN" || phase === "DATE_CHECKOUT") {
+    const date = phase === "DATE_CHECKIN" ? task.checkin : task.checkout;
+    const month = document.querySelector(
+      `.calendarComponent-month[ymfullnumber="${date.slice(0, 7).replace("-", "")}"]`,
+    );
+    if (!month) return { wait: true };
+    const cells = Array.from(
+      month.parentElement.querySelectorAll('li[role="button"]'),
+    );
+    const cell = cells.find(
+      (e) =>
+        txt(e.querySelector(".calendarDay")) ===
+          String(Number(date.slice(8))) && !e.className.includes("disable"),
+    );
+    if (!cell) return { error: "DATE_UNAVAILABLE" };
+    cell.scrollIntoView({ block: "center" });
+    cell.click();
+    return { phase: phase === "DATE_CHECKIN" ? "DATE_CHECKOUT" : "LIST" };
   }
   return { wait: true };
 }
@@ -212,7 +239,7 @@ export function inspectList() {
     return {
       hotel_id: id,
       hotel_name,
-      rank: Number.isInteger(rank) && rank >= 0 ? rank + 1 : i + 1,
+      rank: Number.isInteger(rank) && rank >= 0 ? rank + 1 : null,
       is_ad: texts.includes("广告"),
       score: scoreNode ? Number(norm(scoreNode.textContent)) : null,
       dynamic:
@@ -230,7 +257,9 @@ export function inspectList() {
     context,
     context_verified: contextVerified,
     hotels: hotels.filter((x) => x.hotel_id && x.hotel_name),
-    unparsed_cards: hotels.filter((x) => !x.hotel_id || !x.hotel_name).length,
+    unparsed_cards: hotels.filter(
+      (x) => !x.hotel_id || !x.hotel_name || x.rank === null,
+    ).length,
     exhausted,
     observed_at: new Date().toISOString(),
     captcha:
@@ -251,74 +280,148 @@ export function scrollList() {
   e.scrollTop += Math.max(500, e.clientHeight * 0.8);
   return { before, after: e.scrollTop };
 }
-export function inspectDetail(hotel) {
+export function inspectDetail(hotel, task) {
   const norm = (s) =>
-      String(s ?? "")
-        .replace(/\s+/g, " ")
-        .trim(),
-    leaf = Array.from(document.querySelectorAll("span,div")).filter(
-      (e) => e.childElementCount === 0,
-    ),
-    evidence = leaf
-      .map((e) => norm(e.textContent))
-      .find((s) =>
-        /^(该酒店已订完|酒店已订完|当前日期无可售房间|满房|无可售房间)$/.test(
-          s,
-        ),
-      );
-  if (evidence)
+    String(s ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const leaf = (e) =>
+    Array.from(e.querySelectorAll("span,div")).filter(
+      (n) => n.children.length === 0,
+    );
+  const exposures = Array.from(
+    document.querySelectorAll("[data-exposure]"),
+  ).map((e) => {
+    try {
+      return JSON.parse(e.getAttribute("data-exposure"));
+    } catch {
+      return null;
+    }
+  });
+  const ctx = exposures.find(
+    (x) => x?.ubtKey === "htl_x_dtl_header_tab_exposure",
+  )?.data;
+  const nameConfirmed = leaf(document).some(
+    (e) => norm(e.textContent) === hotel.hotel_name,
+  );
+  if (
+    !ctx ||
+    String(ctx.masterhotelid) !== hotel.hotel_id ||
+    ctx.checkin !== task.checkin ||
+    ctx.checkout !== task.checkout ||
+    !nameConfirmed
+  )
+    return { rooms: [], context_verified: false };
+  const full = leaf(document)
+    .map((e) => norm(e.textContent))
+    .find((t) => /^(该酒店已订完|酒店已订完|当前日期无可售房间)$/.test(t));
+  if (full)
     return {
+      context_verified: true,
       rooms: [
         {
-          hotel_id: hotel.hotel_id,
-          hotel_name: hotel.hotel_name,
+          ...hotel,
           room_name: "酒店整体售罄",
           original_price: null,
           display_price: null,
           activity_tags: null,
           availability_status: "sold_out",
-          sold_out_evidence: evidence,
+          sold_out_evidence: full,
         },
       ],
     };
-  const nodes = Array.from(
+  const cards = Array.from(
     document.querySelectorAll(
-      '[class*="roomItem"],[class*="room-item"],[class*="roomCard"]',
+      '#htl_room_list_content_filterRooms [id^="BASE_ROOM_CARD_"]',
     ),
   );
-  const cards = nodes.filter(
-    (e) => !nodes.some((o) => o !== e && e.contains(o)),
-  );
   const rooms = cards
-    .map((e) => {
-      const name = norm(
-        e.querySelector('[class*="roomName"],[class*="room-name"]')
-          ?.textContent,
+    .map((card) => {
+      const nameNode = leaf(card).find(
+        (e) =>
+          Number.parseInt(getComputedStyle(e).fontWeight, 10) >= 600 &&
+          /房|套|别墅|床/.test(norm(e.textContent)) &&
+          !/¥|￥/.test(norm(e.textContent)),
       );
-      const prices = Array.from(
-        norm(e.querySelector('[class*="price"]')?.textContent).matchAll(
-          /[¥￥]\s*(\d+(?:\.\d+)?)/g,
-        ),
-      ).map((x) => Number(x[1]));
-      const sold = Array.from(e.querySelectorAll("span,div"))
-        .filter((x) => x.childElementCount === 0)
-        .map((x) => norm(x.textContent))
-        .find((x) => /^(已订完|满房|无可售|售罄)$/.test(x));
+      if (!nameNode) return null;
+      const room_name = norm(nameNode.textContent),
+        group =
+          card.closest('[id^="BASE_"]:not([id^="BASE_ROOM_CARD_"])') ?? card;
+      const sold = leaf(card)
+        .map((e) => norm(e.textContent))
+        .find((t) => /^(已订完|满房|无可售|售罄)$/.test(t));
+      if (sold)
+        return {
+          hotel_id: hotel.hotel_id,
+          hotel_name: hotel.hotel_name,
+          room_name,
+          original_price: null,
+          display_price: null,
+          activity_tags: null,
+          availability_status: "sold_out",
+          sold_out_evidence: sold,
+        };
+      const numeric = leaf(group).filter(
+        (e) =>
+          /^\d+(?:\.\d+)?$/.test(norm(e.textContent)) &&
+          /[¥￥]/.test(e.parentElement.textContent) &&
+          Number.parseInt(getComputedStyle(e).fontWeight, 10) >= 600,
+      );
+      const choices = numeric
+        .map((e) => {
+          let block = e.parentElement;
+          for (
+            let i = 0;
+            i < 5 && block.parentElement && group.contains(block.parentElement);
+            i++
+          ) {
+            const parent = block.parentElement;
+            if (numeric.filter((n) => parent.contains(n)).length > 1) break;
+            block = parent;
+          }
+          const original = leaf(block).find(
+            (n) =>
+              /^\d+(?:\.\d+)?$/.test(norm(n.textContent)) &&
+              /[¥￥]/.test(n.parentElement.textContent) &&
+              Array.from(n.parentElement.children).some((line) => {
+                const st = getComputedStyle(line);
+                return (
+                  st.position === "absolute" &&
+                  Number.parseFloat(st.height) > 0 &&
+                  Number.parseFloat(st.height) <= 2 &&
+                  st.backgroundColor !== "rgba(0, 0, 0, 0)"
+                );
+              }),
+          );
+          const tags = leaf(block)
+            .map((n) => norm(n.textContent))
+            .filter(
+              (t) =>
+                /优惠|折扣|特惠|豪补|券/.test(t) &&
+                t.length < 40 &&
+                !/取消|早餐|不可|说明/.test(t),
+            );
+          return {
+            display_price: Number(norm(e.textContent)),
+            original_price: original
+              ? Number(norm(original.textContent))
+              : null,
+            activity_tags: tags.length ? [...new Set(tags)] : null,
+          };
+        })
+        .sort((a, b) => a.display_price - b.display_price);
+      if (!choices.length) return null;
       return {
         hotel_id: hotel.hotel_id,
         hotel_name: hotel.hotel_name,
-        room_name: name,
-        original_price: prices.length === 2 ? prices[0] : null,
-        display_price: sold ? null : (prices.at(-1) ?? null),
-        activity_tags: null,
-        availability_status: sold ? "sold_out" : "available",
-        sold_out_evidence: sold ?? null,
+        room_name,
+        ...choices[0],
+        availability_status: "available",
+        sold_out_evidence: null,
       };
     })
-    .filter(
-      (r) => r.room_name && (r.display_price !== null || r.sold_out_evidence),
-    );
-  return { rooms };
+    .filter(Boolean);
+  return { rooms, context_verified: true };
 }
 export function detailLink(hotelId) {
   const nodes = Array.from(
@@ -326,11 +429,19 @@ export function detailLink(hotelId) {
       '[data-hotelid],[data-hotel-id],[class*="hotelCard"],[class*="hotel-card"],[class*="hotelItem"]',
     ),
   );
-  const card = nodes.find(
-    (e) =>
-      (e.getAttribute("data-hotelid") ?? e.getAttribute("data-hotel-id")) ===
-        hotelId || e.querySelector(`img[src*="_ubt_hotelId=${hotelId}&"]`),
-  );
+  const card = nodes.find((e) => {
+    try {
+      if (
+        String(
+          JSON.parse(e.getAttribute("data-exposure"))?.data?.masterhotelid,
+        ) === hotelId
+      )
+        return true;
+    } catch {}
+    return;
+    (e.getAttribute("data-hotelid") ?? e.getAttribute("data-hotel-id")) ===
+      hotelId || e.querySelector(`img[src*="_ubt_hotelId=${hotelId}&"]`);
+  });
   if (!card) return { error: "DETAIL_CARD_NOT_FOUND" };
   card.click();
   return { ok: true };

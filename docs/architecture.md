@@ -56,3 +56,5 @@ Plan -> Task -> Attempt分离。部分索引保证每设备/任务只有一个RU
 - [验证Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
 - [Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
 - [Builds Monorepo](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/) / [watch paths](https://developers.cloudflare.com/workers/ci-cd/builds/build-watch-paths/)
+
+携程房型适配按当前真实DOM的基础房型卡片采集；展开房型如果展示多个销售方案，仅保存当前DOM可见方案中的最低展示价及该价格对应的划线价/活动标签，不保存早餐、取消、渠道等Rate Plan字段。房型已订完必须有该卡片明确文字证据。详情DOM公开业务属性再次核对Hotel ID、入住/退房日期及原始酒店名。
