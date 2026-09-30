@@ -1,0 +1,1 @@
+{"name":"livv-livvcc","compatibility_date":"2026-09-30","routes":[{"pattern":"livv.cc","custom_domain":true}],"assets":{"directory":"public"},"workers_dev":true,"observability":{"enabled":true}}

@@ -1,0 +1,3 @@
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+export function database(){const raw=new DatabaseSync(':memory:');raw.exec(readFileSync(new URL('../api/migrations/0001_v1.sql',import.meta.url),'utf8'));return {raw,prepare(sql){return {bind(...args){return {async all(){return {results:raw.prepare(sql).all(...args)};},async first(){return raw.prepare(sql).get(...args)??null;},async run(){const r=raw.prepare(sql).run(...args);return {meta:{changes:Number(r.changes)}};},_sql:sql,_args:args};}};},async batch(statements){raw.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());raw.exec('COMMIT');return result;}catch(e){raw.exec('ROLLBACK');throw e;}}};}

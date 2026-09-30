@@ -1,0 +1,41 @@
+{
+  "name": "livv-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "api.livv.cc",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "livv-v1",
+      "database_id": "68cfcb1e-913a-4013-aa9d-5ae27f2a1150",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "production"
+  },
+  "ratelimits": [
+    {
+      "name": "REGISTRATION_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}
