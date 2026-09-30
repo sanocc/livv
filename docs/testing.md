@@ -4,8 +4,8 @@
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
-| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；12项Node测试通过；架构/Schema/API文档已建立 |
-| B 云端基础 | IN PROGRESS | 新GitHub仓库身份已验证，新本地Git建立；D1创建成功；迁移/Worker部署/Git Integration仍在进行 |
+| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；13项Node测试通过；架构/Schema/API文档已建立 |
+| B 云端基础 | IN PROGRESS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；实际Git构建和管理员登录待验证 |
 | C 设备 | NOT RUN | 尚未安装新Helper、人工批准设备 |
 | D 任务闭环 | LOCAL PASS / LIVE NOT RUN | 内存SQLite验证发布、领取、Attempt、失败回队列；生产未验收 |
 | E 携程自动化 | IN PROGRESS | 真实移动端已检查城市/关键词入口；发现城市显示与关键词路由上下文不同步，尚未通过自动化验收 |

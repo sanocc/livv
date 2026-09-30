@@ -1,1 +1,84 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>LIVV 酒店助手</title><style>body{font:13px system-ui;width:400px;margin:0;padding:18px;color:#234;background:#f7faf9}h1{font-size:19px}pre{white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:160px;overflow:auto}input,select,button{padding:8px;font:inherit;margin:4px 0;border:1px solid #cdd;border-radius:4px}form{display:grid;grid-template-columns:1fr 1fr;gap:6px}label{display:grid}button{cursor:pointer}.wide{grid-column:1/-1}#error{color:#a33}</style><script type="module" src="popup.js"></script></head><body><h1>LIVV 酒店助手</h1><div id="status"></div><pre id="device"></pre><label><span>自动接单</span><input type="checkbox" id="auto"></label><button id="poll">刷新 / 心跳</button><p id="error"></p><form id="task"><label>城市<input name="city" value="咸宁" required></label><label>关键词<input name="keyword" value="中心花坛"></label><label>入住<input type="date" name="checkin" required></label><label>退房<input type="date" name="checkout" required></label><label>范围<select name="scope"><option value="top30">30家</option><option value="custom">自定义</option><option value="all">全市场</option></select></label><label>自定义数量<input type="number" name="limit" value="30" min="1" max="2000"></label><button class="wide">云端发布立即任务</button></form><h3>执行日志</h3><pre id="logs"></pre></body></html>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>LIVV 酒店助手</title>
+    <style>
+      body {
+        font: 13px system-ui;
+        width: 400px;
+        margin: 0;
+        padding: 18px;
+        color: #234;
+        background: #f7faf9;
+      }
+      h1 {
+        font-size: 19px;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-size: 11px;
+        max-height: 160px;
+        overflow: auto;
+      }
+      input,
+      select,
+      button {
+        padding: 8px;
+        font: inherit;
+        margin: 4px 0;
+        border: 1px solid #cdd;
+        border-radius: 4px;
+      }
+      form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      label {
+        display: grid;
+      }
+      button {
+        cursor: pointer;
+      }
+      .wide {
+        grid-column: 1/-1;
+      }
+      #error {
+        color: #a33;
+      }
+    </style>
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <h1>LIVV 酒店助手</h1>
+    <div id="status"></div>
+    <pre id="device"></pre>
+    <label><span>自动接单</span><input type="checkbox" id="auto" /></label
+    ><button id="poll">刷新 / 心跳</button>
+    <p id="error"></p>
+    <form id="task">
+      <label>城市<input name="city" value="咸宁" required /></label
+      ><label>关键词<input name="keyword" value="中心花坛" /></label
+      ><label>入住<input type="date" name="checkin" required /></label
+      ><label>退房<input type="date" name="checkout" required /></label
+      ><label
+        >范围<select name="scope">
+          <option value="top30">30家</option>
+          <option value="custom">自定义</option>
+          <option value="all">全市场</option>
+        </select></label
+      ><label
+        >自定义数量<input
+          type="number"
+          name="limit"
+          value="30"
+          min="1"
+          max="2000" /></label
+      ><button class="wide">云端发布立即任务</button>
+    </form>
+    <h3>执行日志</h3>
+    <pre id="logs"></pre>
+  </body>
+</html>

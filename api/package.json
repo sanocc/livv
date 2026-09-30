@@ -1,1 +1,9 @@
-{"name":"livv-api","private":true,"type":"module","scripts":{"build":"wrangler deploy --dry-run","deploy":"wrangler deploy"}}
+{
+  "name": "livv-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  }
+}

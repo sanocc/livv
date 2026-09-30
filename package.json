@@ -1,1 +1,22 @@
-{"name":"livv","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","dev:api":"wrangler dev --config api/wrangler.jsonc","dev:ota":"wrangler dev --config ota/wrangler.jsonc","check":"node scripts/check.mjs","deploy:api":"wrangler deploy --config api/wrangler.jsonc","deploy:ota":"wrangler deploy --config ota/wrangler.jsonc","deploy:livvcc":"wrangler deploy --config livvcc/wrangler.jsonc"},"devDependencies":{"wrangler":"^4.145.0"}}
+{
+  "name": "livv",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "dev:api": "wrangler dev --config api/wrangler.jsonc",
+    "dev:ota": "wrangler dev --config ota/wrangler.jsonc",
+    "check": "node scripts/check.mjs",
+    "deploy:api": "wrangler deploy --config api/wrangler.jsonc",
+    "deploy:ota": "wrangler deploy --config ota/wrangler.jsonc",
+    "deploy:livvcc": "wrangler deploy --config livvcc/wrangler.jsonc",
+    "format": "prettier --write api ota livvcc helper scripts tests package.json"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9",
+    "wrangler": "^4.145.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -1,1 +1,8 @@
-{"name":"livv-helper","private":true,"type":"module","scripts":{"build":"node ../scripts/build-helper.mjs"}}
+{
+  "name": "livv-helper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../scripts/build-helper.mjs"
+  }
+}

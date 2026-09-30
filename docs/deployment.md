@@ -20,10 +20,16 @@ npm run deploy:api / deploy:ota / deploy:livvcc。D1迁移：wrangler d1 migrati
 | livv-ota | npx wrangler deploy --config ota/wrangler.jsonc | ota/**, package.json, package-lock.json |
 | livv-livvcc | npx wrangler deploy --config livvcc/wrangler.jsonc | livvcc/**, package.json, package-lock.json |
 
-helper不会作为网站部署。首次连接需Cloudflare GitHub App授权新repo，后续可以使用Builds API建立三个触发器。
+helper不会作为网站部署。首次连接需Cloudflare GitHub App授权新repo，三个Worker均已连接新仓库main，预览分支构建关闭，监视路径按上表保存；下一次正式提交触发实际构建验证。现有Wrangler OAuth不具备Builds/Access组织管理权限，连接与Access配置通过已登录控制台完成。
 
 ## 人类身份配置
 
-Cloudflare Access应用尚未创建，API管理员鉴权因此fail closed，OTA页面拒绝访问。管理员需要确认邮箱白名单；API需要CF_ACCESS_TEAM_DOMAIN、CF_ACCESS_AUD或INTERNAL_OTA_ACCESS_CLIENT_ID、ADMIN_EMAILS，保密配置通过Wrangler secrets设置，不提交Git。
+Cloudflare Access应用LIVV OTA已创建（19068fef-ab4b-43e3-b547-23b284945bee），域名ota.livv.cc，唯一Allow策略为用户确认的管理员邮箱。团队livvcc.cloudflareaccess.com。实际AUD已通过Wrangler secrets配置到API的INTERNAL_OTA_ACCESS_CLIENT_ID，另配置CF_ACCESS_TEAM_DOMAIN和ADMIN_EMAILS，不提交凭证。实际管理员登录仍待验证。
 
 Access只保护ota.livv.cc；api设备路径使用独立设备凭证，不应被人类Access登录重定向阻断。API仍验证人类JWT用于管理员接口。仅前端有认证网关不够，后端签名校验保持开启。
+
+## 已部署资源
+
+2026-10-01：D1远程迁移0001_v1.sql成功，三个Worker已实际部署并绑定api.livv.cc、ota.livv.cc、livv.cc；API健康检查200、官网200。OTA域名/Access登录与第一次Git自动构建需继续验证，不将配置保存当作Gate B通过。
+
+构建镜像默认Node24，项目要求Node24+：[Cloudflare官方构建镜像说明](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)。

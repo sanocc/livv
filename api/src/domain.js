@@ -1,30 +1,295 @@
-import {CONFIG,addDays,businessDate} from './config.js';
-export class HttpError extends Error { constructor(status,code,message=code){super(message);this.status=status;this.code=code;} }
-export function requireThat(condition,code,status=400){if(!condition)throw new HttpError(status,code);}
-export function text(v,max=200,nullable=false){if(nullable&&v==null)return null;requireThat(typeof v==='string'&&v.trim().length>0&&v.length<=max,'INVALID_TEXT');return v.trim();}
-export function date(v){requireThat(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v,'INVALID_DATE');return v;}
-export function target(input,{plan=false,now=Date.now()}={}){
- requireThat(input.platform==='ctrip','UNSUPPORTED_PLATFORM');const scope=input.scope??'top30';requireThat(['top30','custom','all'].includes(scope),'INVALID_SCOPE');
- const limit=scope==='all'?null:scope==='top30'?30:Number(input.limit);requireThat(limit===null||(Number.isInteger(limit)&&limit>=1&&limit<=CONFIG.maxHotels),'INVALID_LIMIT');
- const result={platform:input.platform,city:text(input.city,80),keyword:input.keyword===''?'':text(input.keyword??'',120),scope,collection_limit:limit};
- if(plan){requireThat([14,30].includes(Number(input.horizon??14)),'INVALID_HORIZON');return {...result,horizon:Number(input.horizon??14),enabled:input.enabled!==false};}
- const checkin=date(input.checkin), checkout=date(input.checkout??addDays(checkin,1));requireThat(checkin>=businessDate(now)&&checkout>checkin&&Date.parse(checkout)-Date.parse(checkin)<=30*86400000,'INVALID_STAY');return {...result,checkin,checkout};
+import { CONFIG, addDays, businessDate } from "./config.js";
+export class HttpError extends Error {
+  constructor(status, code, message = code) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
 }
-export function dedupe(hotels,limit=null){const map=new Map();for(const h of hotels){const previous=map.get(h.hotel_id);if(!previous||(previous.is_ad&&!h.is_ad)||previous.is_ad===h.is_ad&&h.rank<previous.rank)map.set(h.hotel_id,h);}return [...map.values()].sort((a,b)=>a.rank-b.rank).slice(0,limit??Infinity);}
-const price=v=>{if(v==null)return null;requireThat(typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=10000000,'INVALID_PRICE');return v;};
-const tags=v=>{if(v==null)return null;requireThat(Array.isArray(v)&&v.length<=30,'INVALID_TAGS');return v.map(x=>text(x,100));};
-export function marketRows(rows,limit){requireThat(Array.isArray(rows)&&rows.length>0&&rows.length<=CONFIG.maxHotels*2,'INVALID_HOTELS');return dedupe(rows.map(h=>{requireThat(Number.isInteger(h.rank)&&h.rank>0&&h.rank<=100000&&typeof h.is_ad==='boolean','INVALID_RANK_OR_AD');requireThat(h.score==null||typeof h.score==='number'&&h.score>=0&&h.score<=5,'INVALID_SCORE');return {hotel_id:text(h.hotel_id,100),hotel_name:text(h.hotel_name),rank:h.rank,is_ad:h.is_ad,score:h.score??null,dynamic:h.dynamic==null?null:text(h.dynamic,300),activity_tags:tags(h.activity_tags),original_price:price(h.original_price),display_price:price(h.display_price)};}),limit);}
-export function roomRows(rows,market,core){requireThat(Array.isArray(rows)&&rows.length<=2000,'INVALID_ROOMS');const ids=new Set(market.map(x=>x.hotel_id));return rows.map(r=>{requireThat(ids.has(r.hotel_id)&&core.has(r.hotel_id),'ROOM_NOT_CORE_IN_MARKET');requireThat(['available','sold_out'].includes(r.availability_status),'INVALID_AVAILABILITY');const hotel=market.find(x=>x.hotel_id===r.hotel_id);requireThat(r.hotel_name===hotel.hotel_name,'ROOM_HOTEL_NAME_MISMATCH');if(r.availability_status==='sold_out')requireThat(typeof r.sold_out_evidence==='string'&&/已订完|满房|无可售|售罄/.test(r.sold_out_evidence),'SOLD_OUT_EVIDENCE_REQUIRED');return {hotel_id:r.hotel_id,hotel_name:r.hotel_name,room_name:text(r.room_name),original_price:price(r.original_price),display_price:price(r.display_price),activity_tags:tags(r.activity_tags),availability_status:r.availability_status,sold_out_evidence:r.availability_status==='sold_out'?text(r.sold_out_evidence,200):null};});}
-export function retryOutcome(attempts,windowEnd,now=Date.now()){return now>=Date.parse(windowEnd)?{status:'FAILED',code:'EXECUTION_WINDOW_EXPIRED'}:attempts>=CONFIG.maxAttempts?{status:'FAILED',code:'MAX_ATTEMPTS_REACHED'}:{status:'PENDING',code:null};}
-export function deviceStatus(d,running,now=Date.now()){if(d.status==='pending')return '待批准';if(d.status==='disabled')return '禁用';if(now-Date.parse(d.last_seen_at??0)>CONFIG.offlineSeconds*1000)return '离线';if(d.last_error)return '异常';return running?'执行中':'在线空闲';}
-export function median(values){const x=values.filter(v=>typeof v==='number'&&Number.isFinite(v)).sort((a,b)=>a-b);return x.length?x.length%2?x[(x.length-1)/2]:(x[x.length/2-1]+x[x.length/2])/2:null;}
-export function analyze(current,previous=[],rooms=[],priorAnalyses=[]){
- const p=current.map(h=>h.display_price).filter(x=>x!=null);const pp=previous.map(h=>h.display_price).filter(x=>x!=null);const by=new Map(previous.map(h=>[h.hotel_id,h]));let up=0,down=0,coreUp=0,coreDown=0,comparable=0;
- for(const h of current){const old=by.get(h.hotel_id);if(h.display_price==null||old?.display_price==null||old.display_price<=0)continue;comparable++;const change=(h.display_price-old.display_price)/old.display_price;if(change>=CONFIG.rules.changeRatio){up++;if(h.category==='core')coreUp++;}if(change<=-CONFIG.rules.changeRatio){down++;if(h.category==='core')coreDown++;}}
- const m=median(p),pm=median(pp),delta=pm>0&&m!=null?(m-pm)/pm:null;const mine=current.find(x=>x.category==='mine');const oldMine=mine?by.get(mine.hotel_id):null;
- const soldOut=new Set(rooms.filter(x=>x.availability_status==='sold_out'&&x.room_name==='酒店整体售罄').map(x=>x.hotel_id));
- const facts={count:current.length,priced:p.length,comparable,up,down,coreUp,coreDown,coreSoldOut:soldOut.size,upRatio:comparable?up/comparable:null,downRatio:comparable?down/comparable:null,minimum:p.length?Math.min(...p):null,median:m,maximum:p.length?Math.max(...p):null,medianChange:delta,minimumChange:p.length&&pp.length?Math.min(...p)-Math.min(...pp):null,maximumChange:p.length&&pp.length?Math.max(...p)-Math.max(...pp):null,myPrice:mine?.display_price??null,myChange:mine?.display_price!=null&&oldMine?.display_price!=null?mine.display_price-oldMine.display_price:null,previousRecommendations:priorAnalyses.slice(0,3).map(x=>x.recommendation)};
- let recommendation='observe';let reason='历史或可比样本不足，建议观望';let score=0;
- if(comparable>=CONFIG.rules.minComparable&&comparable/current.length>=CONFIG.rules.minCoverage&&delta!==null){score=(coreUp-coreDown)*2+(up-down)/comparable*3+(delta>=CONFIG.rules.medianRatio?2:delta<=-CONFIG.rules.medianRatio?-2:0)+soldOut.size;recommendation=score>=3?'raise':score<=-3?'lower':'observe';reason=`可比${comparable}家，涨价${up}家，降价${down}家；核心竞品涨${coreUp}/降${coreDown}，明确整店售罄${soldOut.size}家；中位价变化${(delta*100).toFixed(1)}%，规则得分${score.toFixed(2)}`;}
- return {algorithm_version:CONFIG.rules.version,recommendation,reason,score,facts};
+export function requireThat(condition, code, status = 400) {
+  if (!condition) throw new HttpError(status, code);
+}
+export function text(v, max = 200, nullable = false) {
+  if (nullable && v == null) return null;
+  requireThat(
+    typeof v === "string" && v.trim().length > 0 && v.length <= max,
+    "INVALID_TEXT",
+  );
+  return v.trim();
+}
+export function date(v) {
+  requireThat(
+    typeof v === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(v) &&
+      !isNaN(Date.parse(v)) &&
+      new Date(v).toISOString().slice(0, 10) === v,
+    "INVALID_DATE",
+  );
+  return v;
+}
+export function target(input, { plan = false, now = Date.now() } = {}) {
+  requireThat(input.platform === "ctrip", "UNSUPPORTED_PLATFORM");
+  const scope = input.scope ?? "top30";
+  requireThat(["top30", "custom", "all"].includes(scope), "INVALID_SCOPE");
+  const limit =
+    scope === "all" ? null : scope === "top30" ? 30 : Number(input.limit);
+  requireThat(
+    limit === null ||
+      (Number.isInteger(limit) && limit >= 1 && limit <= CONFIG.maxHotels),
+    "INVALID_LIMIT",
+  );
+  const result = {
+    platform: input.platform,
+    city: text(input.city, 80),
+    keyword: input.keyword === "" ? "" : text(input.keyword ?? "", 120),
+    scope,
+    collection_limit: limit,
+  };
+  if (plan) {
+    requireThat(
+      [14, 30].includes(Number(input.horizon ?? 14)),
+      "INVALID_HORIZON",
+    );
+    return {
+      ...result,
+      horizon: Number(input.horizon ?? 14),
+      enabled: input.enabled !== false,
+    };
+  }
+  const checkin = date(input.checkin),
+    checkout = date(input.checkout ?? addDays(checkin, 1));
+  requireThat(
+    checkin >= businessDate(now) &&
+      checkout > checkin &&
+      Date.parse(checkout) - Date.parse(checkin) <= 30 * 86400000,
+    "INVALID_STAY",
+  );
+  return { ...result, checkin, checkout };
+}
+export function dedupe(hotels, limit = null) {
+  const map = new Map();
+  for (const h of hotels) {
+    const previous = map.get(h.hotel_id);
+    if (
+      !previous ||
+      (previous.is_ad && !h.is_ad) ||
+      (previous.is_ad === h.is_ad && h.rank < previous.rank)
+    )
+      map.set(h.hotel_id, h);
+  }
+  return [...map.values()]
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, limit ?? Infinity);
+}
+const price = (v) => {
+  if (v == null) return null;
+  requireThat(
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 10000000,
+    "INVALID_PRICE",
+  );
+  return v;
+};
+const tags = (v) => {
+  if (v == null) return null;
+  requireThat(Array.isArray(v) && v.length <= 30, "INVALID_TAGS");
+  return v.map((x) => text(x, 100));
+};
+export function marketRows(rows, limit) {
+  requireThat(
+    Array.isArray(rows) &&
+      rows.length > 0 &&
+      rows.length <= CONFIG.maxHotels * 2,
+    "INVALID_HOTELS",
+  );
+  return dedupe(
+    rows.map((h) => {
+      requireThat(
+        Number.isInteger(h.rank) &&
+          h.rank > 0 &&
+          h.rank <= 100000 &&
+          typeof h.is_ad === "boolean",
+        "INVALID_RANK_OR_AD",
+      );
+      requireThat(
+        h.score == null ||
+          (typeof h.score === "number" && h.score >= 0 && h.score <= 5),
+        "INVALID_SCORE",
+      );
+      return {
+        hotel_id: text(h.hotel_id, 100),
+        hotel_name: text(h.hotel_name),
+        rank: h.rank,
+        is_ad: h.is_ad,
+        score: h.score ?? null,
+        dynamic: h.dynamic == null ? null : text(h.dynamic, 300),
+        activity_tags: tags(h.activity_tags),
+        original_price: price(h.original_price),
+        display_price: price(h.display_price),
+      };
+    }),
+    limit,
+  );
+}
+export function roomRows(rows, market, core) {
+  requireThat(Array.isArray(rows) && rows.length <= 2000, "INVALID_ROOMS");
+  const ids = new Set(market.map((x) => x.hotel_id));
+  return rows.map((r) => {
+    requireThat(
+      ids.has(r.hotel_id) && core.has(r.hotel_id),
+      "ROOM_NOT_CORE_IN_MARKET",
+    );
+    requireThat(
+      ["available", "sold_out"].includes(r.availability_status),
+      "INVALID_AVAILABILITY",
+    );
+    const hotel = market.find((x) => x.hotel_id === r.hotel_id);
+    requireThat(r.hotel_name === hotel.hotel_name, "ROOM_HOTEL_NAME_MISMATCH");
+    if (r.availability_status === "sold_out")
+      requireThat(
+        typeof r.sold_out_evidence === "string" &&
+          /已订完|满房|无可售|售罄/.test(r.sold_out_evidence),
+        "SOLD_OUT_EVIDENCE_REQUIRED",
+      );
+    return {
+      hotel_id: r.hotel_id,
+      hotel_name: r.hotel_name,
+      room_name: text(r.room_name),
+      original_price: price(r.original_price),
+      display_price: price(r.display_price),
+      activity_tags: tags(r.activity_tags),
+      availability_status: r.availability_status,
+      sold_out_evidence:
+        r.availability_status === "sold_out"
+          ? text(r.sold_out_evidence, 200)
+          : null,
+    };
+  });
+}
+export function retryOutcome(attempts, windowEnd, now = Date.now()) {
+  return now >= Date.parse(windowEnd)
+    ? { status: "FAILED", code: "EXECUTION_WINDOW_EXPIRED" }
+    : attempts >= CONFIG.maxAttempts
+      ? { status: "FAILED", code: "MAX_ATTEMPTS_REACHED" }
+      : { status: "PENDING", code: null };
+}
+export function deviceStatus(d, running, now = Date.now()) {
+  if (d.status === "pending") return "待批准";
+  if (d.status === "disabled") return "禁用";
+  if (now - Date.parse(d.last_seen_at ?? 0) > CONFIG.offlineSeconds * 1000)
+    return "离线";
+  if (d.last_error) return "异常";
+  return running ? "执行中" : "在线空闲";
+}
+export function median(values) {
+  const x = values
+    .filter((v) => typeof v === "number" && Number.isFinite(v))
+    .sort((a, b) => a - b);
+  return x.length
+    ? x.length % 2
+      ? x[(x.length - 1) / 2]
+      : (x[x.length / 2 - 1] + x[x.length / 2]) / 2
+    : null;
+}
+export function analyze(
+  current,
+  previous = [],
+  rooms = [],
+  priorAnalyses = [],
+) {
+  const p = current.map((h) => h.display_price).filter((x) => x != null);
+  const pp = previous.map((h) => h.display_price).filter((x) => x != null);
+  const by = new Map(previous.map((h) => [h.hotel_id, h]));
+  let up = 0,
+    down = 0,
+    coreUp = 0,
+    coreDown = 0,
+    comparable = 0;
+  for (const h of current) {
+    const old = by.get(h.hotel_id);
+    if (
+      h.display_price == null ||
+      old?.display_price == null ||
+      old.display_price <= 0
+    )
+      continue;
+    comparable++;
+    const change = (h.display_price - old.display_price) / old.display_price;
+    if (change >= CONFIG.rules.changeRatio) {
+      up++;
+      if (h.category === "core") coreUp++;
+    }
+    if (change <= -CONFIG.rules.changeRatio) {
+      down++;
+      if (h.category === "core") coreDown++;
+    }
+  }
+  const m = median(p),
+    pm = median(pp),
+    delta = pm > 0 && m != null ? (m - pm) / pm : null;
+  const mine = current.find((x) => x.category === "mine");
+  const oldMine = mine ? by.get(mine.hotel_id) : null;
+  const soldOut = new Set(
+    rooms
+      .filter(
+        (x) =>
+          x.availability_status === "sold_out" &&
+          x.room_name === "酒店整体售罄",
+      )
+      .map((x) => x.hotel_id),
+  );
+  const facts = {
+    count: current.length,
+    priced: p.length,
+    comparable,
+    up,
+    down,
+    coreUp,
+    coreDown,
+    coreSoldOut: soldOut.size,
+    upRatio: comparable ? up / comparable : null,
+    downRatio: comparable ? down / comparable : null,
+    minimum: p.length ? Math.min(...p) : null,
+    median: m,
+    maximum: p.length ? Math.max(...p) : null,
+    medianChange: delta,
+    minimumChange:
+      p.length && pp.length ? Math.min(...p) - Math.min(...pp) : null,
+    maximumChange:
+      p.length && pp.length ? Math.max(...p) - Math.max(...pp) : null,
+    myPrice: mine?.display_price ?? null,
+    myChange:
+      mine?.display_price != null && oldMine?.display_price != null
+        ? mine.display_price - oldMine.display_price
+        : null,
+    previousRecommendations: priorAnalyses
+      .slice(0, 3)
+      .map((x) => x.recommendation),
+  };
+  let recommendation = "observe";
+  let reason = "历史或可比样本不足，建议观望";
+  let score = 0;
+  if (
+    comparable >= CONFIG.rules.minComparable &&
+    comparable / current.length >= CONFIG.rules.minCoverage &&
+    delta !== null
+  ) {
+    score =
+      (coreUp - coreDown) * 2 +
+      ((up - down) / comparable) * 3 +
+      (delta >= CONFIG.rules.medianRatio
+        ? 2
+        : delta <= -CONFIG.rules.medianRatio
+          ? -2
+          : 0) +
+      soldOut.size;
+    recommendation = score >= 3 ? "raise" : score <= -3 ? "lower" : "observe";
+    reason = `可比${comparable}家，涨价${up}家，降价${down}家；核心竞品涨${coreUp}/降${coreDown}，明确整店售罄${soldOut.size}家；中位价变化${(delta * 100).toFixed(1)}%，规则得分${score.toFixed(2)}`;
+  }
+  return {
+    algorithm_version: CONFIG.rules.version,
+    recommendation,
+    reason,
+    score,
+    facts,
+  };
 }

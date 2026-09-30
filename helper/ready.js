@@ -1,1 +1,1 @@
-chrome.runtime.sendMessage({type:'PAGE_READY'}).catch(()=>{});
+chrome.runtime.sendMessage({ type: "PAGE_READY" }).catch(() => {});
