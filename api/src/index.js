@@ -178,8 +178,22 @@ export async function handle(req, env) {
     p = u.pathname,
     method = req.method,
     db = env.DB;
-  if (p === "/health" && method === "GET")
-    return json({ ok: true, service: "livv-api", version: "1.0.0" });
+  if (p === "/health" && method === "GET") {
+    try {
+      await first(db, "SELECT 1 AS ok");
+      return json({
+        ok: true,
+        service: "livv-api",
+        version: "1.0.0",
+        database: "ok",
+      });
+    } catch {
+      return json(
+        { ok: false, service: "livv-api", database: "unavailable" },
+        503,
+      );
+    }
+  }
   requireThat(p.startsWith("/v1/"), "NOT_FOUND", 404);
   if (p === "/v1/devices/register" && method === "POST") {
     if (env.REGISTRATION_LIMITER) {

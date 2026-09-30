@@ -239,7 +239,10 @@ export function inspectList() {
     return {
       hotel_id: id,
       hotel_name,
-      rank: Number.isInteger(rank) && rank >= 0 ? rank + 1 : null,
+      rank:
+        data.masterhotelid_rank != null && Number.isInteger(rank) && rank >= 0
+          ? rank + 1
+          : null,
       is_ad: texts.includes("广告"),
       score: scoreNode ? Number(norm(scoreNode.textContent)) : null,
       dynamic:

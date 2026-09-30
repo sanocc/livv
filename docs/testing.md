@@ -4,7 +4,7 @@
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
-| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；13项Node测试通过；架构/Schema/API文档已建立 |
+| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；14项Node测试通过；架构/Schema/API文档已建立 |
 | B 云端基础 | PASS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；提交2d905d8三个Workers Builds均成功；Chrome真实Access登录后OTA市场页加载成功；生产表暂无采集数据 |
 | C 设备 | PASS | Chrome加载当前Helper；真实UUID注册待批准；用户人工批准；在线空闲；禁用后生产API拒绝claim；停止心跳后离线；恢复在线，同一Device ID保留 |
 | D 任务闭环 | IN PROGRESS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；Helper自动领取Attempt #1并开始执行；完整生产回队列/结果待验证 |
