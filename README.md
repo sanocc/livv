@@ -23,4 +23,4 @@ V1.2市场UI第一版：仅重排OTA市场页，桌面固定深色导航、五�
 
 Helper正式Side Panel UI V1（Helper1.1.0）：浏览器右侧采集/任务/日志界面，列表与核心详情分段进度，云端创建立即任务、本地近期任务与开发工具；关闭面板后台继续执行。44项测试通过，两次真实30家/三家详情/sold_out上传通过；期间真实搜索失败仍保留。本轮不含性能提速、采集逻辑/API/Schema/正式Plan变动。
 
-Helper1.2.0 MARKET_LIST快速导航：新建及后续新物化Task仅采列表，达到目标后直接上传；既有Task保留LEGACY_MARKET_DETAIL合并详情契约和历史。导航资料来自严格确认的携程原生页面，不猜POI；失败保留UI回退。实测与限制见docs/helper-fast-navigation.md、docs/testing.md。正式Plan频率、映射、统计与sold_out规则不变。
+Helper1.2.1 MARKET_LIST快速导航（FAST_NAV Mac: PASS；Windows: PENDING）：新建及后续新物化Task仅采列表，达到目标后直接上传；既有Task保留LEGACY_MARKET_DETAIL合并详情契约和历史。导航资料来自严格确认的携程原生页面，不猜POI；咸宁/中心花坛随扩展附带已回放模板，无本机缓存也先尝试直接导航。每次仍严格验证Context，失败保留UI回退。实测与限制见docs/helper-fast-navigation.md、docs/testing.md。正式Plan频率、映射、统计与sold_out规则不变。

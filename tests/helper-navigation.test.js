@@ -4,6 +4,7 @@ import {
   contextMatches,
   navigationProfile,
   fastNavigation,
+  marketNavigation,
   rememberNavigation,
 } from "../helper/navigation.js";
 import { inspectList } from "../helper/mobile.js";
@@ -162,4 +163,39 @@ test("real exposure shape: every card city ID and dates must match native URL", 
     delete globalThis.document;
     delete globalThis.getComputedStyle;
   }
+});
+
+test("cold-start MARKET_LIST uses observed portable template, never legacy or unsupported searches", () => {
+  const marketTask = { ...task, task_type: "MARKET_LIST" };
+  const direct = marketNavigation(marketTask, [], Date.now());
+  assert.ok(direct);
+  const p = new URL(direct).searchParams;
+  assert.equal(p.get("d-city"), "937");
+  assert.equal(p.get("c-in"), task.checkin);
+  assert.equal(p.get("c-out"), task.checkout);
+  assert.equal(JSON.parse(p.get("s-keyword"))[0], task.keyword);
+  assert.ok(p.get("page-token"));
+  assert.ok(p.get("dplinktracelogid"));
+  assert.equal(p.has("cache-key"), false);
+  assert.equal(marketNavigation({ ...marketTask, keyword: "未知" }), null);
+  assert.equal(marketNavigation({ ...marketTask, city: "上海" }), null);
+  assert.equal(
+    marketNavigation({ ...marketTask, task_type: "LEGACY_MARKET_DETAIL" }),
+    null,
+  );
+  assert.equal(
+    marketNavigation({ ...marketTask, checkout: task.checkin }),
+    null,
+  );
+  const stale = navigationProfile(result, task, 1000);
+  assert.ok(marketNavigation(marketTask, [stale], 1000 + 86400001));
+  assert.ok(
+    marketNavigation(marketTask, [
+      { ...stale, url: "invalid", verified_at: Date.now() },
+    ]),
+  );
+  assert.equal(
+    contextMatches({ ...result, context: { ...task, city: "上海" } }, task),
+    false,
+  );
 });

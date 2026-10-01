@@ -296,3 +296,39 @@ V1.2线上验收：f3363f7自动Git构建成功，真实已登录OTA市场14/30�
 53项自动测试、check、OTA Worker dry-run通过；未改API、Helper或任何生产任务/计划/数据。重新启动真实API本地预览时Cloudflare查询发生网络超时，未将失败预览标记为成功；上线后以实际页面复核视觉。
 
 视觉提交dab3ede76ce12a1d4028658f25b42800be69924f已Push且Cloudflare OTA completed/success。真实Chrome线上刷新验证：10/03暖色国庆假期Badge、190/361/170.5/83未变；同列上下移动仅浮层位置变化；10/10中性调休上班Badge、右半区向左翻转及165/256/125.5/68正确。屏幕2x显示的500物理像素对应250 CSS px，四行字号一致、我的酒店加粗。线上证据.local/proofs/tooltip-compact-online.png。Helper1.2.0保持在线，未操作其任务入口、重载或改变设备配置。
+
+## MARKET_LIST跨设备冷启动补验（阶段A完成，2026-10-01）
+
+Helper1.2.1补充随扩展的已验证原生导航模板，仅咸宁/中心花坛；54项test及check/MV3通过。严格城市/日期/可见关键词/所有卡片曝光验证、自然结果优先去重、30家立即上传与UI fallback保留。独立浏览器原生B完整URL及改日期回放验证通过，删除opaque跟踪字段的候选真实Context失败，无上传。详见helper-fast-navigation.md。
+
+Mac空闲重载且自动接单不变，真实Task8715c2ee-a426-4f7b-a827-2115ea08c626，Attempt13b87340-717c-49f1-bae6-a5f0dcf3863e，Snapshotc9de528c-cc85-46da-8c89-6f6153de38af：咸宁/中心花坛/10月2日→3日，FAST_NAV_START/VERIFIED/LIST_READY/锁定/上传/COMPLETED真实关联。领取→ready5.368秒，ready→锁定26.390秒，领取→终态32.700秒；列表30条/30唯一Hotel ID，排名1～30，无缺失价格，详情0/0，房型0。未进入UI搜索，未出现SEARCH_CONTROL_TIMEOUT；本轮Mac样本1/1，不外推长期成功率。此任务可能复用现有缓存，不能将它单独当作无缓存冷启动实测。
+
+生产累计MARKET_LIST：截至23:03，Mac 5次均FAST_NAV_VERIFIED且COMPLETED；Windows原1.2.0五次均无本机资料→UI fallback，四次SEARCH_CONTROL_TIMEOUT/一次DEVICE_OFFLINE，同一Task5314f0af-7f0d-4e7e-92ab-03fe36742deb最终MAX_ATTEMPTS_REACHED。Windows新版本尚未重载/执行，耗时与新路径成功率保持缺失，跨平台未PASS。用户确认今晚无法访问Windows；阶段A不等待，阶段B明天设备可用后验收。已提供1.2.1验收包，保留Device ID。
+
+正式Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c enabled=1/horizon=14/updated_at=2026-10-01T04:41:45.228Z，旧临时Plan仍停用，本轮未改API/Schema/Plan/历史观察或市场UI。证据.local/proofs/cross-platform-nav-current.json、cross-platform-before-reload.json、cross-platform-independent-context.json、cross-platform-mac-1.json、cross-platform-mac-upload.json、cross-platform-mac-page.png。以上为第一轮记录；后续按用户阶段A授权完成多轮Mac后Commit/Push，Windows保持PENDING。
+
+
+### 阶段A最终验收
+
+FAST_NAV Mac: PASS
+
+Windows FAST_NAV real-browser acceptance: PENDING
+
+| Task / 入住→离店 | 领取→LIST_READY 秒 | LIST_READY→30家锁定 秒 | 领取→真实终态 秒 | 导航 / 结果 |
+|---|---:|---:|---:|---|
+| 8715c2ee-a426-4f7b-a827-2115ea08c626 / 10/02→10/03 | 5.368 | 26.390 | 32.700 | FAST_NAV / COMPLETED |
+| 7a3f9420-66a0-4e15-a52c-fa87da094adc / 10/02→10/03 | 5.900 | 25.854 | 32.778 | FAST_NAV / COMPLETED |
+| 106811e2-120e-405e-a949-3c1e6b59d3cb / 10/03→10/04（无缓存） | 5.016 | 26.885 | 32.955 | FAST_NAV / COMPLETED |
+| 三轮平均 | 5.428 | 26.376 | 32.811 | FAST_NAV成功3/3 |
+
+总耗时P50=32.778秒，仅3个样本不报告P95/长期成功率。三轮均无FAST_NAV_FAILED/CONTEXT_MISMATCH，无UI fallback，无SEARCH_CONTROL_TIMEOUT，30条/30唯一Hotel ID、排名1～30、价格完整、详情0/0、房型0；实际城市咸宁、关键词中心花坛、日期分别如表，FAST_NAV_VERIFIED表示可见关键词与每张卡片城市ID/日期严格验证通过。第二轮Attemptfc8337e7-d0d1-4380-9f39-231a6814f64e/Snapshotccedbcf6-b805-40b6-983d-1aefd815dd00；第三轮Attempt6504f653-9251-47d2-8aeb-e8e10525377b/Snapshotb622bc3e-983f-4fc0-bba8-f9c30bd2dc49。
+
+第三轮无缓存证据：空闲Service Worker检查NAV_CACHE_CHECK active=false，随后仅remove navigation_profiles，NAV_COLD_START={}；立即创建正式设备Task，无本机模板也直接FAST_NAV，达到30即上传。Task后使用既有inspectList只读读取受管页33张卡片，按原自然优先去重/排名截取30，与D1上传逐行对照Hotel ID、平台原名、rank、is_ad、划线价、起售价零差异；context_verified=true且unparsed_cards=0。没有重新加载列表后借用另一页面结果，没有伪造输入值/事件或手写终态。
+
+同日期10/02→03、同城市/关键词的旧UI成功Attemptf9322c9e-2648-4987-9757-09a50963198f和3251ae8f-630a-4a75-8d38-111744267b91，统一用云端CLAIMED→MARKET_LOCKED事件时间，50.701/48.352秒，平均49.527秒；本轮同日期前两次32.044/32.056秒，平均32.050秒，缩短35.3%。旧任务总时长118.480/98.817秒含三家详情，不冒充纯列表基准；旧第一条无LIST_READY独立记录，保持缺失。已有1.2.0缓存快速路径三轮平均总时长31.728秒，本轮32.811秒，不声称1.2.1比已生效的缓存路径更快；本次改进重点是冷启动无需先完成UI搜索。不同采集时刻市场价格本可变化，不要求跨任务价格恒等。
+
+证据：.local/proofs/phase-a-three-mac.json、phase-a-performance.json、phase-a-cold-cache.txt、phase-a-final-dom-rows.txt、phase-a-final-comparison.json、phase-a-matching-baseline.json、phase-a-mac-pass.png、phase-a-tests.txt。54项自动测试、MV3构建/语法/数据库边界检查通过。历史Windows四次SEARCH_CONTROL_TIMEOUT/一次DEVICE_OFFLINE、Mac旧合并任务失败/PARTIAL及原网络错误均保留，不清洗。正式14天Plan整行与既有基线未变，临时Plan仍停用。
+
+### 阶段B待验收清单
+
+Windows FAST_NAV real-browser acceptance: PENDING。设备“酒店办公室”3cad8b8e-0a99-410d-9fb3-8e1bf88004c7明天可用后，空闲时更新/重载1.2.1，保留身份，保持自动接单；创建同参数真实MARKET_LIST（咸宁/中心花坛/10/02→03或与Mac同期相同有效日期/30家）并记录Task/Attempt/Snapshot。必须确认不点击城市/日历/关键词，直接目标listPage，FAST_NAV_VERIFIED/Context PASS、30唯一酒店/正确排名价格、上传COMPLETED，详情0/房型0；记录领取→ready、ready→锁定、总时长及有无fallback/SEARCH_CONTROL_TIMEOUT。PARTIAL/FAILED如实保留，只有真实成功才标记Windows PASS及跨平台PASS。今晚不等待、不安排未经请求的自动验收。

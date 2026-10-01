@@ -93,3 +93,10 @@ Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无�
 等宽图表实现f725fd41d970d3bd30b5b3aed4bb5cc71def8d87已Push main，Cloudflare livv-ota于2026-10-01 22:15:28（UTC+8）自动构建成功，线上默认14天/真实10月3日价格/浮动提示已确认，API health正常。随后Tooltip紧凑视觉仅调整OTA app.js/style.css及文档，不修改生产采集或调度。
 
 紧凑Tooltip视觉提交dab3ede76ce12a1d4028658f25b42800be69924f已Push main，Workers Builds livv-ota completed/success，真实Chrome ota.livv.cc刷新后假期/调休Badge和鼠标跟随核验通过。仅OTA自动部署；未改变API或Helper。
+
+
+## Helper1.2.1 阶段A发布（2026-10-01）
+
+只修改Helper原生导航候选选择/公开平台模板、manifest版本及测试文档；无权限扩张、无API部署需求、无Schema/Plan/Task状态机/OTA改动。MARKET_LIST优先24小时本机资料，无资料/过期/损坏时尝试随扩展的咸宁/中心花坛模板；页面Context错误记录FAST_NAV_CONTEXT_MISMATCH并回退既有UI，不让URL代替DOM。完整公开搜索参数保留，不包含设备凭证/cookie。既有LEGACY_MARKET_DETAIL契约原样保留。
+
+Mac1.2.1已空闲重载，三轮真实30家COMPLETED，含清空仅导航缓存后的冷启动；FAST_NAV Mac: PASS，Windows FAST_NAV real-browser acceptance: PENDING。54项test/check/MV3检查通过，自动接单保持启用，临时导航缓存已由成功DOM自动重建。发布沿用main Commit/Push；扩展需要本机重载，Git Push不等于Windows已升级，不宣称跨平台PASS。Windows明天空闲更新时仅替换原加载目录文件并重载，不能移除扩展重建身份；具体待验收步骤见testing.md。所有生产历史失败/PARTIAL证据保留。

@@ -12,7 +12,7 @@ import { taskView, publicState, remember, trustedView } from "./view-state.js";
 import {
   contextMatches,
   navigationProfile,
-  fastNavigation,
+  marketNavigation,
   rememberNavigation,
 } from "./navigation.js";
 const API = "https://api.livv.cc",
@@ -622,7 +622,7 @@ async function tick(heartbeat = false) {
         let navigationUrl = null;
         if (c.task.task_type === "MARKET_LIST") {
           try {
-            navigationUrl = fastNavigation(
+            navigationUrl = marketNavigation(
               c.task,
               state.navigation_profiles ?? [],
             );
@@ -663,7 +663,7 @@ async function tick(heartbeat = false) {
             a,
             navigationUrl ? "FAST_NAV_START" : "FAST_NAV_FAILED",
             navigationUrl
-              ? "Verified native navigation profile"
+              ? "Verified native navigation candidate (DOM verification required)"
               : "No verified city/keyword profile; UI fallback",
           );
         await log(

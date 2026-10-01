@@ -1,3 +1,4 @@
+import { ctripNavigationProfiles } from "./ctrip-navigation-profiles.js";
 // Navigation metadata comes only from a successfully inspected, native Ctrip search.
 // Keep opaque platform fields intact: the reduced URL failed real context checks.
 export function contextMatches(result, task) {
@@ -68,6 +69,9 @@ export function fastNavigation(task, profiles = [], now = Date.now()) {
     now - profile.verified_at > 86400000
   )
     return null;
+  return navigationUrl(task, profile, now);
+}
+function navigationUrl(task, profile, now) {
   // Revalidate storage and context metadata, rather than trusting a cached URL string.
   const original = new URL(profile.url);
   const base = {
@@ -99,6 +103,25 @@ export function fastNavigation(task, profiles = [], now = Date.now()) {
   return profile.url
     .replace(/([?&]c-in=)[^&]*/, `$1${task.checkin}`)
     .replace(/([?&]c-out=)[^&]*/, `$1${task.checkout}`);
+}
+// Cold-start devices use the same observed native template, without requiring UI search first.
+// Its source timestamp is evidence, not a claim that today's page has already been verified.
+export function marketNavigation(task, profiles = [], now = Date.now()) {
+  if (task.task_type !== "MARKET_LIST") return null;
+  let cached;
+  try {
+    cached = fastNavigation(task, profiles, now);
+  } catch {
+    // A corrupt local candidate must not hide the independently verified bundled one.
+  }
+  if (cached) return cached;
+  const bundled = ctripNavigationProfiles.find(
+    (p) =>
+      p.platform === task.platform &&
+      p.city_name === task.city &&
+      p.keyword === task.keyword,
+  );
+  return bundled ? navigationUrl(task, bundled, now) : null;
 }
 export function rememberNavigation(profiles, profile) {
   if (!profile) return profiles;
