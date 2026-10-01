@@ -24,7 +24,7 @@ helper不会作为网站部署。首次连接需Cloudflare GitHub App授权新re
 
 ## 人类身份配置
 
-Cloudflare Access应用LIVV OTA已创建（19068fef-ab4b-43e3-b547-23b284945bee），域名ota.livv.cc，唯一Allow策略为用户确认的管理员邮箱。团队livvcc.cloudflareaccess.com。实际AUD已通过Wrangler secrets配置到API的INTERNAL_OTA_ACCESS_CLIENT_ID，另配置CF_ACCESS_TEAM_DOMAIN和ADMIN_EMAILS，不提交凭证。Chrome已实际通过Access登录，OTA市场页正常加载，尚无真实市场数据。
+Cloudflare Access应用LIVV OTA已创建（19068fef-ab4b-43e3-b547-23b284945bee），域名ota.livv.cc，唯一Allow策略为用户确认的管理员邮箱。团队livvcc.cloudflareaccess.com。实际AUD已通过Wrangler secrets配置到API的INTERNAL_OTA_ACCESS_CLIENT_ID，另配置CF_ACCESS_TEAM_DOMAIN和ADMIN_EMAILS，不提交凭证。Chrome已实际通过Access登录，OTA市场页正常加载，后续已保存真实市场列表与极简房型，详见docs/testing.md。
 
 Access只保护ota.livv.cc；api设备路径使用独立设备凭证，不应被人类Access登录重定向阻断。API仍验证人类JWT用于管理员接口。仅前端有认证网关不够，后端签名校验保持开启。
 

@@ -334,7 +334,16 @@ export function inspectDetail(hotel, task) {
     ctx.checkout !== task.checkout ||
     !nameConfirmed
   )
-    return { rooms: [], context_verified: false };
+    return {
+      rooms: [],
+      context_verified: false,
+      diagnostic: {
+        hotel_id: ctx?.masterhotelid ?? null,
+        checkin: ctx?.checkin ?? null,
+        checkout: ctx?.checkout ?? null,
+        name_confirmed: nameConfirmed,
+      },
+    };
   const full = leaf(document)
     .map((e) => norm(e.textContent))
     .find((t) => /^(该酒店已订完|酒店已订完|当前日期无可售房间)$/.test(t));
@@ -355,19 +364,26 @@ export function inspectDetail(hotel, task) {
     };
   const cards = Array.from(
     document.querySelectorAll(
-      '#htl_room_list_content_filterRooms [id^="BASE_ROOM_CARD_"]',
+      '#htl_room_list_content_filterRooms [id^="BASE_ROOM_CARD_"], #htl_room_list_content_filterRooms [id^="RECOMMEND_ROOM_CARD_"]',
     ),
   );
   const rooms = cards
     .map((card) => {
-      const nameNode = leaf(card).find(
+      const directText = (e) =>
+        norm(
+          Array.from(e.childNodes)
+            .filter((n) => n.nodeType === 3)
+            .map((n) => n.textContent)
+            .join(" "),
+        );
+      const nameNode = Array.from(card.querySelectorAll("span,div")).find(
         (e) =>
           Number.parseInt(getComputedStyle(e).fontWeight, 10) >= 600 &&
-          /房|套|别墅|床/.test(norm(e.textContent)) &&
-          !/¥|￥/.test(norm(e.textContent)),
+          /房|套|别墅|床/.test(directText(e)) &&
+          !/¥|￥/.test(directText(e)),
       );
       if (!nameNode) return null;
-      const room_name = norm(nameNode.textContent),
+      const room_name = directText(nameNode),
         group =
           card.closest('[id^="BASE_"]:not([id^="BASE_ROOM_CARD_"])') ?? card;
       const sold = leaf(card)
@@ -444,7 +460,16 @@ export function inspectDetail(hotel, task) {
       };
     })
     .filter(Boolean);
-  return { rooms, context_verified: true };
+  return {
+    rooms,
+    context_verified: true,
+    diagnostic: { cards: cards.length, rooms: rooms.length },
+  };
+}
+export function scrollDetail() {
+  document
+    .querySelector("#htl_room_list_content_filterRooms")
+    ?.scrollIntoView({ block: "end" });
 }
 export function detailLink(hotelId) {
   const nodes = Array.from(

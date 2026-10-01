@@ -14,3 +14,5 @@ Node >=24，npm ci；npm test；npm run check。三个Worker使用Wrangler独立
 实际配置与验收状态见docs/deployment.md、docs/testing.md。生产数据只能来自真实浏览器DOM，单元测试使用内存SQLite，不连接生产D1。
 
 完整设计依据见docs/architecture.md；Schema见docs/database.md；接口见docs/api.md。
+
+当前交接节点：Gate H真实验收通过（三家详情3/3，共13种房型，3项明确已订完）。Gate I/J按用户要求暂停，生产自动计划尚未建立。云端开发从新仓库main继续；真实Chrome Helper验收仍需有扩展运行能力的电脑。

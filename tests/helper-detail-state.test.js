@@ -53,3 +53,24 @@ test("only locked stage-two results qualify for preservation", () => {
     false,
   );
 });
+
+test("partial list accounts for observed core hotels before details and on persisted upload retry", async () => {
+  const { completeDetailResults } = await import("../helper/detail-state.js");
+  const active = {
+    market: [{ hotel_id: "mine" }, { hotel_id: "core" }],
+    core_hotels: [
+      { hotel_id: "mine" },
+      { hotel_id: "core" },
+      { hotel_id: "outside" },
+    ],
+    upload: { detail_results: [{ hotel_id: "mine", status: "SUCCESS" }] },
+  };
+  const result = completeDetailResults(active);
+  assert.deepEqual(result, [
+    { hotel_id: "mine", status: "SUCCESS" },
+    { hotel_id: "core", status: "FAILED", error_code: "DETAIL_INCOMPLETE" },
+  ]);
+  assert.strictEqual(result, active.upload.detail_results);
+  completeDetailResults(active);
+  assert.equal(result.length, 2);
+});

@@ -17,3 +17,19 @@ export function failRemainingDetails(active, errorCode) {
   }
   return true;
 }
+// Even a partial list must account for every frozen core hotel actually observed.
+export function completeDetailResults(active) {
+  const expected = (active.core_hotels ?? []).filter((h) =>
+    (active.market ?? []).some((m) => m.hotel_id === h.hotel_id),
+  );
+  active.detail_results ??= active.upload?.detail_results ?? [];
+  for (const hotel of expected) {
+    if (!active.detail_results.some((r) => r.hotel_id === hotel.hotel_id))
+      active.detail_results.push({
+        hotel_id: hotel.hotel_id,
+        status: "FAILED",
+        error_code: "DETAIL_INCOMPLETE",
+      });
+  }
+  return active.detail_results;
+}

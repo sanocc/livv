@@ -3,10 +3,11 @@ import {
   inspectList,
   scrollList,
   inspectDetail,
+  scrollDetail,
   detailLink,
 } from "./mobile.js";
 import { performInput } from "./input.js";
-import { failRemainingDetails } from "./detail-state.js";
+import { failRemainingDetails, completeDetailResults } from "./detail-state.js";
 const API = "https://api.livv.cc",
   VERSION = "1.0.0";
 let busy = false,
@@ -129,6 +130,7 @@ async function fail(a, code, message) {
 }
 async function run(a) {
   if (a.upload) {
+    a.upload.detail_results = completeDetailResults(a);
     try {
       const result = await request(
         `/v1/device/attempts/${a.attempt.id}/result`,
@@ -298,6 +300,8 @@ async function run(a) {
     }
     a.phase = "DETAIL_READ";
     a.phase_at = Date.now();
+    a.current_detail_rooms = [];
+    a.detail_last_growth = Date.now();
     await save(a);
     return;
   }
@@ -306,8 +310,29 @@ async function run(a) {
         (x) => x.hotel_id === a.details[a.detail_index].hotel_id,
       ),
       r = await execute(a, inspectDetail, [h, a.task]);
-    if (r?.rooms?.length) {
-      a.rooms.push(...r.rooms);
+    const diagnostic = JSON.stringify(r?.diagnostic ?? null);
+    if (diagnostic !== a.detail_diagnostic) {
+      a.detail_diagnostic = diagnostic;
+      await log("DETAIL_CONTEXT", h.hotel_id + " " + diagnostic);
+      await save(a);
+    }
+    if (r?.context_verified && r.rooms.length) {
+      const collected = new Map(
+        (a.current_detail_rooms ?? []).map((room) => [room.room_name, room]),
+      );
+      const before = collected.size;
+      for (const room of r.rooms) collected.set(room.room_name, room);
+      a.current_detail_rooms = [...collected.values()];
+      if (collected.size > before) a.detail_last_growth = Date.now();
+      await save(a);
+      if (
+        Date.now() - a.phase_at < 10000 ||
+        Date.now() - a.detail_last_growth < 6000
+      ) {
+        await execute(a, scrollDetail);
+        return;
+      }
+      a.rooms.push(...a.current_detail_rooms);
       a.detail_results.push({ hotel_id: h.hotel_id, status: "SUCCESS" });
     } else if (Date.now() - a.phase_at < 45000) return;
     else
@@ -351,6 +376,7 @@ async function run(a) {
   if (r?.navigate) await chrome.tabs.update(a.tab_id, { url: r.navigate });
 }
 async function finish(a, reason, exhausted) {
+  completeDetailResults(a);
   a.detail_results ??= [];
   for (const h of a.details ?? [])
     if (!a.detail_results.some((d) => d.hotel_id === h.hotel_id))
