@@ -9,7 +9,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/health")
-      return Response.json({ ok: true, service: "livv-ota" });
+      return Response.json({ ok: true, service: "poai-ota" });
     const headers = new Headers();
     for (const name of ["CF-Access-Jwt-Assertion", "Content-Type", "Origin"])
       if (request.headers.has(name))
@@ -23,7 +23,7 @@ export default {
         url.pathname.slice(4) + url.search,
         env.ENVIRONMENT === "local"
           ? "http://localhost"
-          : "https://api.livv.cc",
+          : "https://api.poai.cc",
       );
       return env.API.fetch(
         new Request(target, {
@@ -40,13 +40,13 @@ export default {
       new Request(
         (env.ENVIRONMENT === "local"
           ? "http://localhost"
-          : "https://api.livv.cc") + "/v1/admin/session",
+          : "https://api.poai.cc") + "/v1/admin/session",
         { headers },
       ),
     );
     if (!session.ok)
       return new Response(
-        "请通过 Cloudflare Access 登录 LIVV。管理员验证未通过。",
+        "请通过 Cloudflare Access 登录 POAI。管理员验证未通过。",
         { status: session.status, headers: safeHeaders },
       );
     const r = await env.ASSETS.fetch(request);

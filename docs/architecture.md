@@ -1,4 +1,12 @@
-# LIVV OTA V1 架构决策
+# POAI 架构决策
+
+## POAI 当前主线（2026-10-02）
+
+唯一品牌POAI。原api/ota/livvcc/helper分别对应API/OTA/site/agent，保留路径与三个Worker标识；新增ops/ai。不重建D1、不改采集/调度/酒店映射/市场口径。下方旧品牌与不开发OPS的表述为历史阶段范围，已由本次用户请求替代。
+
+OPS首版为浏览器内CSV/XLSX分析。ADR=营收/售卖房量，OCC=售卖房量/可售房量。同日同房型可售房量跨渠道只计一次；缺失不推算。重复营业日/房型/渠道拒绝导入。无经营文件上传、无OPS数据库表；AI只提供产品框架，未接模型。
+
+Agent关键错误/终态通过原异步telemetry通道写D1 agent_logs，按设备+事件ID幂等；高频进度/心跳仍走原Analytics。既有attempt_events原样保留；新STARTED.message保存应用版本，历史未知版本不从当前设备推断。原鉴权与真实终态校验不变。
 
 ## Helper V1.3可观测性分层
 

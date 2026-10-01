@@ -16,7 +16,7 @@ import {
   marketNavigation,
   rememberNavigation,
 } from "./navigation.js";
-const API = "https://api.livv.cc",
+const API = "https://api.poai.cc",
   VERSION = chrome.runtime.getManifest().version;
 const telemetry = telemetryQueue({
   storage: chrome.storage.local,
@@ -36,11 +36,22 @@ const telemetry = telemetryQueue({
       throw Error("Telemetry unavailable");
   },
 });
-function observe(event, active) {
+function observe(event, active, diagnostic = "", message = "") {
   try {
-    void telemetry
-      .enqueue(telemetryEvent(event, active, VERSION))
-      .catch(() => {});
+    const point = telemetryEvent(
+      event,
+      active,
+      VERSION,
+      Date.now(),
+      diagnostic,
+    );
+    if (!point) return;
+    point.diagnostic = /not valid JSON|Unexpected token/.test(message)
+      ? "API_RESPONSE_NOT_JSON"
+      : /Failed to fetch|fetch failed/.test(message)
+        ? "NETWORK_FETCH_FAILED"
+        : "";
+    void telemetry.enqueue(point).catch(() => {});
   } catch {}
 }
 let progressKey = "",
@@ -62,7 +73,13 @@ const read = async () =>
   ]);
 async function log(event, message = "", context = null) {
   const { logs = [], active } = await read();
-  observe(event, context ?? active);
+  // Only the leading error-code token is eligible for remote telemetry; never upload free text.
+  observe(
+    event,
+    context ?? active,
+    String(message).split(/[:\s]/)[0],
+    String(message),
+  );
   await chrome.storage.local.set({
     logs: [
       ...logs,

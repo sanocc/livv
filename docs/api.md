@@ -1,5 +1,13 @@
 # API V1
 
+## POAI 当前入口（2026-10-02）
+
+统一入口 https://api.poai.cc，OTA同源/api/继续通过原Service Binding转发。管理员生产写来源只允许ota.poai.cc；OPS/AI首版不调用跨源API，不放宽鉴权。X-LIVV-Device-ID、livv_hotels/livv_hotel_id等协议字段保持原值，普通界面改为POAI/标准酒店。
+
+原telemetry增加可选白名单error_code/diagnostic；诊断仅API_RESPONSE_NOT_JSON/NETWORK_FETCH_FAILED，不接收自由日志正文、HTML、Cookie或Token。关键错误/终态写agent_logs，其他事件维持Analytics。终态须匹配D1，不通过事件修改任务。
+
+diagnostics追加agent_logs（最多100条D1关键记录）、logs（最多100条既有D1执行事件）；返回device_id/app_version/task_id/level/event/message/error_code/metadata/created_at等字段。历史应用版本未知保持NULL；Analytics仍可能采样，不作完整审计依据。
+
 ## Helper V1.3运行事件与设备诊断
 
 POST /v1/device/telemetry：沿用已批准设备鉴权，body={events:[...]}，最多25条；接受白名单事件、24小时内/未来最多60秒的occurred_at、UUID事件标识与有限标量字段。设备身份由鉴权决定，关联task_id/attempt_id必须属于该设备。TASK_COMPLETED/PARTIAL/FAILED必须匹配D1 Task真实状态；ATTEMPT_FAILED必须匹配执行FAILED，仅Task真实FAILED才转换为TASK_FAILED。绑定不可用返回available=false，Helper独立重试，不改变Task状态。字段与隐私边界见helper-observability.md。

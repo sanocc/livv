@@ -1,4 +1,23 @@
-# LIVV OTA V1
+# POAI
+
+POAI 是唯一正式品牌。现有业务和历史数据保留，后续开发统一使用 POAI。
+
+| 产品 | 地址 | 当前能力 |
+|---|---|---|
+| POAI 主站 | https://poai.cc | 完整品牌官网、产品入口、Agent 下载 |
+| POAI OTA | https://ota.poai.cc | 原有真实携程市场、趋势、映射、任务与设备诊断 |
+| POAI OPS | https://ops.poai.cc | 本机 CSV / Excel (.xlsx) 导入，日/周/月/季/自定义分析 |
+| POAI AI | https://ai.poai.cc | 产品页面与基础入口；尚未接入模型或自动动作 |
+| POAI API | https://api.poai.cc/health | 统一接口、D1、设备/任务/计划与云端日志 |
+| POAI Agent | 主站下载 | POAI 酒店助手 1.3.1，Chrome Side Panel 本地执行端 |
+
+保留 `livvcc/`（site）、`helper/`（agent）和三个原Worker内部名称，避免破坏Git Builds与扩展设备身份；追加 `ops/`、`ai/`。D1、鉴权请求头及既有映射字段保持原值，不机械全局替换。
+
+Node >=24；`npm ci` 自动准备品牌资产和 Agent ZIP；`npm test`；`npm run check`。部署：`npm run deploy:api / deploy:ota / deploy:site / deploy:ops / deploy:ai`。0003迁移仅追加低频Agent关键日志；不清空D1、不改变正式14天Plan。OPS文件在浏览器内处理，无云端经营数据上传。
+
+当前实况见 [POAI 迁移验收](docs/poai-migration.md)、[测试记录](docs/testing.md)、[部署文档](docs/deployment.md)。以下是旧阶段历史，不作为当前品牌和范围限制。
+
+## LIVV 阶段历史
 
 携程移动端真实酒店市场采集：OTA创建任务 → API → 已批准Chrome Helper → 携程 → API → D1 → 市场快照与可解释建议。
 

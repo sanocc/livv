@@ -1,5 +1,5 @@
 {
-  "name": "livv",
+  "name": "poai",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,9 +10,14 @@
     "deploy:api": "wrangler deploy --config api/wrangler.jsonc",
     "deploy:ota": "wrangler deploy --config ota/wrangler.jsonc",
     "deploy:livvcc": "wrangler deploy --config livvcc/wrangler.jsonc",
-    "format": "prettier --write api ota livvcc helper scripts tests package.json"
+    "format": "prettier --write api ota livvcc helper ops ai scripts tests package.json",
+    "prepare": "node scripts/prepare-assets.mjs",
+    "deploy:site": "wrangler deploy --config livvcc/wrangler.jsonc",
+    "deploy:ops": "wrangler deploy --config ops/wrangler.jsonc",
+    "deploy:ai": "wrangler deploy --config ai/wrangler.jsonc"
   },
   "devDependencies": {
+    "fflate": "0.8.3",
     "prettier": "3.9.9",
     "wrangler": "^4.145.0"
   },

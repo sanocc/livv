@@ -58,7 +58,7 @@ test("authenticated analytics ingestion never writes high frequency events to D1
     Authorization: `Bearer ${f.credential}`,
   };
   const req = () =>
-    new Request("https://api.livv.cc/v1/device/telemetry", {
+    new Request("https://api.poai.cc/v1/device/telemetry", {
       method: "POST",
       headers,
       body: JSON.stringify({ events: [input] }),
@@ -75,7 +75,7 @@ test("authenticated analytics ingestion never writes high frequency events to D1
     before,
   );
   const r = await worker.fetch(
-    new Request("https://api.livv.cc/v1/device/telemetry", {
+    new Request("https://api.poai.cc/v1/device/telemetry", {
       method: "POST",
       body: "{}",
     }),
@@ -166,7 +166,7 @@ test("read-only remote diagnosis preserves separate task/attempt results and deg
   assert.equal(
     (
       await worker.fetch(
-        new Request(`https://api.livv.cc/v1/admin/devices/${f.id}/diagnostics`),
+        new Request(`https://api.poai.cc/v1/admin/devices/${f.id}/diagnostics`),
         env,
       )
     ).status,

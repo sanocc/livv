@@ -1,5 +1,17 @@
 # 部署实况
 
+## POAI 正式主线（2026-10-02）
+
+poai.cc区域已active（7ef7f8f5f89c4d0fc2ae61c3dfb61b42），五个Custom Domains均enabled：poai.cc→livv-livvcc、ota.poai.cc→livv-ota、api.poai.cc→livv-api、ops.poai.cc→poai-ops、ai.poai.cc→poai-ai。原三个Worker保留名称与绑定；不保留旧品牌为正式业务轨道。仓库/目录暂不移动，以保留Git Integration与Chrome解压扩展身份。
+
+原Access应用19068fef-ab4b-43e3-b547-23b284945bee改名POAI OTA、目标ota.poai.cc；原Allow策略、audience、管理员身份不变。CF_ACCESS_TEAM_DOMAIN及Secrets继续复用，不扩大允许人员、不向前端下发凭证。API写来源改为ota.poai.cc；OPS/AI为公开壳和本机分析，不接触私有云端经营数据。
+
+D1 livv-v1原ID/数据不变。0003_agent_logs.sql仅追加低频关键日志；Wrangler迁移命令7403后由原OAuth的D1 REST通道执行并登记d1_migrations，未新建凭证。设备心跳/列表进度仍走原异步Analytics，关键错误/终态D1持久化。
+
+Agent1.3.1已在原Mac目录重载，ID/自动接单/批准状态保留；首次新域名30家真实任务已完成。Windows尚为旧版本1.2.0，旧API路由撤下后需覆盖原目录重载新版再验收，不能声称已迁移。生产14天Plan保持原样。
+
+主站下载包由npm ci的prepare脚本确定性生成；ops/ai静态品牌资产和FFlate0.8.3同时准备。新增OPS/AI部署命令见根package.json；完整实况与内部保留名称见poai-migration.md。以下旧品牌部署记录为历史证据，不删除。
+
 ## Helper V1.3生产部署（2026-10-02）
 
 livv-api增加HELPER_EVENTS→livv_helper_events Analytics Engine绑定与公开CF_ACCOUNT_ID；Workers Logs显式开启invocation_logs/enabled、head_sampling_rate=1，沿用原已启用持久化配置。无Schema迁移、Cron频率、正式Plan或API鉴权变动。API预验收版本98cd5605-77b1-4b6e-b49e-940f7388868d、OTA预验收版本e9eee497-24bc-43d3-abbf-5cd3ce56978c。main推送后既有Workers Builds再部署，最终版本以Cloudflare记录为准。

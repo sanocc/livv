@@ -1,0 +1,8 @@
+{
+  "name": "poai-ai",
+  "compatibility_date": "2026-09-30",
+  "workers_dev": true,
+  "routes": [{ "pattern": "ai.poai.cc", "custom_domain": true }],
+  "assets": { "directory": "public" },
+  "observability": { "enabled": true }
+}

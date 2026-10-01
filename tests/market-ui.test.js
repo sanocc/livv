@@ -92,7 +92,7 @@ test("market cards and horizontal platform table use supplied facts and original
         platform: "ctrip",
         hotel_id: "111",
         hotel_name: "平台原名",
-        standard_name: "LIVV标准名",
+        standard_name: "POAI标准名",
         livv_hotel_id: "permanent-id",
         category: "mine",
         rank: 1,
@@ -145,7 +145,7 @@ test("market cards and horizontal platform table use supplied facts and original
   assert.ok(view.includes("¥50.5"));
   assert.ok(view.includes("¥101"));
   assert.ok(view.includes("2家有价样本"));
-  assert.ok(view.includes("LIVV标准名"));
+  assert.ok(view.includes("POAI标准名"));
   assert.ok(table.includes('rowspan="2"'));
   assert.ok(table.includes("携程排名"));
   assert.ok(table.includes("携程起售价"));

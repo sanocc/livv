@@ -1,5 +1,13 @@
 # 实际数据库
 
+## POAI 迁移（2026-10-02）
+
+保留 livv-v1（68cfcb1e-913a-4013-aa9d-5ae27f2a1150）与全部既有表、设备/酒店ID、Plan、Observation。0003_agent_logs.sql只新增低频关键日志及设备时间索引，没有删除或改写原业务表。
+
+agent_logs：device_id/app_version/task_id/attempt_id/level/event/message/error_code/metadata/created_at/received_at；PRIMARY KEY(device_id,id)。错误和终态持久保存，高频心跳/列表进度不写此表。正文为安全业务描述，metadata为白名单，禁止Token/Cookie/HTML/完整URL。旧版本未知显示NULL，新STARTED.message记录app_version。
+
+当前实际市场字段为hotel_id/hotel_name/rank/is_ad/score/dynamic/activity_tags/original_price/display_price，日期/关键词/observed_at通过任务及快照追溯。用户清单中的review_count、event_at_estimated、precision、is_estimated尚无独立Schema字段；本次不伪造或新增采集字段。OPS本版仅浏览器分析，无经营数据库表。
+
 数据库livv-v1。仅api/wrangler.jsonc绑定DB，ota通过API Service Binding读取。
 
 迁移：0001_v1.sql用于全新数据库，后续顺序应用0002_task_type.sql。0002仅增加tasks.task_type，历史默认LEGACY_MARKET_DETAIL；新任务显式MARKET_LIST。不修改Observation Schema或历史结果。

@@ -1,6 +1,7 @@
 import { requireThat } from "./domain.js";
-import { rows, first } from "./db.js";
+import { rows, first, stmt } from "./db.js";
 import { CONFIG, nowIso } from "./config.js";
+import { businessLog, errorLabels } from "../../helper/i18n.js";
 const EVENTS = new Set([
   "DEVICE_ONLINE",
   "TASK_CLAIMED",
@@ -33,6 +34,35 @@ const dim = (x, max = 80) =>
     : "";
 const number = (x, max) =>
   typeof x === "number" && Number.isFinite(x) && x >= 0 && x <= max ? x : null;
+const durable = (code) =>
+  /^TASK_(COMPLETED|PARTIAL|FAILED)$/.test(code) ||
+  code === "ATTEMPT_FAILED" ||
+  Object.hasOwn(errorLabels, code);
+const level = (code) =>
+  /PARTIAL|FAST_NAV_FAILED|FAST_NAV_CONTEXT_MISMATCH/.test(code)
+    ? "warn"
+    : /FAILED|TIMEOUT|MISMATCH|REQUIRED|CHANGED|ERROR/.test(code)
+      ? "error"
+      : "info";
+const logMessage = (e) =>
+  e.diagnostic === "API_RESPONSE_NOT_JSON"
+    ? "接口返回了非JSON响应"
+    : e.diagnostic === "NETWORK_FETCH_FAILED"
+      ? "网络连接失败"
+      : businessLog({
+          event: e.error_code || e.event_code,
+          message: JSON.stringify({ count: e.hotel_count }),
+        });
+const metadata = (e) => ({
+  attempt_id: e.attempt_id,
+  platform: e.platform,
+  task_type: e.task_type,
+  os: e.os,
+  navigation_mode: e.navigation_mode,
+  duration_ms: e.duration_ms,
+  hotel_count: e.hotel_count,
+  diagnostic: e.diagnostic || null,
+});
 export async function ingestTelemetry(env, device, body, now = Date.now()) {
   requireThat(
     Array.isArray(body.events) && body.events.length <= 25,
@@ -77,6 +107,16 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
       occurred_at: nowIso(at),
       duration_ms: number(e.duration_ms, 86400000),
       hotel_count: number(e.hotel_count, 2000),
+      diagnostic: ["API_RESPONSE_NOT_JSON", "NETWORK_FETCH_FAILED"].includes(
+        e.diagnostic,
+      )
+        ? e.diagnostic
+        : "",
+      error_code: Object.hasOwn(errorLabels, e.error_code)
+        ? e.error_code
+        : Object.hasOwn(errorLabels, e.event_code)
+          ? e.event_code
+          : "",
     };
   });
   const owned = await rows(
@@ -109,7 +149,35 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
       if (attempt.task_status === "FAILED") e.event_code = "TASK_FAILED";
     }
   }
-  if (!env.HELPER_EVENTS) return { accepted: 0, available: false };
+  // Critical history is durable and idempotent; progress/heartbeat never add high-frequency D1 rows.
+  const critical = parsed.filter((e) => durable(e.event_code));
+  if (critical.length)
+    await env.DB.batch(
+      critical.map((e) =>
+        stmt(
+          env.DB,
+          "INSERT OR IGNORE INTO agent_logs(id,device_id,app_version,task_id,attempt_id,level,event,message,error_code,metadata,created_at,received_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+          e.event_id,
+          e.device_id,
+          e.helper_version || null,
+          e.task_id || null,
+          e.attempt_id || null,
+          level(e.event_code),
+          e.event_code,
+          logMessage(e),
+          e.error_code || null,
+          JSON.stringify(metadata(e)),
+          e.occurred_at,
+          nowIso(now),
+        ),
+      ),
+    );
+  if (!env.HELPER_EVENTS)
+    return {
+      accepted: critical.length,
+      available: critical.length === parsed.length,
+      analytics_available: false,
+    };
   try {
     for (const e of parsed)
       env.HELPER_EVENTS.writeDataPoint({
@@ -126,6 +194,8 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
           e.navigation_mode,
           e.event_id,
           e.occurred_at,
+          e.error_code,
+          e.diagnostic,
         ],
         doubles: [e.duration_ms ?? -1, e.hotel_count ?? -1],
       });
@@ -142,7 +212,7 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
   if (!/^[a-zA-Z0-9-]{1,80}$/.test(deviceId))
     return { available: false, reason: "INVALID_DEVICE", events: [] };
   try {
-    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM livv_helper_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
+    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, blob12 AS error_code, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM livv_helper_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
     const r = await fetcher(
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
       {
@@ -167,6 +237,28 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
         ...e,
         duration_ms: e.duration_ms < 0 ? null : e.duration_ms,
         hotel_count: e.hotel_count < 0 ? null : e.hotel_count,
+        device_id: deviceId,
+        app_version: e.helper_version || null,
+        level: /FAILED|TIMEOUT|MISMATCH|REQUIRED|CHANGED|ERROR/.test(
+          e.event_code,
+        )
+          ? "error"
+          : "info",
+        event: e.event_code,
+        message: businessLog({
+          event: e.error_code || e.event_code,
+          message: JSON.stringify({ count: e.hotel_count }),
+        }),
+        metadata: {
+          attempt_id: e.attempt_id,
+          platform: e.platform,
+          task_type: e.task_type,
+          os: e.os,
+          navigation_mode: e.navigation_mode,
+          duration_ms: e.duration_ms < 0 ? null : e.duration_ms,
+          hotel_count: e.hotel_count < 0 ? null : e.hotel_count,
+        },
+        created_at: e.occurred_at || e.timestamp,
       }));
     return { available: true, events };
   } catch {
@@ -225,6 +317,29 @@ export async function deviceDiagnostics(env, id, now = Date.now()) {
     attempt_results: results,
     timing,
     errors,
+    agent_logs: (
+      await rows(
+        env.DB,
+        "SELECT device_id,app_version,task_id,attempt_id,level,event,message,error_code,metadata,created_at FROM agent_logs WHERE device_id=? ORDER BY created_at DESC,id DESC LIMIT 100",
+        id,
+      )
+    ).map((e) => ({ ...e, metadata: JSON.parse(e.metadata), source: "D1" })),
+    // Authoritative task history stays in D1; old app versions are not inferred from the current device.
+    logs: (
+      await rows(
+        env.DB,
+        `SELECT e.device_id,e.task_id,e.attempt_id,e.event,e.code AS error_code,e.message,e.at AS created_at,(SELECT json_extract(v.message,'$.app_version') FROM attempt_events v WHERE v.attempt_id=e.attempt_id AND v.event='STARTED' AND json_valid(v.message) ORDER BY v.id LIMIT 1) AS app_version FROM attempt_events e WHERE e.device_id=? ORDER BY e.at DESC,e.id DESC LIMIT 100`,
+        id,
+      )
+    ).map((e) => ({
+      ...e,
+      level: e.error_code ? "error" : "info",
+      message:
+        e.message ||
+        businessLog({ event: e.error_code || e.event, message: "" }),
+      metadata: { attempt_id: e.attempt_id },
+      source: "D1",
+    })),
     analytics: await analyticsEvents(env, id),
   };
 }

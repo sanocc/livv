@@ -155,7 +155,7 @@ test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and backg
   assert.ok(m.permissions.includes("sidePanel"));
   assert.equal(m.action.default_popup, undefined);
   assert.deepEqual(m.host_permissions, [
-    "https://api.livv.cc/*",
+    "https://api.poai.cc/*",
     "https://m.ctrip.com/*",
   ]);
   const script = fs.readFileSync(

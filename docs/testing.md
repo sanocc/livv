@@ -1,5 +1,19 @@
 # 验收记录（持续更新）
 
+## POAI 品牌切换（2026-10-02）
+
+保留main与原业务，唯一品牌POAI。五个域名已绑定原/新增Worker，API健康200/database=ok；原Access应用迁到ota.poai.cc，JWT audience与管理员规则不变。现有D1/设备ID/酒店映射与正式14天Plan保留，未重写历史PARTIAL/FAILED。主站为完整多区块，PO连接字标与同源方形图标；Agent1.3.1（+0.0.1），关于区可见构建日期/环境。Windows新域名真实验收仍PENDING。
+
+Mac原设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9原位重载，Chrome扩展ID仍emiikeckjommjpkcggiipdidalcpgccm。通过Agent真实创建任务db2f2ec5-821c-43aa-8e67-c36d4592bcab，咸宁/中心花坛，2026-10-03→10-04，30家，api.poai.cc领取/心跳/上传，COMPLETED。快照196c1e78-f4a5-400a-a278-ee1c3d8eb5cd，30家，详情0。D1时间：领取→LIST_READY 5.151秒、ready→锁定24.961秒、总30.902秒。FAST_NAV_VERIFIED，无UI fallback/SEARCH_CONTROL_TIMEOUT。STARTED包含真实app_version1.3.1。
+
+69项自动测试通过（原63项+POAI/OPS/日志6项），MV3、语法与数据库边界检查通过，npm audit零已知漏洞。OPS真实浏览器导入隔离合成.xlsx（不写生产库）：日营收1300、房量5、ADR260、OCC50%、昨日差额300；月累计2300/10/ADR230/OCC50%，未知历史对比—。CSV引号/编码、重复粒度、缺失分母与月末/闰年边界有自动测试。无模拟经营数据作为默认展示。
+
+最终版本再次真实运行Task f62577b3-054b-4e82-b0a2-deea156dba26，COMPLETED：领取→ready 5.522秒、ready→锁定26.520秒、总32.706秒；30家唯一酒店、排名1～30、FAST_NAV_VERIFIED，无UI fallback或SEARCH_CONTROL_TIMEOUT。D1关键日志55f400d1-0310-4ce6-a7ba-821507d195cc已收到TASK_COMPLETED，关联原设备/Task/Attempt，版本1.3.1、hotel_count=30、navigation_mode=FAST_NAVIGATION；不是本地显示替代云端验收。
+
+0003仅新增低频关键日志，原市场Schema不变。测试验证错误/终态日志去重、禁止秘密正文、Analytics不可用时D1关键日志保留，高频进度不写D1、不能通过日志伪造Task结果。旧attempt_events错误可远程查看。完整部署与限制见poai-migration.md。
+
+本机新域名DNS代理曾返回198.18.0.x、重置主站/AI连接；公开DNS真实地址+TLS证书验证两站200，实际相同Worker部署浏览器视觉通过。不绕过证书警告、不修改系统代理。后续正常浏览器访问以当前网络实际状态为准。
+
 ## Helper V1.3：采集简化与云端观测（2026-10-02）
 
 核查main bd50b6e：task_type、MARKET_LIST列表/详情解耦、达到目标立即上传、FAST_NAV默认路径及UI fallback已经实现，未重复重构。原mobile/input/navigation/平台模板未修改；本轮增加观测与设备诊断、修复Side Panel重复渲染。所有旧失败/PARTIAL与Observation保留。

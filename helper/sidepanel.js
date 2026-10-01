@@ -1,3 +1,4 @@
+import { RELEASE } from "./release.js";
 import {
   errorLabel,
   statusLabel,
@@ -36,6 +37,10 @@ function render(s) {
   const age = s.cloud_at ? Date.now() - s.cloud_at : Infinity,
     online = age < 120000;
   updateText($("#version"), `v${s.version}`);
+  updateText(
+    $("#about-agent"),
+    `版本 ${s.version} · 构建日期 ${RELEASE.build_date} · 生产环境 · ${RELEASE.api}`,
+  );
   updateText($("#online"), online ? "● 在线" : "○ 离线");
   $("#online").className = "badge " + (online ? "good" : "neutral");
   $("#auto").checked = !!s.auto;

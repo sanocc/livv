@@ -32,7 +32,13 @@ const events = new Set([
   "ATTEMPT_TIMEOUT",
   "UPLOAD_FAILED",
 ]);
-export function telemetryEvent(event, active, version, at = Date.now()) {
+export function telemetryEvent(
+  event,
+  active,
+  version,
+  at = Date.now(),
+  diagnostic = "",
+) {
   const event_code = aliases[event] ?? event;
   if (!events.has(event_code)) return null;
   const task = active?.task,
@@ -64,6 +70,7 @@ export function telemetryEvent(event, active, version, at = Date.now()) {
     task_id: task?.id ?? "",
     attempt_id: attempt?.id ?? "",
     helper_version: version,
+    error_code: /^[A-Z][A-Z0-9_]{1,79}$/.test(diagnostic) ? diagnostic : "",
     platform: task?.platform ?? "",
     task_type: task?.task_type ?? "",
     os: /win/i.test(navigator.platform)

@@ -619,12 +619,12 @@ async function devices() {
 async function hotels() {
   const d = await api("hotels");
   $("#view").innerHTML =
-    `<h2>LIVV 标准酒店</h2><form class="form" id="hotel-form"><label>标准名称<input name="name" required></label><label>分类<select name="category">${Object.entries(
+    `<h2>POAI 标准酒店</h2><form class="form" id="hotel-form"><label>标准名称<input name="name" required></label><label>分类<select name="category">${Object.entries(
       categories,
     )
       .map(([k, v]) => `<option value="${k}">${v}</option>`)
       .join("")}</select></label><button>创建酒店</button></form>${table(
-      ["永久 LIVV Hotel ID", "标准名称", "分类", "操作"],
+      ["永久 标准酒店 ID", "标准名称", "分类", "操作"],
       d.livv_hotels.map(
         (h) =>
           `<tr><td>${esc(h.id)}</td><td>${esc(h.name)}</td><td>${categories[h.category]}</td><td><button data-edit="${h.id}">修改</button></td></tr>`,
@@ -633,7 +633,7 @@ async function hotels() {
       ["平台原始名称", "平台 / Hotel ID", "映射 / 分类", "操作"],
       d.platform_hotels.map(
         (h) =>
-          `<tr><td>${esc(h.original_name)}</td><td>${esc(h.platform)} / ${esc(h.hotel_id)}</td><td>${esc(h.standard_name)}<small>${categories[h.category] ?? "市场其他"}</small></td><td>${h.livv_hotel_id ? `<button data-unlink="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">解除映射</button>` : `<select data-choice="${esc(h.hotel_id)}"><option value="">选择 LIVV Hotel</option>${d.livv_hotels.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select> <button data-link="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">确认关联</button>`}</td></tr>`,
+          `<tr><td>${esc(h.original_name)}</td><td>${esc(h.platform)} / ${esc(h.hotel_id)}</td><td>${esc(h.standard_name)}<small>${categories[h.category] ?? "市场其他"}</small></td><td>${h.livv_hotel_id ? `<button data-unlink="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">解除映射</button>` : `<select data-choice="${esc(h.hotel_id)}"><option value="">选择 标准酒店</option>${d.livv_hotels.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select> <button data-link="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">确认关联</button>`}</td></tr>`,
       ),
     )}`;
   $("#hotel-form").onsubmit = (e) => {
@@ -670,7 +670,7 @@ async function hotels() {
           const select = [...document.querySelectorAll("[data-choice]")].find(
             (x) => x.dataset.choice === b.dataset.link,
           );
-          if (!select.value) throw new Error("先选择 LIVV Hotel");
+          if (!select.value) throw new Error("先选择 标准酒店");
           await api("mappings", "POST", {
             platform: b.dataset.platform,
             hotel_id: b.dataset.link,

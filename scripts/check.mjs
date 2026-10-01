@@ -8,11 +8,18 @@ const walk = (dir) =>
     .flatMap((e) =>
       e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
     );
-for (const d of ["api/src", "ota/src", "ota/public", "helper", "scripts"])
+for (const d of [
+  "api/src",
+  "ota/src",
+  "ota/public",
+  "ops/public",
+  "helper",
+  "scripts",
+])
   for (const file of walk(path.join(root, d)))
     if (/\.(js|mjs)$/.test(file))
       execFileSync(process.execPath, ["--check", file]);
-for (const d of ["ota", "livvcc"]) {
+for (const d of ["ota", "livvcc", "ops", "ai"]) {
   const c = JSON.parse(
     fs.readFileSync(path.join(root, d, "wrangler.jsonc"), "utf8"),
   );

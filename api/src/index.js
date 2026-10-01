@@ -209,13 +209,13 @@ export async function handle(req, env) {
       await first(db, "SELECT 1 AS ok");
       return json({
         ok: true,
-        service: "livv-api",
+        service: "poai-api",
         version: "1.0.0",
         database: "ok",
       });
     } catch {
       return json(
-        { ok: false, service: "livv-api", database: "unavailable" },
+        { ok: false, service: "poai-api", database: "unavailable" },
         503,
       );
     }
@@ -326,7 +326,14 @@ export async function handle(req, env) {
               nowIso(),
               a.id,
             ),
-            event(db, a, "STARTED", nowIso()),
+            event(
+              db,
+              a,
+              "STARTED",
+              nowIso(),
+              null,
+              JSON.stringify({ app_version: d.version ?? null }),
+            ),
           ]);
         return json({ ok: true });
       }
@@ -367,7 +374,7 @@ export async function handle(req, env) {
       requireThat(
         !req.headers.get("origin") ||
           [
-            "https://ota.livv.cc",
+            "https://ota.poai.cc",
             ...(env.ENVIRONMENT === "local"
               ? ["http://localhost:8788", "http://127.0.0.1:8788"]
               : []),

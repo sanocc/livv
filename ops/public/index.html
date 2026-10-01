@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>POAI OPS · 酒店经营分析</title>
+    <link rel="icon" href="/poai-icon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <aside>
+      <a class="logo" href="https://poai.cc">POAI <small>OPS</small></a>
+      <nav>
+        <a href="https://ota.poai.cc">市场 · OTA</a
+        ><a class="active" href="/">经营 · OPS</a
+        ><a href="https://ai.poai.cc">智能 · AI</a
+        ><a href="https://poai.cc/#download">酒店助手</a>
+      </nav>
+      <p>V1 · 浏览器本地分析</p>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">POAI OPS</p>
+          <h1>酒店经营分析</h1>
+        </div>
+        <span class="tag">文件仅在本机解析</span>
+      </header>
+      <section class="card import">
+        <h2>导入经营数据</h2>
+        <p>
+          支持 CSV /
+          Excel（.xlsx）第一张工作表。必填：营业日、营收、售卖房量；可选：可售房量、房型、渠道。每行对应一个营业日
+          / 房型 / 渠道，同日同房型可售房量重复时只计一次。
+        </p>
+        <label class="file"
+          >选择 Excel / CSV<input
+            type="file"
+            id="file"
+            accept=".csv,.xlsx" /></label
+        ><a href="/template.csv" download>下载空白 CSV 模板</a>
+        <p id="status" role="status">尚未导入。请使用自己的真实经营数据。</p>
+        <p class="hint">
+          本版不保存文件，刷新页面后需重新导入。缺失可售房量时 OCC 显示 —；旧版
+          .xls 请另存为 .xlsx。
+        </p>
+      </section>
+      <section class="filters card">
+        <label
+          >观察周期<select id="mode">
+            <option value="day">日</option>
+            <option value="week">周</option>
+            <option value="month">月</option>
+            <option value="quarter">季</option>
+            <option value="custom">自定义</option>
+          </select></label
+        ><label>营业日<input type="date" id="anchor" /></label
+        ><label>开始<input type="date" id="start" /></label
+        ><label>结束<input type="date" id="end" /></label>
+      </section>
+      <div id="report">
+        <p class="empty">导入后查看营收、房量、均价及房型 / 渠道表现。</p>
+      </div>
+    </main>
+  </body>
+</html>

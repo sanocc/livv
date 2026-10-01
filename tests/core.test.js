@@ -475,7 +475,7 @@ test("Access signature verified and rejects wrong audience or expiration", async
       ),
     ).toString("base64url");
     return verifyAccessJwt(
-      new Request("https://api.livv.cc", {
+      new Request("https://api.poai.cc", {
         headers: { "CF-Access-Jwt-Assertion": data + "." + sig },
       }),
       {
@@ -494,7 +494,7 @@ test("production health verifies its actual database dependency", async () => {
   const h = harness();
   assert.equal((await h.call("/health", "GET", undefined, {})).status, 200);
   const response = await worker.fetch(
-    new Request("https://api.livv.cc/health"),
+    new Request("https://api.poai.cc/health"),
     {
       ENVIRONMENT: "production",
       DB: {
