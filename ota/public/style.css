@@ -912,3 +912,44 @@ h2 {
 .section-heading h2 {
   margin: 0;
 }
+.trend-title {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.period-control {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #e2e7ef;
+  border-radius: 8px;
+  background: #f5f7fa;
+}
+.period-control button {
+  border: 0;
+  border-radius: 5px;
+  padding: 6px 12px;
+  color: #8290a4;
+  background: transparent;
+  font-size: 11px;
+}
+.period-control button[aria-pressed="true"] {
+  background: #e7efff;
+  color: #3169df;
+  font-weight: 600;
+}
+.chart .ordinary-date {
+  fill: #92a0b3;
+}
+.chart .weekend-date {
+  fill: #3169df;
+}
+.chart .holiday-date {
+  fill: #bf8553;
+  font-weight: 600;
+}
+.chart .price-line {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}

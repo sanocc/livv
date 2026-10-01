@@ -24,9 +24,17 @@ const advice = {
   lower: "↓ 建议关注降价",
 };
 let page = "market",
-  filter = { city: "咸宁", keyword: "中心花坛", scope: "top30", horizon: 14 },
+  filter = {
+    city: "咸宁",
+    keyword: "中心花坛",
+    scope: "top30",
+    horizon: 30,
+    inclusive: 1,
+  },
   marketData = null,
-  marketRequest = 0;
+  marketRequest = 0,
+  chartHorizon = 14,
+  chartRequest = 0;
 async function api(path, method = "GET", body) {
   const r = await fetch("/api/v1/admin/" + path, {
     method,
@@ -56,15 +64,64 @@ const priceSeries = [
   ["median", "#39958a", "市场中位价"],
   ["minimum", "#95a4b8", "市场最低价"],
 ];
+// Official 2026 China holiday breaks; unknown years stay explicitly unconfirmed.
+// https://www.beijing.gov.cn/zhengce/zhengcefagui/202511/t20251104_4258873.html
+const holidayBreaks = [
+  ["2026-01-01", "2026-01-03", "元旦假期"],
+  ["2026-02-15", "2026-02-23", "春节假期"],
+  ["2026-04-04", "2026-04-06", "清明节假期"],
+  ["2026-05-01", "2026-05-05", "劳动节假期"],
+  ["2026-06-19", "2026-06-21", "端午节假期"],
+  ["2026-09-25", "2026-09-27", "中秋节假期"],
+  ["2026-10-01", "2026-10-07", "国庆节假期"],
+];
+function dateLabel(date, origin) {
+  const weekday = new Date(date + "T00:00:00Z").getUTCDay();
+  const holiday = holidayBreaks.find(
+    ([start, end]) => date >= start && date <= end,
+  )?.[2];
+  return {
+    week: "周" + "日一二三四五六"[weekday],
+    offset: Math.round((Date.parse(date) - Date.parse(origin)) / 86400000),
+    holiday:
+      holiday ??
+      (date.startsWith("2026-") ? "非节假日假期" : "节假日安排未确认"),
+    color: holiday
+      ? "holiday-date"
+      : [5, 6].includes(weekday)
+        ? "weekend-date"
+        : "ordinary-date",
+  };
+}
+// Monotone cubic segments: shape only, never bridge missing observations or overshoot prices.
+function smoothPath(points) {
+  let path = `M${points[0][0]},${points[0][1]}`;
+  const slopes = points
+    .slice(1)
+    .map((p, i) => (p[1] - points[i][1]) / (p[0] - points[i][0]));
+  const tangents = points.map((p, i) => {
+    if (i === 0) return slopes[0];
+    if (i === points.length - 1) return slopes.at(-1);
+    const a = slopes[i - 1],
+      b = slopes[i];
+    return a * b <= 0 ? 0 : (2 * a * b) / (a + b);
+  });
+  points.slice(1).forEach((p, i) => {
+    const previous = points[i],
+      dx = (p[0] - previous[0]) / 3;
+    path += ` C${previous[0] + dx},${previous[1] + dx * tangents[i]} ${p[0] - dx},${p[1] - dx * tangents[i + 1]} ${p[0]},${p[1]}`;
+  });
+  return path;
+}
 function chart(curve) {
   const values = curve
     .flatMap((v) => priceSeries.map(([k]) => v[k]))
     .filter((v) => v != null);
   const max = Math.ceil((Math.max(1, ...values) * 1.12) / 100) * 100;
-  const x = (i) => 60 + (i * 920) / Math.max(curve.length - 1, 1);
-  const y = (p) => 215 - (p / max) * 190;
+  const x = (i) => 60 + (i * 920) / Math.max(curve.length - 1, 1),
+    y = (p) => 215 - (p / max) * 190;
   let svg =
-    '<svg class="chart" viewBox="0 0 1000 260" role="group" aria-label="未来日期价格走势，缺失数据不插值">';
+    '<svg class="chart" viewBox="0 0 1000 260" role="group" aria-label="未来日期价格走势，缺失数据不插值"><defs><linearGradient id="mine-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3169df" stop-opacity=".12"/><stop offset="100%" stop-color="#3169df" stop-opacity="0"/></linearGradient></defs>';
   for (let i = 0; i <= 4; i++) {
     const p = (max * i) / 4;
     svg += `<line x1="60" y1="${y(p)}" x2="980" y2="${y(p)}"/><text x="46" y="${y(p) + 4}" text-anchor="end">${money(p)}</text>`;
@@ -72,8 +129,12 @@ function chart(curve) {
   for (const [k, color] of priceSeries) {
     let segment = [];
     const flush = () => {
-      if (segment.length > 1)
-        svg += `<polyline fill="none" stroke="${color}" stroke-width="${k === "myPrice" ? 3 : 2}" points="${segment.join(" ")}"/>`;
+      if (segment.length > 1) {
+        const d = smoothPath(segment);
+        if (k === "myPrice")
+          svg += `<path class="price-area" d="${d} L${segment.at(-1)[0]},215 L${segment[0][0]},215 Z" fill="url(#mine-fill)"/>`;
+        svg += `<path class="price-line" fill="none" stroke="${color}" stroke-width="${k === "myPrice" ? 3 : 2}" d="${d}"/>`;
+      }
       segment = [];
     };
     curve.forEach((v, i) => {
@@ -81,24 +142,52 @@ function chart(curve) {
         flush();
         return;
       }
-      segment.push(`${x(i)},${y(v[k])}`);
+      segment.push([x(i), y(v[k])]);
       svg += `<circle cx="${x(i)}" cy="${y(v[k])}" r="3" fill="${color}"><title>${esc(v.checkin)} ${money(v[k])}</title></circle>`;
     });
     flush();
   }
   curve.forEach((v, i) => {
-    if (curve.length <= 14 || i % 3 === 0 || i === curve.length - 1)
-      svg += `<text x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5))}</text>`;
+    const meta = dateLabel(v.checkin, curve[0].checkin);
+    if (curve.length <= 15 || i % 3 === 0 || i === curve.length - 1)
+      svg += `<text class="${meta.color}" x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5))}</text>`;
     const width = 920 / Math.max(curve.length - 1, 1),
       left = Math.max(55, x(i) - width / 2),
       right = Math.min(985, x(i) + width / 2);
     const tip = [
-      v.checkin,
+      `${v.checkin} · ${meta.week} · T+${meta.offset}`,
+      meta.holiday,
       ...priceSeries.map(([k, , name]) => `${name}：${money(v[k])}`),
     ].join("\n");
     svg += `<g class="chart-day"><line class="crosshair" x1="${x(i)}" x2="${x(i)}" y1="20" y2="215"/><rect class="chart-hit tip" x="${left}" y="20" width="${right - left}" height="205" fill="transparent" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"/></g>`;
   });
   return `<div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap">${svg}</svg>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
+}
+async function setChartHorizon(horizon) {
+  if (![14, 30].includes(horizon)) return;
+  const request = ++chartRequest,
+    version = marketRequest;
+  const params = new URLSearchParams({ ...filter, horizon, inclusive: 1 });
+  const m = await api("market?" + params);
+  if (
+    request !== chartRequest ||
+    version !== marketRequest ||
+    page !== "market"
+  )
+    return;
+  chartHorizon = horizon;
+  const tooltip = $("#market-tooltip");
+  if (tooltip) tooltip.hidden = true;
+  $("#trend-chart").innerHTML = chart(m.curve);
+  document
+    .querySelectorAll("[data-horizon]")
+    .forEach((b) =>
+      b.setAttribute(
+        "aria-pressed",
+        String(Number(b.dataset.horizon) === horizon),
+      ),
+    );
+  bindTips($("#trend-chart"));
 }
 function bindTips(root) {
   root.querySelectorAll(".tip").forEach((cell) => {
@@ -139,6 +228,7 @@ function bindTips(root) {
 }
 async function market() {
   const request = ++marketRequest;
+  ++chartRequest;
   const params = new URLSearchParams(filter);
   const [m, runtime] = await Promise.all([
     api("market?" + params),
@@ -164,7 +254,7 @@ async function market() {
   $("#view").innerHTML = `
     <div class="market-toolbar">
       <div class="market-identity"><span class="eyebrow">当前市场</span><h2>${esc(m.city)} <span>·</span> ${esc(m.keyword || "全城")}</h2><details class="market-edit"><summary>切换市场</summary><div><label>城市<input id="city" value="${esc(filter.city)}"></label><label>关键词<input id="keyword" value="${esc(filter.keyword)}"></label><button id="query" class="primary">查询市场</button></div></details></div>
-      <div class="filters"><label>入住日期<select id="checkin">${m.curve.map((v) => `<option value="${v.checkin}">${v.checkin}${v.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label><label>观察周期<select id="horizon"><option value="14">14天</option><option value="30">30天</option></select></label></div>
+      <div class="filters"><label>入住日期<select id="checkin">${m.curve.map((v) => `<option value="${v.checkin}">${v.checkin}${v.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label></div>
     </div>
     <div class="market-status"><span class="status-dot ${s?.market_status === "SUCCESS" ? "ok" : "pending"}"></span><span>${status}${s ? ` · 详情 ${s.detail_success}/${s.detail_total} · 当前快照 ${datetime(s.observed_at)}` : ""}</span><span class="status-divider"></span><span>生产最近成功 ${datetime(runtime.last_success_at)}</span><span class="device-status"><span class="status-dot ${runtime.online_devices.length ? "ok" : "pending"}"></span>在线设备 ${runtime.online_devices.length}</span></div>
     <div class="metrics market-metrics">
@@ -174,7 +264,7 @@ async function market() {
       <article class="card"><div class="metric-label">市场最低价</div><div class="metric">${money(f.minimum)}</div><div class="metric-subtitle" title="${esc(extremeName(f.minimum))}">${esc(extremeName(f.minimum))}</div><small class="muted">当前入住日期 · ${m.scope === "all" ? "全市场" : "30家市场"}</small></article>
       <article class="card strategy-card"><div class="metric-label">市场策略建议</div><div class="strategy-value ${esc(s?.recommendation ?? "observe")}">${s ? esc(advice[s.recommendation] ?? "暂无建议") : "— 暂无建议"}</div><div class="metric-subtitle">${esc(s?.reason ?? "等待真实采集数据")}</div><details class="strategy-reason"><summary>查看判断依据</summary><p>${esc(s?.reason ?? "暂无判断依据")}</p>${s ? `<p>有价样本 ${f.priced ?? "—"} · 可比样本 ${f.comparable ?? "—"}<br>上涨 ${f.up ?? "—"} / 下跌 ${f.down ?? "—"}<br>策略时间 ${datetime(s.observed_at)}</p>` : ""}</details></article>
     </div>
-    <section class="card trend-card"><div class="section-heading"><div><h2>未来价格走势</h2><p class="muted">按入住日期观察 · ${m.horizon}天</p></div><span class="quiet-label">人民币 / 元</span></div>${chart(m.curve)}<p class="chart-note">缺失日期留空，不插值。每个日期使用独立真实快照，30家市场与全市场分别统计。</p></section>
+    <section class="card trend-card"><div class="section-heading"><div><div class="trend-title"><h2>未来价格走势</h2><div class="period-control" role="group" aria-label="走势观察周期">${[14, 30].map((n) => `<button data-horizon="${n}" aria-pressed="${chartHorizon === n}">未来${n}天</button>`).join("")}</div></div><p class="muted">按入住日期观察</p></div><span class="quiet-label">人民币 / 元</span></div><div id="trend-chart">${chart(m.curve.slice(0, chartHorizon + 1))}</div><p class="chart-note">缺失日期留空，不插值。每个日期使用独立真实快照，30家市场与全市场分别统计。</p></section>
     <section class="hotel-section"><div class="section-heading"><div><h2>酒店市场</h2><p class="muted">${esc(m.checkin)} 入住 · ${m.hotels.length}家真实酒店</p></div><span class="quiet-label">平台排名与起售价</span></div><div class="category-tabs" role="group" aria-label="酒店分类"><button data-category="" aria-pressed="true" class="active">全部 <span>${m.hotels.length}</span></button>${Object.entries(
       categories,
     )
@@ -191,29 +281,27 @@ async function market() {
       ),
     )}</details>`;
   $("#scope").value = filter.scope;
-  $("#horizon").value = filter.horizon;
+  document
+    .querySelectorAll("[data-horizon]")
+    .forEach(
+      (b) =>
+        (b.onclick = () =>
+          action(() => setChartHorizon(Number(b.dataset.horizon)))),
+    );
   $("#checkin").value = m.checkin;
   const query = () => {
     filter = {
       scope: $("#scope").value,
-      horizon: $("#horizon").value,
+      horizon: 30,
+      inclusive: 1,
       city: $("#city").value,
       keyword: $("#keyword").value,
       checkin: $("#checkin").value,
     };
-    // A shorter horizon cannot retain an out-of-range selected date.
-    if (
-      !m.curve
-        .slice(0, Number(filter.horizon))
-        .some((v) => v.checkin === filter.checkin)
-    )
-      delete filter.checkin;
     load();
   };
   $("#query").onclick = query;
-  ["scope", "horizon", "checkin"].forEach(
-    (id) => ($("#" + id).onchange = query),
-  );
+  ["scope", "checkin"].forEach((id) => ($("#" + id).onchange = query));
   document.querySelectorAll("[data-category]").forEach(
     (button) =>
       (button.onclick = () => {

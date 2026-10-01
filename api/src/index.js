@@ -90,6 +90,7 @@ async function market(db, u) {
     keyword = u.searchParams.get("keyword") ?? "中心花坛",
     scope = u.searchParams.get("scope") ?? "top30",
     horizon = Number(u.searchParams.get("horizon") ?? 14),
+    inclusive = u.searchParams.get("inclusive") ?? "0",
     limit =
       scope === "custom"
         ? Number(u.searchParams.get("limit"))
@@ -97,10 +98,13 @@ async function market(db, u) {
           ? 30
           : null;
   requireThat(
-    ["top30", "custom", "all"].includes(scope) && [14, 30].includes(horizon),
+    ["top30", "custom", "all"].includes(scope) &&
+      [14, 30].includes(horizon) &&
+      ["0", "1"].includes(inclusive),
     "INVALID_MARKET_QUERY",
   );
   const today = businessDate();
+  const points = horizon + (inclusive === "1" ? 1 : 0);
   const snapshots = await rows(
     db,
     `SELECT * FROM (SELECT s.*,t.platform,t.city,t.keyword,t.checkin,t.checkout,t.scope,t.collection_limit,a.recommendation,a.reason,a.facts,a.algorithm_version,ROW_NUMBER() OVER(PARTITION BY t.checkin ORDER BY s.observed_at DESC) rn FROM snapshots s JOIN tasks t ON t.id=s.task_id JOIN market_analyses a ON a.snapshot_id=s.id WHERE t.platform=? AND t.city=? AND t.keyword=? AND t.scope=? AND t.collection_limit IS ? AND t.checkin>=? AND t.checkin<?) WHERE rn=1 ORDER BY checkin`,
@@ -110,7 +114,7 @@ async function market(db, u) {
     scope,
     limit,
     today,
-    addDays(today, horizon),
+    addDays(today, points),
   );
   const requested = u.searchParams.get("checkin") ?? today,
     selected = snapshots.find((x) => x.checkin === requested);
@@ -136,7 +140,7 @@ async function market(db, u) {
     minePrices.map((o) => [o.snapshot_id, o.display_price]),
   );
   const by = new Map(snapshots.map((s) => [s.checkin, s]));
-  const curve = Array.from({ length: horizon }, (_, i) => {
+  const curve = Array.from({ length: points }, (_, i) => {
     const checkin = addDays(today, i),
       s = by.get(checkin);
     return {

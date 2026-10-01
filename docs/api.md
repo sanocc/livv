@@ -36,7 +36,7 @@ GET /health执行D1 SELECT 1，只返回数据库依赖状态；成功200，数�
 
 市场curve.myPrice按当前人工映射读取该日期快照原始观察；snapshot.facts与strategy_history仍保留采集时不可变策略事实。缺失快照/未映射/缺失价格返回null，不插值。
 
-Plan.horizon=14/30含今日D0和D+1～14/30；market.horizon为从今日起14/30个展示点。POST plans保存后立即物化当前业务日剩余窗口；Cron持续滚动。schedule_key=Plan ID/业务日/入住日期/窗口编号，重复生成不新建Task、不移动已有due_at。capacity_warning表示预估设备容量不足；领取/重试均不越过window_end。
+Plan.horizon=14/30含今日D0和D+1～14/30；market.horizon默认从今日起14/30个展示点；可选inclusive=1包含T+horizon端点，返回15/31个日期（省略或0保持原响应，其他值拒绝）。OTA走势使用inclusive=1，未来14天=T～T+14、未来30天=T～T+30；顶部入住日期范围独立保留T～T+30，周期只更新图表。此参数只扩大同口径历史读取范围，不创建Task或改变所选日期统计。POST plans保存后立即物化当前业务日剩余窗口；Cron持续滚动。schedule_key=Plan ID/业务日/入住日期/窗口编号，重复生成不新建Task、不移动已有due_at。capacity_warning表示预估设备容量不足；领取/重试均不越过window_end。
 
 ## V1.1只读生产运行状态
 

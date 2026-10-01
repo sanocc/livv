@@ -687,3 +687,60 @@ test("runtime counts all production windows, keeps PARTIAL and retry errors, exc
     "RUNNING",
   );
 });
+
+test("inclusive market presentation adds endpoint dates without changing statistics or legacy clients", async () => {
+  const h = harness(),
+    d = await ready(h);
+  await h.call(
+    `/v1/device/attempts/${d.a.id}/result`,
+    "POST",
+    payload(d.t),
+    d.headers,
+  );
+  const before = JSON.stringify(h.DB.raw.prepare("SELECT * FROM tasks").all());
+  for (const horizon of [14, 30]) {
+    const path = `/v1/admin/market?horizon=${horizon}&checkin=${d.t.checkin}`;
+    const old = (await h.call(path)).data,
+      inclusive = (await h.call(path + "&inclusive=1")).data;
+    assert.equal(old.curve.length, horizon);
+    assert.equal(inclusive.curve.length, horizon + 1);
+    assert.equal(
+      inclusive.curve.at(-1).checkin,
+      addDays(businessDate(), horizon),
+    );
+    assert.deepEqual(inclusive.hotels, old.hotels);
+    assert.deepEqual(inclusive.snapshot.facts, old.snapshot.facts);
+    assert.deepEqual(inclusive.strategy_history, old.strategy_history);
+  }
+  assert.equal((await h.call("/v1/admin/market?inclusive=2")).status, 400);
+  assert.equal(
+    JSON.stringify(h.DB.raw.prepare("SELECT * FROM tasks").all()),
+    before,
+  );
+  const edgeTask = (
+    await h.call("/v1/admin/tasks", "POST", {
+      ...taskInput(),
+      checkin: addDays(businessDate(), 30),
+    })
+  ).data;
+  const claim = (await h.call("/v1/device/claim", "POST", {}, d.headers)).data;
+  await h.call(
+    `/v1/device/attempts/${claim.attempt.id}/start`,
+    "POST",
+    {},
+    d.headers,
+  );
+  await h.call(
+    `/v1/device/attempts/${claim.attempt.id}/result`,
+    "POST",
+    payload(edgeTask),
+    d.headers,
+  );
+  const edge = (
+    await h.call(
+      `/v1/admin/market?horizon=30&inclusive=1&checkin=${edgeTask.checkin}`,
+    )
+  ).data;
+  assert.equal(edge.curve.at(-1).median, 114.5);
+  assert.equal(edge.snapshot.task_id, edgeTask.id);
+});
