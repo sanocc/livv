@@ -13,7 +13,7 @@
 | G 映射 | 基本完成 / 完整线上操作待补 | 用户已确认并在OTA建立我的酒店2114264、核心竞品6422421和6955433的永久LIVV映射；生产D1核验原始名称/Hotel ID与历史Observation不变；修改/解除映射本地测试通过，完整线上操作未追加验收 |
 | H 房型 | PASS | 正式Task e6961d63-b49f-4a0d-a7f9-56a985378074 Attempt #1 COMPLETED；30唯一酒店；三家详情3/3；分别4、5、4种房型；各1项明确已订完，sold_out且两种价格均null；同原始窗口内上传 |
 | I 市场展示 | PASS（代码与线上展示） | 当前映射对应我的酒店价、市场最低/中位/最高价、14/30天框架、五类酒店、携程横向列组、排名/起售价与完整悬浮字段；缺失留空；23项自动测试通过 |
-| J 自动计划 | PASS（代码与生产计划；新浏览器执行未复验） | 27项自动测试通过；可控时间逐级验证D0～D+30、隔日、时区、负载/错峰、Cron幂等与滚动、单设备、5次Attempt及到期不补采 |
+| J 自动计划 | PASS（代码、生产计划与独立短窗口闭环；Helper详情兼容性问题另记） | 27项自动测试通过；真实临时窗口7个COMPLETED、2个自然过期，失败Attempt保留；窗口后两个真实Cron周期无重复、无跨窗口领取/上传；正式14天Plan及任务调度元数据不变 |
 
 运行npm test使用内存SQLite，绝不调用生产D1。Mock仅在tests/出现，不写入生产表，不作为Gate F PASS证据。
 
@@ -74,3 +74,35 @@
 此验收不将自动计划后续浏览器采集视为PASS；执行仍依赖在线已批准Chrome Helper，后续真实结果以正式Task/Attempt状态为准。
 
 生产Cron实测：2026-10-01 12:43:47.000（Asia/Shanghai）每分钟调度事件outcome=ok。事件前后两次只读D1查询的25个Task ID、schedule_key、due_at、原始窗口及created_at完全一致，确认无重复且无重排。证据：.local/proofs/gate-j-cron.json、gate-j-plan-before.json、gate-j-plan-after.json（本地忽略目录；不提交设备或认证数据）。
+
+## 独立生产短窗口验收（2026-10-01）
+
+结论：本次窗口生命周期与真实Helper执行闭环PASS。基线f1508fb7182635b5ecb2b66afbe10d2811d093c3，无代码、部署、业务规则或系统时钟修改。本次不是30家及三家详情的完整复验；相关Helper问题单独列于下一节。
+
+正式Plan `3963a563-7687-45dc-9b2a-d33cbdd0cd7c` 保持启用、horizon=14、top30/30。前后只读D1逐字段比较整个Plan，以及25个正式Task的ID、Plan ID、schedule_key、目标参数、入住/离店、created_at、due_at、window_start/end、preferred_device_id、capacity_warning，完全相同。正式任务可以自然执行，未冻结或改写其状态。
+
+临时测试Plan：`acceptance-window-bbdea3bb-4570-47d9-86a4-dc41aab5c017`，携程/咸宁/中心花坛，custom/1，明确以acceptance-window标识测试用途。生产市场查询同时匹配scope/limit，此范围与正式top30/30隔离；7份快照均来自真实携程页面，不作为正式30家市场证据。
+
+现有API的立即任务为45分钟，自动Plan使用固定业务窗口。为满足本次独立10分钟验收，生产D1建立临时Plan后，由真实每分钟Cron先生成25个Task；仅将其中9个尚未领取的临时Task调整为13:05:27.097～13:15:27.097（Asia/Shanghai/Asia/Singapore，UTC+8）的窗口并安排窗口内due_at，绑定当前已批准Helper。其余16个仍为未来任务，最后停用时取消。没有手工建立替代Task，没有调用Scheduler代替真实Cron，没有修改正式Plan或其Task。此方法验证现有窗口边界与schedule_key幂等，不宣称API原生支持自定义短窗口。
+
+设备 `56d208e8-90cd-49bf-ae84-b17a43d9f1b9` 为当前Mac的真实Chrome Helper（1.0.0、approved）。维持其管理的携程页前台，由Helper自行领取、开始、设置搜索参数并上传；没有人工执行领取、结果上传或Attempt终态更新。
+
+| 验收项 | 真实生产证据 |
+|---|---|
+| 有效窗口内领取与执行 | 9个短窗口Task中7个COMPLETED；7份Snapshot、7条Market Observation、0条Room Observation；custom/1不要求详情 |
+| 示例完整关联 | Task f8d7edd9e1ab6d1ea2862736ccddeb8f → Attempt 8f97f6b0-47d3-4675-8294-0b74ed45218a → Snapshot 3a1c7942-ad04-4e91-94d8-4007556a1086；领取13:05:53.375、开始13:05:53.821、observed 13:06:20.064、收到/完成13:06:20.632；Device及观察关联一致 |
+| 失败Attempt如实保存 | Task 02e620067c0166744762ed9801707dae 的Attempt c0197c27-012a-4702-b43a-a02d4782814e 于13:15:23.599领取，13:15:26.401自然FAILED / ATTEMPT_TIMEOUT，无Snapshot；没有人为制造或改写失败 |
+| 过期不补采 | 上述Task与未领取的a1e91efb43d2dfbe6f63ad01357ea458 均于13:15:53.718自然FAILED / EXECUTION_WINDOW_EXPIRED；分别保留1、0个Attempt |
+| Cron幂等 | 实际每分钟Cron持续运行；到期后13:15:47、13:16:47两个scheduled事件均outcome=ok；25个临时Task ID与原始集合相同、25唯一schedule_key，无同一窗口重复Task |
+| 不跨窗口 | 共8个Attempt，全部在各自due/window内领取、timeout_at不晚于window_end、无RUNNING；7份快照的observed/received均在原窗口与Attempt截止之前；窗口后领取数、上传数、重新生成过期窗口Task数均为0 |
+| 终态真实性 | 短窗口Task最终7 COMPLETED、0 PARTIAL、2 FAILED；失败Attempt及过期Task由Helper/API/Cron自然产生，验收操作未修改这些终态 |
+
+窗口到期后保持临时Plan启用，先观察两个真实Cron周期，再查询生产D1。13:25:55.079停用临时Plan，仅将其16个未来PENDING Task按现有停用语义取消为FAILED / PLAN_DISABLED。25个Task、8个Attempt、7份Snapshot及观察/事件历史全部保留，未执行DELETE。停用后再次比较：9个已结束短窗口Task及其Attempt、Snapshot、观察/事件逐字段不变，正式Plan和任务调度元数据仍完全相同。14:03的单次跟进已暂停。
+
+证据保存于本地忽略目录 `.local/proofs/short-window-*`：formal-before、config（包含Cron生成的原始Task）、各轮watch、cron、final、verification、cleanup、after-cleanup。可通过上述生产ID复查D1；不提交认证材料。结论限于本次真实窗口及其后两个Cron周期，没有把短窗口实验描述为正式两小时业务窗口的到期实测。本次仅更新文档，未重复运行无代码变化的27项自动测试。
+
+## Helper维也纳详情兼容性问题（独立记录，未修复）
+
+正式14天Plan已自动生成任务，真实Helper执行与上传成立，但完整详情不能标为PASS。Task `638b35b1a40f0f22cf0c61229ea28212`（10月15～16日）与 `a8db0d6e41b0e7396c10f64b454ecaf7`（10月10～11日）均自然PARTIAL / PARTIAL_COLLECTION，快照分别为 `716271b3-173a-4fc0-8f32-682a6ed5d908`、`0170ae72-9811-49c7-b227-9b82d499e22f`：30家唯一酒店，三家详情成功2/3；我的酒店2114264与核心竞品6422421成功，维也纳6955433失败 `DETAIL_CARD_NOT_FOUND`。这里“2/3”是成功比例，失败为1/3。两份快照各保存9种真实房型，本次没有sold_out记录，不借用Gate H的售罄结果。
+
+后续正式Task `5ca4f15e1ca6e7b56a97fe7970566a5f`、`07de2130c3604c66a5a3357be31cdc5e` 也保存30条列表、详情2/3及同一维也纳错误。Task `d206c4a22688e6802d129b55b3abbc74` 自然PARTIAL，保存22条列表、三家DETAIL_INCOMPLETE；其部分采集原因未在本轮定位。所有结果原样保留，不纳入临时窗口过期证明，也未修改Helper兼容逻辑。既有Gate H的历史3/3证据仍有效，但不代表这些新的入住日期全部成功。
