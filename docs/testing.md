@@ -1,21 +1,33 @@
 # 验收记录（持续更新）
 
-2026-10-01。此记录严格区分自动测试与真实携程验收。
+2026-10-01。第一阶段封板，生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。此记录严格区分自动测试与真实携程验收；下表为最终状态，后文按时间保留历次证据。
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
-| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；21项Node测试通过；架构/Schema/API文档已建立 |
+| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；当前30项Node测试通过；架构/Schema/API文档已核对 |
 | B 云端基础 | PASS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；提交2d905d8三个Workers Builds均成功；Chrome真实Access登录后OTA市场页加载成功；后续已保存真实市场与房型数据 |
 | C 设备 | PASS | Chrome加载当前Helper；真实UUID注册待批准；用户人工批准；在线空闲；禁用后生产API拒绝claim；停止心跳后离线；恢复在线，同一Device ID保留 |
 | D 任务闭环 | PASS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；生产D1只读核验两次自动领取、开始、SEARCH_CONTROL_TIMEOUT失败、返回同一任务池的完整时间线；该任务窗口到期后FAILED / EXECUTION_WINDOW_EXPIRED；新Task 4765e749-a69c-45ed-974a-e811e467c712真实5/5后FAILED / MAX_ATTEMPTS_REACHED；相关自动测试通过 |
 | E 携程自动化 | PASS | Task a6d6ae1c-a69b-4705-830c-70c4f3e55b1c Attempt #3：Helper实际自动设置咸宁、10月2–3日、中心花坛并搜索；公开DOM和最终上传context校验通过；用户已授权debugger必需权限；未用手动诊断代替本次正式自动搜索 |
 | F 真实列表 | PASS | 同一Task COMPLETED；2026-10-01 11:10:25（Asia/Shanghai）生产D1保存snapshot a0ef566b-fe56-4b82-a081-6bd358a09bc7：30条Observation、30唯一Hotel ID、排名1–30、6条仅广告；OTA选择10月2日展示30家、中位价¥166和原始名称/ID/价格 |
-| G 映射 | 基本完成 / 完整线上操作待补 | 用户已确认并在OTA建立我的酒店2114264、核心竞品6422421和6955433的永久LIVV映射；生产D1核验原始名称/Hotel ID与历史Observation不变；修改/解除映射本地测试通过，完整线上操作未追加验收 |
-| H 房型 | PASS | 正式Task e6961d63-b49f-4a0d-a7f9-56a985378074 Attempt #1 COMPLETED；30唯一酒店；三家详情3/3；分别4、5、4种房型；各1项明确已订完，sold_out且两种价格均null；同原始窗口内上传 |
+| G 映射 | 基本完成（封板保留线上复验缺口） | 用户已确认并在OTA建立我的酒店2114264、核心竞品6422421和6955433的永久LIVV映射；生产D1核验原始名称/Hotel ID与历史Observation不变；修改/解除映射本地测试通过，完整线上操作未追加验收，不标全项PASS |
+| H 房型 | PASS（含完整详情复验） | 历史Gate H任务三家详情3/3、13种房型、3项明确sold_out保留；208a300修复后两个新真实30家任务均COMPLETED、三家详情3/3、各14种房型；均在原窗口上传 |
 | I 市场展示 | PASS（代码与线上展示） | 当前映射对应我的酒店价、市场最低/中位/最高价、14/30天框架、五类酒店、携程横向列组、排名/起售价与完整悬浮字段；缺失留空；23项自动测试通过 |
-| J 自动计划 | PASS（代码、生产计划与独立短窗口闭环；Helper详情兼容性问题另记） | 27项自动测试通过；真实临时窗口7个COMPLETED、2个自然过期，失败Attempt保留；窗口后两个真实Cron周期无重复、无跨窗口领取/上传；正式14天Plan及任务调度元数据不变 |
+| J 自动计划 | PASS（代码、正式计划执行与独立短窗口闭环） | 调度可控时间测试通过；真实临时窗口7个COMPLETED、2个自然过期，失败Attempt保留；窗口后两个真实Cron周期无重复、无跨窗口领取/上传；正式14天Plan不变，已有真实30家/详情3/3的计划Task |
 
 运行npm test使用内存SQLite，绝不调用生产D1。Mock仅在tests/出现，不写入生产表，不作为Gate F PASS证据。
+
+## 第一阶段封板核对
+
+2026-10-01 14:01～14:03（UTC+8）只读核验：README与架构、测试、部署、API、数据库文档对照当前源码和Schema；纠正README的“新计划浏览器执行尚未复验”等过时交接结论，历史章节仍作为当时记录保留。API和数据库契约与实现一致，无需为封板改动业务代码或Schema。
+
+正式14天Plan 3963a563-7687-45dc-9b2a-d33cbdd0cd7c enabled=1，携程/咸宁/中心花坛/top30/30，created_at与updated_at均仍为2026-10-01T04:41:45.228Z。唯一临时Plan acceptance-window-bbdea3bb-4570-47d9-86a4-dc41aab5c017 enabled=0，其25个Task全部终态；停用Plan下PENDING/RUNNING任务数为0。所有独立验收Task均已终态，无plan_id为空或acceptance计划下的待执行/运行任务。正式Plan剩余PENDING为正常生产任务，不作清理。
+
+设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9 approved、Helper 1.0.0；14:02:53.259有心跳，按120秒在线标准online=1，当时无RUNNING Attempt。last_error=ATTEMPT_TIMEOUT，作为最近执行错误如实保留，不代表设备被禁用。新完成的两个3/3快照及历史PARTIAL/FAILED仍存在；封板未修改或删除任何生产记录。
+
+生产表仅为既有业务表、迁移及D1系统表，无临时Debug表；测试Fixture仅在内存，本地.local/proofs与历史诊断文件被Git忽略，不被生产Worker加载。Helper只读“当前页面结构”诊断不会生成任务或写观察。14:03单次验收跟进status=PAUSED，无遗留验收自动唤醒。API / OTA / LIVVCC健康检查见部署文档；封板前main与origin/main均为208a300，工作区干净，封板修改仅涉及文档。
+
+封板结论为第一阶段真实主闭环PASS；Gate G线上修改/解除映射仍缺追加证据。维也纳已修复并通过真实复验，但页面变化、电脑休眠/后台页面、验证码及网络仍可能造成真实PARTIAL/FAILED；不保证未来任务全部成功，不伪造缺失趋势或售罄。封板检查证据位于.local/proofs/seal-production.json、seal-final-device.json、seal-health.json。
 
 测试覆盖：设备申请、重复申请凭证保护、审批/禁用、身份分离、Access签名/audience/expiry、单设备单任务、自然记录优先、仅广告保留、唯一酒店数量、完整原子上传/幂等、5次Attempt、窗口拒绝、部分详情保存列表、映射历史、不可修改观察、全市场隔离、缺失数据、规则建议、调度窗口/频率/滚动/幂等。
 

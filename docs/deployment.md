@@ -41,3 +41,11 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 已在自动测试通过和部署成功后，通过正式OTA创建生产14天计划3963a563-7687-45dc-9b2a-d33cbdd0cd7c；每分钟Cron沿用现有配置，计划与任务排期只读证据在本地忽略目录.local/proofs/gate-j-plan-before.json。实际浏览器采集不是部署检查的通过条件，需在线Chrome Helper执行。
 
 生产Cron实测：2026-10-01 12:43:47.000（Asia/Shanghai）每分钟调度事件outcome=ok。事件前后两次只读D1查询的25个Task ID、schedule_key、due_at、原始窗口及created_at完全一致，确认无重复且无重排。证据：.local/proofs/gate-j-cron.json、gate-j-plan-before.json、gate-j-plan-after.json（本地忽略目录；不提交设备或认证数据）。
+
+## 第一阶段封板部署核验（2026-10-01）
+
+生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。该提交新增Helper详情入口限时加载兼容及3项测试，GitHub的Workers Builds: livv-api completed/success；API业务代码未变，OTA/LIVVCC仍为各自已有成功部署，无需强制重部署。当前Mac同一已批准设备已重载Helper，两个真实30家任务详情3/3成功，详见testing.md。
+
+14:01:26（UTC+8）HTTP核验：api.livv.cc/health=200、database=ok；livv.cc/=200；未登录ota.livv.cc/=302到既有Cloudflare Access，未登录API管理员session=401。随后已登录Chrome刷新OTA成功，市场实际加载快照、酒店表、我的酒店¥190与中位价¥190，确认Access、OTA资产及API Service Binding链路正常；302本身不单独作为已登录应用健康证据。这些价格仅是该快照值。
+
+正式14天Plan仍启用，每分钟Cron配置未变；唯一短窗口验收Plan已停用，其Task全部终态，无其他独立验收任务继续执行。生产无Debug表、无测试Fixture写入观察；历史结果全部保留，14:03验收跟进已暂停。本轮只修正文档交接状态，不修改或部署业务逻辑。封板期间未新增Secret、权限或数据库迁移。

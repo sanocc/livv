@@ -15,4 +15,4 @@ Node >=24，npm ci；npm test；npm run check。三个Worker使用Wrangler独立
 
 完整设计依据见docs/architecture.md；Schema见docs/database.md；接口见docs/api.md。
 
-当前交接节点：Gate H真实验收通过（三家详情3/3，共13种房型，3项明确已订完）。Gate I市场展示与线上复验通过，Gate J自动计划代码及生产调度验收通过（27项自动测试）。默认14天生产计划已启用、每分钟Cron成功且生成幂等；新计划真实浏览器执行尚未复验。详细证据见docs/testing.md。云端开发从新仓库main继续；真实Chrome Helper验收仍需有扩展运行能力的电脑。
+第一阶段已封板（2026-10-01），生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。Gate A–F、H–J通过；Gate G已完成现用酒店的人工映射与真实采集关联，完整线上修改/解除操作复验仍为已知验收缺口，未冒充PASS。默认14天生产Plan已启用，真实Cron与窗口过期/幂等闭环已验证；Helper维也纳详情入口兼容修复后，两次真实30家任务均COMPLETED、详情3/3、各14种房型。全套30项自动测试通过。历史PARTIAL/FAILED及Gate H的13种房型、3项明确sold_out证据全部保留；临时验收Plan已停用，无遗留验收任务待执行。详细最终状态与封板检查见docs/testing.md、docs/deployment.md。真实Chrome Helper执行仍依赖在线、已批准且具备扩展运行能力的电脑。
