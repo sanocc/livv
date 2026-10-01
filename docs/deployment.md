@@ -57,3 +57,7 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 日常只需打开现有任务页并刷新：看今日已生成Task、终态成功率、来源分开的错误代码、在线设备和最近成功上传；需要具体原因时查看既有Task详情的Attempt/事件时间线。指标与范围定义见docs/api.md、docs/testing.md。设备最近错误随后续心跳变化，历史Attempt错误不变；无数据不能当成功。
 
 保持设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9的Chrome/Helper在线、电脑不休眠，现有正式14天Plan自然运行。不补采过期窗口，不额外创建验收Task，不删除PARTIAL/FAILED。ATTEMPT_TIMEOUT保留观察项，积累跨窗口/多次真实证据后再评估，不能为个别错误延长租约或改写终态。Gate G独立映射已恢复正确名称/other分类，原三家详情目标不变；停用验收Plan仍无活动Task。此次范围完成后停止新增开发，无新监控平台或OPS。
+
+## V1.2市场UI发布（2026-10-01）
+
+只修改OTA静态前端、UI测试和文档，沿用market/runtime只读API与现有Access/Service Binding。npm test（34项）、npm run check、OTA Worker dry-run及本地真实数据UI检查通过；从GitHub main Push触发既有Cloudflare Workers Builds，等待自动部署后验证线上。无手工部署替代自动部署、无迁移、无新Secret/权限/接口/业务规则。生产Plan/Device只读前后证据保存在.local/proofs/v12-production-before.json及发布后证据，本地预览仅GET/SELECT，结束后停止。

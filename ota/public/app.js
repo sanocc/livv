@@ -25,7 +25,8 @@ const advice = {
 };
 let page = "market",
   filter = { city: "咸宁", keyword: "中心花坛", scope: "top30", horizon: 14 },
-  marketData = null;
+  marketData = null,
+  marketRequest = 0;
 async function api(path, method = "GET", body) {
   const r = await fetch("/api/v1/admin/" + path, {
     method,
@@ -48,30 +49,31 @@ const money = (x) =>
     : `¥${Number(x).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
 const datetime = (x) =>
   x ? new Date(x).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—";
+const platformName = (id) => ({ ctrip: "携程" })[id] ?? id;
+const priceSeries = [
+  ["myPrice", "#3169df", "我的酒店起售价"],
+  ["maximum", "#c79554", "市场最高价"],
+  ["median", "#39958a", "市场中位价"],
+  ["minimum", "#95a4b8", "市场最低价"],
+];
 function chart(curve) {
-  const series = [
-    ["minimum", "#a0b4bd", "市场最低价"],
-    ["median", "#21877f", "市场中位价"],
-    ["maximum", "#d6a76a", "市场最高价"],
-    ["myPrice", "#596eae", "我的酒店起售价"],
-  ];
   const values = curve
-      .flatMap((x) => series.map(([k]) => x[k]))
-      .filter((x) => x != null),
-    max = Math.max(1, ...values) * 1.1,
-    w = 1000,
-    h = 170,
-    x = (i) => 30 + (i * (w - 60)) / Math.max(curve.length - 1, 1),
-    y = (p) => h - (p / max) * (h - 20);
+    .flatMap((v) => priceSeries.map(([k]) => v[k]))
+    .filter((v) => v != null);
+  const max = Math.ceil((Math.max(1, ...values) * 1.12) / 100) * 100;
+  const x = (i) => 60 + (i * 920) / Math.max(curve.length - 1, 1);
+  const y = (p) => 215 - (p / max) * 190;
   let svg =
-    '<svg class="chart" viewBox="0 0 1000 220" role="img" aria-label="未来日期价格走势，缺失数据不插值">';
-  for (let i = 0; i < 4; i++)
-    svg += `<line x1="30" y1="${20 + i * 50}" x2="970" y2="${20 + i * 50}"/>`;
-  for (const [k, color] of series) {
+    '<svg class="chart" viewBox="0 0 1000 260" role="group" aria-label="未来日期价格走势，缺失数据不插值">';
+  for (let i = 0; i <= 4; i++) {
+    const p = (max * i) / 4;
+    svg += `<line x1="60" y1="${y(p)}" x2="980" y2="${y(p)}"/><text x="46" y="${y(p) + 4}" text-anchor="end">${money(p)}</text>`;
+  }
+  for (const [k, color] of priceSeries) {
     let segment = [];
     const flush = () => {
       if (segment.length > 1)
-        svg += `<polyline fill="none" stroke="${color}" stroke-width="2" points="${segment.join(" ")}"/>`;
+        svg += `<polyline fill="none" stroke="${color}" stroke-width="${k === "myPrice" ? 3 : 2}" points="${segment.join(" ")}"/>`;
       segment = [];
     };
     curve.forEach((v, i) => {
@@ -80,73 +82,30 @@ function chart(curve) {
         return;
       }
       segment.push(`${x(i)},${y(v[k])}`);
-      svg += `<circle cx="${x(i)}" cy="${y(v[k])}" r="3" fill="${color}"><title>${v.checkin} ${money(v[k])}</title></circle>`;
+      svg += `<circle cx="${x(i)}" cy="${y(v[k])}" r="3" fill="${color}"><title>${esc(v.checkin)} ${money(v[k])}</title></circle>`;
     });
     flush();
   }
   curve.forEach((v, i) => {
-    if (curve.length <= 14 || i % 2 === 0)
-      svg += `<text x="${x(i)}" y="200" text-anchor="middle">${v.checkin.slice(5)}</text>`;
+    if (curve.length <= 14 || i % 3 === 0 || i === curve.length - 1)
+      svg += `<text x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5))}</text>`;
+    const width = 920 / Math.max(curve.length - 1, 1),
+      left = Math.max(55, x(i) - width / 2),
+      right = Math.min(985, x(i) + width / 2);
+    const tip = [
+      v.checkin,
+      ...priceSeries.map(([k, , name]) => `${name}：${money(v[k])}`),
+    ].join("\n");
+    svg += `<g class="chart-day"><line class="crosshair" x1="${x(i)}" x2="${x(i)}" y1="20" y2="215"/><rect class="chart-hit tip" x="${left}" y="20" width="${right - left}" height="205" fill="transparent" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"/></g>`;
   });
-  return `<div class="legend">${series.map(([, c, n]) => `<span style="color:${c}">${n}</span>`).join("")}</div>${svg}</svg>`;
+  return `<div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap">${svg}</svg>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
 }
-async function market() {
-  const params = new URLSearchParams(filter);
-  marketData = await api("market?" + params);
-  const m = marketData,
-    s = m.snapshot,
-    f = s?.facts ?? {};
-  $("#view").innerHTML =
-    `<div class="filters"><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label><label>观察范围<select id="horizon"><option value="14">未来14天</option><option value="30">未来30天</option></select></label><label>城市<input id="city" value="${esc(filter.city)}"></label><label>关键词<input id="keyword" value="${esc(filter.keyword)}"></label><label>入住日期<select id="checkin">${m.curve.map((x) => `<option value="${x.checkin}">${x.checkin}${x.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><button id="query">查询</button></div><div class="metrics"><div class="card">我的酒店起售价<div class="metric">${money(m.hotels.find((x) => x.category === "mine")?.display_price)}</div><small class="muted">${s ? datetime(s.observed_at) : "未采集"}</small></div><div class="card">市场起售价中位数<div class="metric">${money(f.median)}</div><small class="muted">${s ? `${s.market_count}家真实酒店 · 列表${s.market_status}` : "暂无真实数据"}</small></div><div class="card">市场价格策略建议<div class="metric">${s ? advice[s.recommendation] : "— 暂无建议"}</div><small class="muted">${esc(s?.reason ?? "等待采集数据")}</small></div></div><div class="card detail"><h2>未来${m.horizon}天价格</h2>${chart(m.curve)}<small class="muted">缺失日期留空。30家市场与全市场分别统计。</small></div><div class="row"><h2>酒店市场</h2><select id="category"><option value="">全部分类</option>${Object.entries(
-      categories,
-    )
-      .map(([k, v]) => `<option value="${k}">${v}</option>`)
-      .join(
-        "",
-      )}</select></div><div id="hotel-table"></div><h2>策略历史</h2>${table(
-      ["产生时间", "建议", "依据", "当时我的酒店价格"],
-      m.strategy_history.map(
-        (x) =>
-          `<tr><td>${datetime(x.created_at)}</td><td>${advice[x.recommendation]}</td><td>${esc(x.reason)}</td><td>${money(x.my_price)}</td></tr>`,
-      ),
-    )}`;
-  $("#scope").value = filter.scope;
-  $("#horizon").value = filter.horizon;
-  $("#checkin").value = m.checkin;
-  $("#query").onclick = () => {
-    filter = {
-      scope: $("#scope").value,
-      horizon: $("#horizon").value,
-      city: $("#city").value,
-      keyword: $("#keyword").value,
-      checkin: $("#checkin").value,
+function bindTips(root) {
+  root.querySelectorAll(".tip").forEach((cell) => {
+    const hide = () => {
+      const tip = $("#market-tooltip");
+      if (tip) tip.hidden = true;
     };
-    load();
-  };
-  $("#category").onchange = renderMarketHotels;
-  renderMarketHotels();
-}
-function renderMarketHotels() {
-  const list = marketData.hotels.filter(
-    (x) => !$("#category").value || x.category === $("#category").value,
-  );
-  const tip = (h) =>
-    esc(
-      `携程\n${h.hotel_name}\nHotel ID: ${h.hotel_id}\n划线价: ${money(h.original_price)}\n活动: ${(h.activity_tags ?? []).join(" / ") || "—"}\n起售价: ${money(h.display_price)}`,
-    );
-  $("#hotel-table").innerHTML = table(
-    ["酒店名称", "分类", "排名", "起售价"],
-    list.map(
-      (h) =>
-        `<tr><td>${esc(h.standard_name)}<small>${esc(h.hotel_id)}</small></td><td><span class="pill">${categories[h.category]}</span></td><td><span tabindex="0" class="tip" data-tip="${tip(h)}">${h.rank}${h.is_ad ? " · 广告" : ""}</span></td><td><span tabindex="0" class="tip" data-tip="${tip(h)}">${money(h.display_price)}</span></td></tr>`,
-    ),
-  );
-  // One platform group spans its horizontal rank and starting-price columns.
-  $("#hotel-table table thead").insertAdjacentHTML(
-    "afterbegin",
-    '<tr><th colspan="2" scope="colgroup">酒店</th><th colspan="2" scope="colgroup">携程</th></tr>',
-  );
-  document.querySelectorAll("#hotel-table .tip").forEach((cell) => {
     const show = () => {
       const tip =
         $("#market-tooltip") ??
@@ -168,12 +127,8 @@ function renderMarketHotels() {
       tip.style.top =
         Math.max(
           8,
-          Math.min(rect.bottom + 6, window.innerHeight - tip.offsetHeight - 8),
+          Math.min(rect.bottom + 8, window.innerHeight - tip.offsetHeight - 8),
         ) + "px";
-    };
-    const hide = () => {
-      const tip = $("#market-tooltip");
-      if (tip) tip.hidden = true;
     };
     cell.onmouseenter = cell.onfocus = show;
     cell.onmouseleave = cell.onblur = hide;
@@ -181,6 +136,140 @@ function renderMarketHotels() {
       if (e.key === "Escape") hide();
     };
   });
+}
+async function market() {
+  const request = ++marketRequest;
+  const params = new URLSearchParams(filter);
+  const [m, runtime] = await Promise.all([
+    api("market?" + params),
+    api("runtime"),
+  ]);
+  if (request !== marketRequest || page !== "market") return;
+  marketData = m;
+  const s = m.snapshot,
+    f = s?.facts ?? {},
+    mine = m.hotels.find((h) => h.category === "mine");
+  const extremeName = (value) => {
+    if (value == null) return "暂无价格数据";
+    const hotels = m.hotels.filter((h) => h.display_price === value);
+    return hotels.length
+      ? `${hotels[0].standard_name}${hotels.length > 1 ? ` 等${hotels.length}家` : ""}`
+      : "—";
+  };
+  const status = s
+    ? s.market_status === "SUCCESS"
+      ? "列表采集成功"
+      : "列表部分采集"
+    : "该日期暂无快照";
+  $("#view").innerHTML = `
+    <div class="market-toolbar">
+      <div class="market-identity"><span class="eyebrow">当前市场</span><h2>${esc(m.city)} <span>·</span> ${esc(m.keyword || "全城")}</h2><details class="market-edit"><summary>切换市场</summary><div><label>城市<input id="city" value="${esc(filter.city)}"></label><label>关键词<input id="keyword" value="${esc(filter.keyword)}"></label><button id="query" class="primary">查询市场</button></div></details></div>
+      <div class="filters"><label>入住日期<select id="checkin">${m.curve.map((v) => `<option value="${v.checkin}">${v.checkin}${v.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label><label>观察周期<select id="horizon"><option value="14">14天</option><option value="30">30天</option></select></label></div>
+    </div>
+    <div class="market-status"><span class="status-dot ${s?.market_status === "SUCCESS" ? "ok" : "pending"}"></span><span>${status}${s ? ` · 详情 ${s.detail_success}/${s.detail_total} · 当前快照 ${datetime(s.observed_at)}` : ""}</span><span class="status-divider"></span><span>生产最近成功 ${datetime(runtime.last_success_at)}</span><span class="device-status"><span class="status-dot ${runtime.online_devices.length ? "ok" : "pending"}"></span>在线设备 ${runtime.online_devices.length}</span></div>
+    <div class="metrics market-metrics">
+      <article class="card mine-card"><div class="metric-label">我的酒店起售价 <span class="card-caption">${esc(platformName(m.platform))}</span></div><div class="metric">${money(mine?.display_price)}</div><div class="metric-subtitle" title="${esc(mine?.standard_name)}">${esc(mine?.standard_name ?? "当前列表暂无我的酒店")}</div><small class="muted">${mine ? `${platformName(mine.platform)} · 当前排名 ${mine.rank}` : "—"}</small></article>
+      <article class="card"><div class="metric-label">市场起售价中位数</div><div class="metric">${money(f.median)}</div><div class="metric-subtitle">${s ? `${f.priced ?? m.hotels.filter((h) => h.display_price != null).length}家有价样本` : "暂无真实数据"}</div><small class="muted">${s ? `${s.market_count}家真实酒店` : "等待自然采集"}</small></article>
+      <article class="card"><div class="metric-label">市场最高价</div><div class="metric">${money(f.maximum)}</div><div class="metric-subtitle" title="${esc(extremeName(f.maximum))}">${esc(extremeName(f.maximum))}</div><small class="muted">当前入住日期 · ${m.scope === "all" ? "全市场" : "30家市场"}</small></article>
+      <article class="card"><div class="metric-label">市场最低价</div><div class="metric">${money(f.minimum)}</div><div class="metric-subtitle" title="${esc(extremeName(f.minimum))}">${esc(extremeName(f.minimum))}</div><small class="muted">当前入住日期 · ${m.scope === "all" ? "全市场" : "30家市场"}</small></article>
+      <article class="card strategy-card"><div class="metric-label">市场策略建议</div><div class="strategy-value ${esc(s?.recommendation ?? "observe")}">${s ? esc(advice[s.recommendation] ?? "暂无建议") : "— 暂无建议"}</div><div class="metric-subtitle">${esc(s?.reason ?? "等待真实采集数据")}</div><details class="strategy-reason"><summary>查看判断依据</summary><p>${esc(s?.reason ?? "暂无判断依据")}</p>${s ? `<p>有价样本 ${f.priced ?? "—"} · 可比样本 ${f.comparable ?? "—"}<br>上涨 ${f.up ?? "—"} / 下跌 ${f.down ?? "—"}<br>策略时间 ${datetime(s.observed_at)}</p>` : ""}</details></article>
+    </div>
+    <section class="card trend-card"><div class="section-heading"><div><h2>未来价格走势</h2><p class="muted">按入住日期观察 · ${m.horizon}天</p></div><span class="quiet-label">人民币 / 元</span></div>${chart(m.curve)}<p class="chart-note">缺失日期留空，不插值。每个日期使用独立真实快照，30家市场与全市场分别统计。</p></section>
+    <section class="hotel-section"><div class="section-heading"><div><h2>酒店市场</h2><p class="muted">${esc(m.checkin)} 入住 · ${m.hotels.length}家真实酒店</p></div><span class="quiet-label">平台排名与起售价</span></div><div class="category-tabs" role="group" aria-label="酒店分类"><button data-category="" aria-pressed="true" class="active">全部 <span>${m.hotels.length}</span></button>${Object.entries(
+      categories,
+    )
+      .map(
+        ([k, n]) =>
+          `<button data-category="${k}" aria-pressed="false">${n} <span>${m.hotels.filter((h) => h.category === k).length}</span></button>`,
+      )
+      .join("")}</div><div id="hotel-table"></div></section>
+    <details class="strategy-history"><summary>策略历史 <span>${m.strategy_history.length}条真实记录</span></summary>${table(
+      ["产生时间", "建议", "依据", "当时我的酒店价格"],
+      m.strategy_history.map(
+        (v) =>
+          `<tr><td>${datetime(v.created_at)}</td><td>${esc(advice[v.recommendation])}</td><td>${esc(v.reason)}</td><td>${money(v.my_price)}</td></tr>`,
+      ),
+    )}</details>`;
+  $("#scope").value = filter.scope;
+  $("#horizon").value = filter.horizon;
+  $("#checkin").value = m.checkin;
+  const query = () => {
+    filter = {
+      scope: $("#scope").value,
+      horizon: $("#horizon").value,
+      city: $("#city").value,
+      keyword: $("#keyword").value,
+      checkin: $("#checkin").value,
+    };
+    // A shorter horizon cannot retain an out-of-range selected date.
+    if (
+      !m.curve
+        .slice(0, Number(filter.horizon))
+        .some((v) => v.checkin === filter.checkin)
+    )
+      delete filter.checkin;
+    load();
+  };
+  $("#query").onclick = query;
+  ["scope", "horizon", "checkin"].forEach(
+    (id) => ($("#" + id).onchange = query),
+  );
+  document.querySelectorAll("[data-category]").forEach(
+    (button) =>
+      (button.onclick = () => {
+        document.querySelectorAll("[data-category]").forEach((b) => {
+          b.classList.toggle("active", b === button);
+          b.setAttribute("aria-pressed", String(b === button));
+        });
+        renderMarketHotels(button.dataset.category);
+      }),
+  );
+  renderMarketHotels();
+  bindTips($("#view"));
+}
+function renderMarketHotels(category = "") {
+  const list = marketData.hotels.filter(
+    (h) => !category || h.category === category,
+  );
+  const platforms = [
+    ...new Set([
+      marketData.platform,
+      ...marketData.hotels.map((h) => h.platform),
+    ]),
+  ];
+  const groups = new Map();
+  list.forEach((h) => {
+    const key = h.livv_hotel_id ?? `${h.platform}/${h.hotel_id}`;
+    if (!groups.has(key))
+      groups.set(key, {
+        name: h.standard_name ?? h.hotel_name,
+        category: h.category,
+        cells: new Map(),
+      });
+    groups.get(key).cells.set(h.platform, h);
+  });
+  const tip = (h) =>
+    esc(
+      `${platformName(h.platform)}\n${h.hotel_name}\nHotel ID: ${h.hotel_id}\n划线价: ${money(h.original_price)}\n活动: ${(h.activity_tags ?? []).join(" / ") || "—"}\n起售价: ${money(h.display_price)}`,
+    );
+  $("#hotel-table").innerHTML =
+    `<div class="table market-table"><table><thead><tr><th rowspan="2" scope="col" class="hotel-name-head">酒店名称</th>${platforms.map((p) => `<th colspan="2" scope="colgroup">${esc(platformName(p))}</th>`).join("")}</tr><tr>${platforms.map((p) => `<th scope="col">${esc(platformName(p))}排名</th><th scope="col">${esc(platformName(p))}起售价</th>`).join("")}</tr></thead><tbody>${
+      [...groups.values()]
+        .map(
+          (row) =>
+            `<tr class="${row.category === "mine" ? "mine-row" : ""}"><td><div class="hotel-name">${esc(row.name)}</div><span class="category-label ${esc(row.category)}">${categories[row.category] ?? categories.other}</span></td>${platforms
+              .map((p) => {
+                const h = row.cells.get(p);
+                return h
+                  ? `<td><span tabindex="0" class="tip rank" data-tip="${tip(h)}">${h.rank}<small class="ad-label">${h.is_ad ? "广告" : ""}</small></span></td><td><span tabindex="0" class="tip price" data-tip="${tip(h)}">${money(h.display_price)}</span></td>`
+                  : "<td>—</td><td>—</td>";
+              })
+              .join("")}</tr>`,
+        )
+        .join("") ||
+      `<tr><td colspan="${1 + platforms.length * 2}" class="empty">暂无真实数据</td></tr>`
+    }</tbody></table></div>`;
+  bindTips($("#hotel-table"));
 }
 const scopeFields = `<label>采集范围<select name="scope"><option value="top30">30家</option><option value="custom">自定义</option><option value="all">全市场</option></select></label><label>自定义数量<input type="number" name="limit" value="30" min="1" max="2000"></label>`;
 const targetFields = `<label>平台<select name="platform"><option value="ctrip">携程</option></select></label><label>城市<input name="city" value="咸宁" required></label><label>关键词<input name="keyword" value="中心花坛"></label>`;
