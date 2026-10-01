@@ -33,3 +33,11 @@ Access只保护ota.livv.cc；api设备路径使用独立设备凭证，不应被
 2026-10-01：D1远程迁移0001_v1.sql成功，三个Worker已实际部署并绑定api.livv.cc、ota.livv.cc、livv.cc；API健康检查200、官网200。OTA域名正常重定向Access，实际管理员登录后市场页正常加载；未登录管理员API返回401。三个Git构建均成功，Gate B通过。
 
 构建镜像默认Node24，项目要求Node24+：[Cloudflare官方构建镜像说明](https://developers.cloudflare.com/workers/ci-cd/builds/build-image/)。
+
+## Gate I/J部署（2026-10-01）
+
+main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和OTA Workers Builds均success，API健康200且D1依赖正常；官网和Helper无改动，无数据库迁移。Git CLI缺少HTTPS凭证时使用已登录GitHub Desktop完成正常push，未改认证规则。
+
+已在自动测试通过和部署成功后，通过正式OTA创建生产14天计划3963a563-7687-45dc-9b2a-d33cbdd0cd7c；每分钟Cron沿用现有配置，计划与任务排期只读证据在本地忽略目录.local/proofs/gate-j-plan-before.json。实际浏览器采集不是部署检查的通过条件，需在线Chrome Helper执行。
+
+生产Cron实测：2026-10-01 12:43:47.000（Asia/Shanghai）每分钟调度事件outcome=ok。事件前后两次只读D1查询的25个Task ID、schedule_key、due_at、原始窗口及created_at完全一致，确认无重复且无重排。证据：.local/proofs/gate-j-cron.json、gate-j-plan-before.json、gate-j-plan-after.json（本地忽略目录；不提交设备或认证数据）。

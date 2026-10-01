@@ -540,6 +540,16 @@ test("market display follows later manual mappings while strategy history stays 
         [x.minimum, x.median, x.maximum, x.myPrice].every((v) => v === null),
       ),
   );
+  for (const category of ["core", "competitor", "watch", "other"]) {
+    await h.call("/v1/admin/livv-hotels/" + livv, "PATCH", { category });
+    const recategorized = (await h.call(path)).data;
+    assert.equal(recategorized.hotels[0].category, category);
+    assert.equal(
+      recategorized.curve.find((x) => x.checkin === d.t.checkin).myPrice,
+      null,
+    );
+    assert.deepEqual(recategorized.strategy_history, before.strategy_history);
+  }
   await h.call("/v1/admin/mappings?platform=ctrip&hotel_id=1", "DELETE");
   const unlinked = (await h.call(path)).data;
   assert.equal(
