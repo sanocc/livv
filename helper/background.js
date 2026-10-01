@@ -20,6 +20,7 @@ const read = async () =>
     "cloud_at",
     "error",
     "logs",
+    "managed_tab",
   ]);
 async function log(event, message = "") {
   const { logs = [] } = await read();
@@ -550,9 +551,10 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     }
     if (m.type === "DEBUG_DOM") {
       const state = await read();
-      if (!state.active) return { error: "NO_ACTIVE_ATTEMPT" };
+      if (!state.active && !state.managed_tab)
+        return { error: "NO_MANAGED_TAB" };
       return execute(
-        state.active,
+        state.active ?? { tab_id: state.managed_tab },
         (taskCity) => ({
           path: location.pathname,
           inputs: Array.from(document.querySelectorAll("input")).map((e) => ({
@@ -585,7 +587,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
             .map((e) => e.outerHTML),
           body: document.body.innerText.slice(0, 1800),
         }),
-        [state.active.task.city],
+        [state.active?.task.city ?? ""],
       );
     }
     if (m.type === "PROBE_DISABLED") {

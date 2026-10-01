@@ -79,3 +79,39 @@ test("navigation during input stops further commands and always detaches", async
     ["attach", "Input.dispatchMouseEvent", "detach"],
   );
 });
+
+test("input remeasures its target after debugger changes viewport", async () => {
+  const { browser, calls } = fixture();
+  browser.scripting = {
+    executeScript: async ({ target, args }) => {
+      assert.equal(calls[0][0], "attach");
+      assert.equal(target.tabId, 7);
+      assert.deepEqual(args, ["html > body > input"]);
+      return [{ result: { x: 35, y: 21 } }];
+    },
+  };
+  await performInput(browser, 7, {
+    type: "click",
+    x: 30,
+    y: 40,
+    selector: "html > body > input",
+  });
+  assert.equal(calls[1][1].x, 35);
+  assert.equal(calls[1][1].y, 21);
+  assert.equal(calls.at(-1)[0], "detach");
+  browser.scripting.executeScript = async () => [{ result: null }];
+  calls.length = 0;
+  await assert.rejects(
+    performInput(browser, 7, {
+      type: "click",
+      x: 30,
+      y: 40,
+      selector: "html > body > input",
+    }),
+    { code: "INPUT_TARGET_CHANGED" },
+  );
+  assert.deepEqual(
+    calls.map((c) => c[0]),
+    ["attach", "detach"],
+  );
+});

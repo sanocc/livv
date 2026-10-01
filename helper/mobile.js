@@ -22,9 +22,20 @@ export function pageStep(task, phase) {
   const pick = (selector) =>
     Array.from(document.querySelectorAll(selector)).find(visible);
   const tap = (element, text) => {
+    element.scrollIntoView({ block: "center", inline: "nearest" });
     const rect = element.getBoundingClientRect();
+    const path = [];
+    for (let node = element; node?.nodeType === 1; node = node.parentElement) {
+      const siblings = Array.from(node.parentElement?.children ?? []).filter(
+        (s) => s.tagName === node.tagName,
+      );
+      path.unshift(
+        `${node.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(node) + 1 || 1})`,
+      );
+    }
     return {
       type: text === undefined ? "click" : "text",
+      selector: path.join(" > "),
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,
       ...(text === undefined ? {} : { text }),
@@ -68,7 +79,7 @@ export function pageStep(task, phase) {
   }
   if (phase === "KEYWORD_INPUT" || phase === "LIST_KEYWORD_INPUT") {
     if (phase === "LIST_KEYWORD_INPUT" && u.pathname.includes("listPage"))
-      return { phase: "LIST" };
+      return { phase: "LIST_KEYWORD_OPEN" };
     if (!u.pathname.includes("citySearch")) return { wait: true };
     const input = pick('input[type="text"]');
     if (!input) return { wait: true };
@@ -85,9 +96,8 @@ export function pageStep(task, phase) {
         task.keyword,
     );
     if (exact.length !== 1) return { error: "KEYWORD_AMBIGUOUS" };
-    const title = exact[0].querySelector('[class*="keywordTitleContainer"]');
     return {
-      action: tap(title?.querySelector("span span") ?? title ?? exact[0]),
+      action: tap(exact[0]),
       phase: phase === "LIST_KEYWORD_INPUT" ? "LIST" : "SEARCH",
     };
   }
@@ -110,6 +120,11 @@ export function pageStep(task, phase) {
   }
   if (phase === "LIST_KEYWORD_OPEN") {
     if (!u.pathname.includes("listPage")) return { wait: true };
+    if (
+      u.searchParams.get("c-in") !== task.checkin ||
+      u.searchParams.get("c-out") !== task.checkout
+    )
+      return { phase: "SET_DATES" };
     const entry = Array.from(document.querySelectorAll("span,div")).find(
       (e) =>
         visible(e) &&
@@ -121,6 +136,7 @@ export function pageStep(task, phase) {
     return { action: tap(entry), phase: "LIST_KEYWORD_INPUT" };
   }
   if (phase === "SET_DATES") {
+    if (u.pathname.endsWith("/search")) return { phase: "SEARCH" };
     if (!u.pathname.includes("listPage")) return { wait: true };
     const current = u.searchParams.get("c-in")?.slice(5);
     const entry = Array.from(document.querySelectorAll("span")).find(
@@ -453,9 +469,19 @@ export function detailLink(hotelId) {
   if (!card) return { error: "DETAIL_CARD_NOT_FOUND" };
   card.scrollIntoView({ block: "center" });
   const rect = card.getBoundingClientRect();
+  const path = [];
+  for (let node = card; node?.nodeType === 1; node = node.parentElement) {
+    const siblings = Array.from(node.parentElement?.children ?? []).filter(
+      (s) => s.tagName === node.tagName,
+    );
+    path.unshift(
+      `${node.tagName.toLowerCase()}:nth-of-type(${siblings.indexOf(node) + 1 || 1})`,
+    );
+  }
   return {
     action: {
       type: "click",
+      selector: path.join(" > "),
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,
     },

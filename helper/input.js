@@ -48,21 +48,44 @@ export async function performInput(browser, tabId, action) {
     });
   }
   try {
+    // Attaching Chrome's debugger can resize the viewport via its information bar.
+    // Re-read the public target geometry after attachment, before sending input.
+    let point = action;
+    if (action.selector) {
+      if (typeof action.selector !== "string" || action.selector.length > 4000)
+        fail("INVALID_INPUT_ACTION");
+      await guard();
+      const results = await browser.scripting.executeScript({
+        target: { tabId },
+        func: (selector) => {
+          const element = document.querySelector(selector);
+          if (!element) return null;
+          element.scrollIntoView({ block: "center", inline: "nearest" });
+          const rect = element.getBoundingClientRect();
+          if (!rect.width || !rect.height) return null;
+          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+        },
+        args: [action.selector],
+      });
+      point = results[0]?.result;
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y))
+        fail("INPUT_TARGET_CHANGED");
+    }
     const send = async (method, params) => {
       await guard();
       return browser.debugger.sendCommand(target, method, params);
     };
     await send("Input.dispatchMouseEvent", {
       type: "mousePressed",
-      x: action.x,
-      y: action.y,
+      x: point.x,
+      y: point.y,
       button: "left",
       clickCount: 1,
     });
     await send("Input.dispatchMouseEvent", {
       type: "mouseReleased",
-      x: action.x,
-      y: action.y,
+      x: point.x,
+      y: point.y,
       button: "left",
       clickCount: 1,
     });

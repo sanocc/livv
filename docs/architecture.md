@@ -68,3 +68,5 @@ Plan -> Task -> Attempt分离。部分索引保证每设备/任务只有一个RU
 第二阶段发生输入权限、输入连接或采集标签页作用域故障时，Helper保留锁定的市场列表和成功房型，为剩余详情记录明确失败代码，并通过原有result接口上传部分结果。服务端照常拒绝过期或失去资格的Attempt；不会为了保存列表跨窗口补采。
 
 权限声明依据：[Chrome permissions：不可选权限列表](https://developer.chrome.com/docs/extensions/reference/api/permissions)。
+
+浏览器连接后会出现调试提示栏并改变可视区域；Input适配在连接后通过`scripting.executeScript`重新读取目标公开DOM几何位置，再发送点击。搜索状态机等待实际页面导航，关键词入口未打开会重试，不提前将旧列表作为新关键词的结果。
