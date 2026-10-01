@@ -57,10 +57,15 @@
     <pre id="device"></pre>
     <label><span>自动接单</span><input type="checkbox" id="auto" /></label
     ><button id="poll">刷新 / 心跳</button>
-    <button id="probe">验证禁用拦截</button>
-    <button id="debug">当前页面结构</button>
-    <button id="input-permission">检查携程自动操作权限</button>
-    <pre id="dom"></pre>
+    <details>
+      <summary>开发工具</summary>
+      <pre id="technical-error"></pre>
+      <pre id="technical-logs"></pre>
+      <button id="probe">验证禁用拦截</button>
+      <button id="debug">当前页面结构</button>
+      <button id="input-permission">检查携程自动操作权限</button>
+      <pre id="dom"></pre>
+    </details>
     <p id="error"></p>
     <form id="task">
       <label>城市<input name="city" value="咸宁" required /></label

@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import {
+  errorLabel,
+  statusLabel,
+  businessLog,
+  technicalError,
+  statusLabels,
+  errorLabels,
+} from "../helper/i18n.js";
+import {
   taskView,
   publicState,
   remember,
@@ -78,7 +86,7 @@ test("Side Panel public state restores persisted task, separates list/details an
   assert.match(html, /2 \/ 3/);
   assert.doesNotMatch(html, /2 \/ 33/);
   assert.match(html, /维也纳酒店/);
-  assert.match(html, /Hotel ID：3/);
+  assert.match(html, /平台酒店 ID：3/);
 });
 
 test("local task history preserves PARTIAL/FAILED distinction and does not infer a final Task from failed Attempt", () => {
@@ -104,8 +112,8 @@ test("local task history preserves PARTIAL/FAILED distinction and does not infer
     },
     { ...v, status: "PARTIAL" },
   ]);
-  assert.match(html, /Task状态：待云端确认/);
-  assert.match(html, /Attempt状态：FAILED/);
+  assert.match(html, /任务状态：待云端确认/);
+  assert.match(html, /执行状态：失败/);
   assert.match(html, /PARTIAL/);
   assert.doesNotMatch(html, /COMPLETED/);
   assert.match(historyCards([]), /暂无/);
@@ -168,7 +176,7 @@ test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and backg
 test("sidepanel submit goes through existing background TASK message; closing view clears only presentation timer", async () => {
   const source = fs
     .readFileSync(new URL("../helper/sidepanel.js", import.meta.url), "utf8")
-    .replace(/^import .*?;\n/s, "");
+    .replace(/import[\s\S]*?;\n/g, "");
   const nodes = new Map();
   const node = (s) => {
     if (!nodes.has(s))
@@ -183,6 +191,7 @@ test("sidepanel submit goes through existing background TASK message; closing vi
     return nodes.get(s);
   };
   const calls = [],
+    copies = [],
     listeners = {};
   const ctx = vm.createContext({
     document: { querySelector: node, querySelectorAll: () => [] },
@@ -194,7 +203,13 @@ test("sidepanel submit goes through existing background TASK message; closing vi
             ? {
                 version: "1.1.0",
                 cloud: { status: "approved" },
-                logs: [],
+                logs: [
+                  {
+                    at: "2026-10-01T09:00:00Z",
+                    event: "API_TIMEOUT",
+                    message: "raw diagnostic",
+                  },
+                ],
                 history: [],
                 device_id: "d",
               }
@@ -203,7 +218,7 @@ test("sidepanel submit goes through existing background TASK message; closing vi
       },
       storage: { onChanged: { addListener: () => {} } },
     },
-    navigator: { clipboard: {} },
+    navigator: { clipboard: { writeText: async (text) => copies.push(text) } },
     window: {
       addEventListener: (e, fn) => {
         listeners[e] = fn;
@@ -228,6 +243,10 @@ test("sidepanel submit goes through existing background TASK message; closing vi
         );
       }
     },
+    errorLabel,
+    statusLabel,
+    businessLog,
+    technicalError,
     esc: (v) => String(v ?? "—"),
     time: (v) => String(v),
     taskCard: () => "",
@@ -244,6 +263,13 @@ test("sidepanel submit goes through existing background TASK message; closing vi
     ),
   );
   assert.ok(calls.every((m) => ["STATE", "TASK"].includes(m.type)));
+  node("#copy").onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.match(copies[0], /接口连接超时/);
+  assert.doesNotMatch(copies[0], /API_TIMEOUT|raw diagnostic/);
+  node("#copy-technical").onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.match(copies[1], /API_TIMEOUT raw diagnostic/);
   listeners.unload();
   assert.equal(calls.at(-1).clearTimer, 42);
   assert.ok(!calls.some((m) => m.type === "AUTO"));
@@ -268,4 +294,121 @@ test("new attempts retain prior local failure evidence while latest Task remains
   assert.equal(h[0].attempts[1].error_code, "SEARCH_CONTROL_TIMEOUT");
   assert.equal(h[0].attempts[1].status, "FAILED");
   assert.match(historyCards(h), /SEARCH_CONTROL_TIMEOUT/);
+});
+
+test("display localization keeps raw status, errors and IDs only in technical details; list-only hides unrelated detail metrics", () => {
+  const a = active();
+  a.task.task_type = "MARKET_LIST";
+  a.details = [];
+  a.rooms = [];
+  a.detail_results = [];
+  a.phase = "LIST";
+  const view = taskView(a);
+  assert.equal(view.task.task_type, "MARKET_LIST");
+  const running = taskCard(view);
+  assert.match(running, /执行中/);
+  assert.doesNotMatch(running, /核心详情|核心酒店详情|详情成功|详情失败/);
+  const record = {
+    ...view,
+    status: "PARTIAL",
+    attempt_status: "PARTIAL",
+    error_code: "API_TIMEOUT",
+    finished_at: "2026-10-01T09:00:27Z",
+    snapshot_id: "snapshot",
+  };
+  const saved = JSON.stringify(record);
+  const html = historyCards([record]);
+  const normal = html.split('<details class="technical"')[0];
+  assert.match(normal, /部分完成/);
+  assert.match(normal, /接口连接超时/);
+  assert.match(normal, /27秒/);
+  assert.doesNotMatch(
+    normal,
+    /API_TIMEOUT|PARTIAL|Task|Attempt|Snapshot|房型|详情 0/,
+  );
+  assert.match(html, /技术详情/);
+  assert.match(html, /原始状态：PARTIAL/);
+  assert.match(html, /API_TIMEOUT/);
+  assert.match(html, /市场快照 ID：snapshot/);
+  assert.equal(JSON.stringify(record), saved);
+  assert.match(
+    historyCards([{ ...record, finished_at: null }]),
+    /耗时<\/span><strong>—/,
+  );
+  const old = { ...record, task: { ...record.task, task_type: undefined } };
+  assert.doesNotMatch(
+    historyCards(
+      [old],
+      [
+        {
+          task_id: old.task_id,
+          event: "TASK_TIMING",
+          message: '{"task_type":"MARKET_LIST"}',
+        },
+      ],
+    ),
+    /房型/,
+  );
+  assert.equal(old.task.task_type, undefined);
+  assert.doesNotMatch(
+    historyCards([{ ...old, detail_total: 0, detail_results: [], rooms: 0 }]),
+    /房型|详情 0/,
+  );
+});
+
+test("all emitted API/helper error codes have Chinese display mapping; business logs do not expose diagnostic payloads", () => {
+  for (const [code, text] of Object.entries(statusLabels)) {
+    assert.equal(statusLabel(code), text);
+    assert.match(text, /[\u4e00-\u9fff]/);
+  }
+  assert.equal(statusLabel("approved"), "已批准");
+  assert.equal(statusLabel("pending"), "待批准");
+  assert.equal(statusLabel("UNKNOWN_STATUS"), "状态待确认");
+  const sources = [
+    ...fs
+      .readdirSync("helper")
+      .filter((x) => x.endsWith(".js") && !/i18n|view|sidepanel|popup/.test(x))
+      .map((x) => "helper/" + x),
+    ...fs
+      .readdirSync("api/src")
+      .filter((x) => x.endsWith(".js"))
+      .map((x) => "api/src/" + x),
+  ];
+  const codes = new Set(
+    sources
+      .flatMap((f) =>
+        [...fs.readFileSync(f, "utf8").matchAll(/["']([A-Z][A-Z_]+)["']/g)].map(
+          (m) => m[1],
+        ),
+      )
+      .filter((c) =>
+        /^(INVALID_|INPUT_|ATTEMPT_|DEVICE_|ADMIN_|DETAIL_.*(?:FAILED|FOUND|TIMEOUT|INCOMPLETE|BUDGET)|.*(?:_REQUIRED|_MISMATCH|_CONFLICT|_EXPIRED|_NOT_FOUND|_TIMEOUT))/.test(
+          c,
+        ),
+      ),
+  );
+  for (const code of codes)
+    assert.ok(errorLabels[code], `Missing display translation: ${code}`);
+  assert.equal(errorLabel("SEARCH_CONTROL_TIMEOUT"), "搜索条件设置超时");
+  assert.equal(errorLabel("INPUT_TARGET_CHANGED"), "页面操作目标发生变化");
+  assert.equal(errorLabel("NEW_ERROR"), "操作异常，请查看技术详情");
+  assert.match(technicalError("API_TIMEOUT"), /接口连接超时\nAPI_TIMEOUT/);
+  assert.equal(
+    businessLog({
+      event: "MARKET_LOCKED",
+      message: "30家唯一酒店，详情目标0家",
+    }),
+    "✓ 已采集30家酒店",
+  );
+  assert.equal(
+    businessLog({ event: "PHASE", message: "CITY_OPEN → CITY_INPUT" }),
+    "✓ 采集步骤已切换",
+  );
+  assert.doesNotMatch(
+    businessLog({
+      event: "FAST_NAV_VERIFIED",
+      message: '{"url":"raw diagnostic"}',
+    }),
+    /url|raw|FAST_NAV/,
+  );
 });

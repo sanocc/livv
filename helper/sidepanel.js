@@ -1,3 +1,9 @@
+import {
+  errorLabel,
+  statusLabel,
+  businessLog,
+  technicalError,
+} from "./i18n.js";
 import { esc, time, taskCard, historyCards } from "./sidepanel-view.js";
 const $ = (s) => document.querySelector(s);
 let state = null,
@@ -13,7 +19,8 @@ const action = async (fn) => {
     $("#error").hidden = true;
     await fn();
   } catch (e) {
-    $("#error").textContent = e.message;
+    $("#error").textContent = errorLabel(e.message);
+    $("#technical-error").textContent = technicalError(e.message);
     $("#error").hidden = false;
   }
 };
@@ -25,16 +32,28 @@ function render(s) {
   $("#online").textContent = online ? "● 在线" : "○ 离线";
   $("#online").className = "badge " + (online ? "good" : "neutral");
   $("#auto").checked = !!s.auto;
-  $("#current").innerHTML = taskCard(s.active, s.logs);
   const openTasks = new Set(
-    Array.from(document.querySelectorAll("#history details[open]")).map(
-      (d) => d.dataset.taskId,
+    Array.from(
+      document.querySelectorAll(
+        "#current details[open], #history details[open]",
+      ),
+    ).map((d) =>
+      d.dataset.taskId
+        ? `task:${d.dataset.taskId}`
+        : `tech:${d.dataset.technicalId}`,
     ),
   );
-  $("#history").innerHTML = historyCards(s.history);
-  document.querySelectorAll("#history details").forEach((d) => {
-    d.open = openTasks.has(d.dataset.taskId);
-  });
+  $("#current").innerHTML = taskCard(s.active, s.logs);
+  $("#history").innerHTML = historyCards(s.history, s.logs);
+  document
+    .querySelectorAll("#current details, #history details")
+    .forEach((d) => {
+      d.open = openTasks.has(
+        d.dataset.taskId
+          ? `task:${d.dataset.taskId}`
+          : `tech:${d.dataset.technicalId}`,
+      );
+    });
   const active = !!s.active,
     approved = s.cloud?.status === "approved";
   $("#request-card").hidden = active;
@@ -44,8 +63,15 @@ function render(s) {
     s.logs
       .slice()
       .reverse()
-      .map((l) => `${time(l.at)} ${l.event}\n${l.message}`)
+      .map((l) => `${time(l.at)} ${businessLog(l)}`)
       .join("\n\n") || "暂无本地日志";
+  $("#technical-logs").textContent =
+    s.logs
+      .slice()
+      .reverse()
+      .map((l) => `${time(l.at)} ${businessLog(l)}\n${l.event}\n${l.message}`)
+      .join("\n\n") || "暂无技术日志";
+  $("#technical-error").textContent = technicalError(s.last_error);
   const profiles = s.logs.filter((l) =>
     ["PERF_FINAL", "PERF_CHECKPOINT"].includes(l.event),
   );
@@ -56,9 +82,9 @@ function render(s) {
         .join("\n")
     : "暂无阶段计时；性能剖析尚未部署。";
   $("#device").innerHTML =
-    `<div><strong>设备：${esc(s.cloud?.name ?? "未命名设备")}</strong> · ${online ? "● 在线" : "○ 离线"}</div><div title="${esc(s.device_id)}" class="id">Device ID：${esc(s.device_id)}</div><div>批准状态：${esc({ approved: "已批准", pending: "待批准", disabled: "已禁用" }[s.cloud?.status] ?? "未确认")} · API：${online ? "最近心跳正常" : "连接未确认"}</div><div>浏览器：${s.last_error?.startsWith("INPUT_") || s.last_error === "MANAGED_TAB_NAVIGATED" ? "存在执行错误" : "未报告浏览器错误"} · 最近心跳：${time(s.cloud?.server_time)}</div>`;
+    `<div><strong>设备：${esc(s.cloud?.name ?? "未命名设备")}</strong> · ${online ? "● 在线" : "○ 离线"}</div><div title="${esc(s.device_id)}" class="id">采集设备 ID：${esc(s.device_id)}</div><div>批准状态：${esc(s.cloud?.status ? statusLabel(s.cloud.status) : "未确认")} · 接口：${online ? "最近心跳正常" : "连接未确认"}</div><div>浏览器：${s.last_error?.startsWith("INPUT_") || s.last_error === "MANAGED_TAB_NAVIGATED" ? "存在执行错误" : "未报告浏览器错误"} · 最近心跳：${time(s.cloud?.server_time)}</div>`;
   if (s.last_error) {
-    $("#error").textContent = s.last_error;
+    $("#error").textContent = errorLabel(s.last_error);
     $("#error").hidden = false;
   }
 }
@@ -105,9 +131,8 @@ $("#task").onsubmit = (e) => {
     submitting = true;
     $("#start").disabled = true;
     try {
-      const t = await send({ type: "TASK", task });
-      $("#created").textContent =
-        "已创建云端Task：" + t.id + "；等待当前设备依序领取。";
+      await send({ type: "TASK", task });
+      $("#created").textContent = "云端任务已创建，等待当前设备依序领取。";
       await load();
     } finally {
       submitting = false;
@@ -128,7 +153,15 @@ $("#poll").onclick = () =>
 $("#copy").onclick = () =>
   action(() =>
     navigator.clipboard.writeText(
-      state.logs.map((l) => `${l.at} ${l.event} ${l.message}`).join("\n"),
+      state.logs.map((l) => `${time(l.at)} ${businessLog(l)}`).join("\n"),
+    ),
+  );
+$("#copy-technical").onclick = () =>
+  action(() =>
+    navigator.clipboard.writeText(
+      state.logs
+        .map((l) => `${l.at} ${businessLog(l)}\n${l.event} ${l.message}`)
+        .join("\n\n"),
     ),
   );
 $("#clear").onclick = () =>

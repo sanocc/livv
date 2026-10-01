@@ -100,3 +100,7 @@ Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无�
 只修改Helper原生导航候选选择/公开平台模板、manifest版本及测试文档；无权限扩张、无API部署需求、无Schema/Plan/Task状态机/OTA改动。MARKET_LIST优先24小时本机资料，无资料/过期/损坏时尝试随扩展的咸宁/中心花坛模板；页面Context错误记录FAST_NAV_CONTEXT_MISMATCH并回退既有UI，不让URL代替DOM。完整公开搜索参数保留，不包含设备凭证/cookie。既有LEGACY_MARKET_DETAIL契约原样保留。
 
 Mac1.2.1已空闲重载，三轮真实30家COMPLETED，含清空仅导航缓存后的冷启动；FAST_NAV Mac: PASS，Windows FAST_NAV real-browser acceptance: PENDING。54项test/check/MV3检查通过，自动接单保持启用，临时导航缓存已由成功DOM自动重建。发布沿用main Commit/Push；扩展需要本机重载，Git Push不等于Windows已升级，不宣称跨平台PASS。Windows明天空闲更新时仅替换原加载目录文件并重载，不能移除扩展重建身份；具体待验收步骤见testing.md。所有生产历史失败/PARTIAL证据保留。
+
+## Helper1.2.2 简体中文展示更新（2026-10-02）
+
+仅Helper侧栏/旧弹窗展示、共享中文映射和task_type本地展示投影；云端Worker、Schema、采集与调度无变更，无新增权限。Mac设备在空闲时重载，沿用既有身份与自动接单，已确认1.2.2中文界面/心跳。其他设备需空闲时更新原加载目录并重载，不能移除扩展重新注册；Git Push不代表远端设备已经更新。Windows真实验收状态沿用PENDING。原始错误/事件及Task/Attempt/Snapshot标识通过技术详情与开发工具查看，清空本地显示仍仅沿用既有本地日志操作，不删除云端历史。

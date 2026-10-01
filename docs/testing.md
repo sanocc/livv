@@ -332,3 +332,13 @@ Windows FAST_NAV real-browser acceptance: PENDING
 ### 阶段B待验收清单
 
 Windows FAST_NAV real-browser acceptance: PENDING。设备“酒店办公室”3cad8b8e-0a99-410d-9fb3-8e1bf88004c7明天可用后，空闲时更新/重载1.2.1，保留身份，保持自动接单；创建同参数真实MARKET_LIST（咸宁/中心花坛/10/02→03或与Mac同期相同有效日期/30家）并记录Task/Attempt/Snapshot。必须确认不点击城市/日历/关键词，直接目标listPage，FAST_NAV_VERIFIED/Context PASS、30唯一酒店/正确排名价格、上传COMPLETED，详情0/房型0；记录领取→ready、ready→锁定、总时长及有无fallback/SEARCH_CONTROL_TIMEOUT。PARTIAL/FAILED如实保留，只有真实成功才标记Windows PASS及跨平台PASS。今晚不等待、不安排未经请求的自动验收。
+
+## Helper 简体中文展示与任务卡简化（2026-10-02，1.2.2）
+
+仅展示层本地化：共享状态、99项现有错误码和业务事件中文映射；普通侧栏与旧弹窗显示中文解释，未知代码使用中文兜底。原始状态/错误码、任务/执行/市场快照ID收进“查看详情 → 技术详情”，开发工具保留原始事件和诊断信息。默认日志及复制日志使用中文；复制技术日志保留中文解释与原始事件/载荷。未更改API枚举或历史错误证据。
+
+MARKET_LIST当前任务隐藏核心详情进度/时间线/统计，最近任务卡显示列表数量与实际开始/结束时间计算的耗时。缺失时间保持“—”。旧记录未保存task_type时，仅从同任务已有TASK_TIMING证据读取类型，不写回历史；无详情指标/房型的未知旧记录不显示无意义的零指标，有详情的旧任务继续展示真实结果。展示投影只增加已有task_type字段，不改变云端协议、状态机或采集流程。
+
+验收：56项自动测试PASS；npm run check的语法、MV3构建及数据库边界检查PASS；新增展示层测试覆盖中文状态/错误、原始失败证据、ID收起、列表任务不显示详情、旧记录兼容、未知值兜底、复制业务/技术日志分离及安全转义。Mac Chrome空闲重载1.2.2，侧栏真实历史卡片显示“已完成/部分完成/待云端确认”、30家和实际耗时；历史执行失败未推断为任务成功，旧合并详情任务3/3与房型记录仍保留。展开技术详情看到原始COMPLETED及真实ID，定时刷新保持展开；默认日志显示“已领取任务/已采集30家酒店/数据上传成功”，开发工具仍显示TASK_TIMING/MARKET_LOCKED/FAST_NAV_VERIFIED等原始事件。设备在线、已批准，最近心跳正常、自动接单保持启用。本轮未创建新人工采集任务。
+
+本机截图证据：.local/proofs/helper-zh-task-cards.png、helper-zh-logs.png。本轮未修改background、mobile、input、FAST_NAV、API、Schema、Task/Attempt状态机、正式Plan或OTA；不重复宣称本轮完成新的真实采集回归。Windows升级/FAST_NAV真实浏览器验收仍PENDING。

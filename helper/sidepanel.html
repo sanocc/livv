@@ -15,7 +15,7 @@
       </div>
       <span class="badge neutral" id="online">连接中</span>
     </header>
-    <nav aria-label="Helper导航">
+    <nav aria-label="采集助手导航">
       <button data-tab="collect" aria-selected="true">采集</button
       ><button data-tab="tasks" aria-selected="false">任务</button
       ><button data-tab="logs" aria-selected="false">日志</button>
@@ -29,7 +29,7 @@
             <h2>立即采集</h2>
             <span class="muted">创建云端任务</span>
           </div>
-          <p class="hint">云端创建正式Task，由当前设备依序领取并执行。</p>
+          <p class="hint">云端创建正式任务，由当前设备依序领取并执行。</p>
           <form id="task">
             <label
               >平台<select name="platform">
@@ -82,7 +82,7 @@
           <span class="muted">本地保留30条</span>
         </div>
         <p class="hint">
-          仅记录此Helper实际创建或执行过的任务。完整云端历史请在OTA查看。
+          仅记录当前采集设备实际创建或执行过的任务。完整云端历史请在酒店市场页面查看。
         </p>
         <div id="history"></div>
       </section>
@@ -92,12 +92,17 @@
           <button id="copy">复制日志</button>
         </div>
         <div class="log-toolbar">
-          <span class="muted">仅当前Helper本地日志</span
+          <span class="muted">仅当前采集设备本地日志</span
           ><button id="clear">清空本地显示</button>
         </div>
         <pre id="log-list"></pre>
         <details class="card">
           <summary>开发工具</summary>
+          <button id="copy-technical">复制技术日志</button>
+          <h3>当前错误</h3>
+          <pre id="technical-error">无错误</pre>
+          <h3>原始事件与诊断</h3>
+          <pre id="technical-logs">暂无技术日志</pre>
           <div class="tools">
             <button id="poll">刷新 / 心跳</button
             ><button id="debug">当前页面结构</button

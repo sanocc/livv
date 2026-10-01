@@ -374,3 +374,22 @@ footer strong {
     gap: 4px;
   }
 }
+
+.technical {
+  margin-top: 12px;
+  border-top: 1px solid #edf1f7;
+  padding-top: 10px;
+}
+.task-metrics {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.task-metrics strong {
+  font-weight: 600;
+}
+.history-card > details {
+  margin-top: 12px;
+}

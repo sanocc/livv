@@ -1,3 +1,10 @@
+import {
+  statusLabel,
+  errorLabel,
+  businessLog,
+  technicalError,
+} from "./i18n.js";
+import { stageLabel, time } from "./sidepanel-view.js";
 const $ = (s) => document.querySelector(s),
   send = async (m) => {
     const r = await chrome.runtime.sendMessage(m);
@@ -9,20 +16,27 @@ const $ = (s) => document.querySelector(s),
       $("#error").textContent = "";
       await fn();
     } catch (e) {
-      $("#error").textContent = e.message;
+      $("#error").textContent = errorLabel(e.message);
+      $("#technical-error").textContent = technicalError(e.message);
     }
   };
 async function load() {
   const s = await send({ type: "STATE" });
   $("#status").textContent =
-    `${s.cloud?.name ?? "未命名设备"} · ${s.cloud?.status ?? "注册中"}${s.active ? " · " + s.active.phase + " · " + s.active.count + "家" : ""}`;
-  $("#device").textContent = "Device ID：" + s.device_id;
+    `${s.cloud?.name ?? "未命名设备"} · ${s.cloud?.status ? statusLabel(s.cloud.status) : "注册中"}${s.active ? " · " + stageLabel(s.active) + " · " + s.active.count + "家" : ""}`;
+  $("#device").textContent = "采集设备 ID：" + s.device_id;
+  $("#technical-error").textContent = technicalError(s.last_error);
+  $("#technical-logs").textContent = (s.logs ?? [])
+    .slice(-15)
+    .reverse()
+    .map((x) => `${time(x.at)} ${businessLog(x)}\n${x.event} ${x.message}`)
+    .join("\n\n");
   $("#auto").checked = s.auto;
-  $("#error").textContent = s.last_error ?? "";
+  $("#error").textContent = errorLabel(s.last_error);
   $("#logs").textContent = (s.logs ?? [])
     .slice(-15)
     .reverse()
-    .map((x) => `${x.at} ${x.event} ${x.message}`)
+    .map((x) => `${time(x.at)} ${businessLog(x)}`)
     .join("\n");
 }
 const day = new Intl.DateTimeFormat("en-CA", {
@@ -53,8 +67,8 @@ $("#task").onsubmit = (e) => {
       ...Object.fromEntries(new FormData(e.target)),
       platform: "ctrip",
     };
-    const t = await send({ type: "TASK", task });
-    $("#error").textContent = "云端任务已创建：" + t.id;
+    await send({ type: "TASK", task });
+    $("#error").textContent = "云端任务已创建，等待当前设备领取。";
   });
 };
 action(load);

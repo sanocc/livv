@@ -7,6 +7,7 @@ export function taskView(a) {
     attempt_id: a.attempt.id,
     attempt: a.attempt.attempt_number,
     task: {
+      task_type: a.task.task_type,
       platform: a.task.platform,
       city: a.task.city,
       keyword: a.task.keyword,

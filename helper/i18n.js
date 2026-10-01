@@ -1,0 +1,175 @@
+// Presentation only: raw API values and persisted evidence are never rewritten.
+export const statusLabels = {
+  RUNNING: "执行中",
+  COMPLETED: "已完成",
+  PARTIAL: "部分完成",
+  FAILED: "失败",
+  PENDING: "待执行",
+  CLAIMED: "已领取",
+  STARTED: "已开始",
+  SUCCESS: "成功",
+  APPROVED: "已批准",
+  DISABLED: "已禁用",
+  ONLINE: "在线",
+  OFFLINE: "离线",
+  ENABLED: "已启用",
+  CANCELLED: "已取消",
+  EXPIRED: "已过期",
+  IDLE: "空闲",
+  RETURNED_TO_QUEUE: "已返回待执行队列",
+  AVAILABLE: "可预订",
+  SOLD_OUT: "已订完",
+};
+export function statusLabel(value) {
+  if (!value) return "待云端确认";
+  if (value === "pending") return "待批准";
+  return statusLabels[String(value).toUpperCase()] ?? "状态待确认";
+}
+export const errorLabels = {
+  DEVICE_DISABLED: "采集设备已禁用",
+  DEVICE_OFFLINE: "采集设备已离线",
+  PLAN_DISABLED: "采集计划已停用",
+  ADMIN_AUTH_INVALID: "管理身份验证无效",
+  ADMIN_AUTH_NOT_CONFIGURED: "管理身份验证尚未配置",
+  ADMIN_AUTH_REQUIRED: "需要管理身份验证",
+  ADMIN_FORBIDDEN: "无管理操作权限",
+  ALL_MARKET_NOT_EXHAUSTED: "全市场列表尚未采集完毕",
+  ALL_MARKET_SAFETY_LIMIT: "全市场采集达到安全上限",
+  API_TIMEOUT: "接口连接超时",
+  ATTEMPT_EXPIRED: "本次执行已过期",
+  ATTEMPT_NOT_FOUND: "未找到本次执行",
+  ATTEMPT_NOT_STARTED: "本次执行尚未开始",
+  ATTEMPT_REASSIGNED: "任务已由其他执行接管",
+  ATTEMPT_TIMEOUT: "本次执行超时",
+  BODY_TOO_LARGE: "上传数据过大",
+  CAPTCHA_REQUIRED: "需要人工完成验证码",
+  CITY_CANDIDATE_NOT_VISIBLE: "未找到可选择的城市",
+  CITY_NOT_CONFIRMED: "城市选择未确认",
+  COLLECTION_STALLED: "列表加载停滞",
+  CONFLICT: "操作与当前状态冲突",
+  DATE_UNAVAILABLE: "当前日期不可选择",
+  DETAIL_CARD_NOT_FOUND: "未找到酒店详情入口",
+  DETAIL_FAILED: "酒店详情采集失败",
+  DETAIL_INCOMPLETE: "酒店详情采集不完整",
+  DETAIL_PARSE_TIMEOUT: "酒店房型读取超时",
+  DETAIL_SUCCESS_WITHOUT_ROOMS: "酒店详情没有有效房型",
+  DETAIL_TIME_BUDGET: "酒店详情采集时间已用尽",
+  DEVICE_AUTH_INVALID: "采集设备身份验证无效",
+  DEVICE_AUTH_REQUIRED: "需要采集设备身份验证",
+  DEVICE_ID_ALREADY_REGISTERED: "采集设备标识已注册",
+  DEVICE_NOT_APPROVED: "采集设备尚未批准",
+  DEVICE_NOT_FOUND: "未找到采集设备",
+  EXECUTION_WINDOW_EXPIRED: "采集时间窗口已过期",
+  EXHAUSTION_EVIDENCE_MISMATCH: "列表结束证据不一致",
+  EXHAUSTION_FLAG_REQUIRED: "缺少列表结束标记",
+  FAILED_DETAIL_WITH_ROOMS: "失败详情包含不一致的房型数据",
+  FAST_NAV_CONTEXT_MISMATCH: "快速导航搜索条件不一致",
+  FAST_NAV_FAILED: "快速导航不可用，改用搜索页面",
+  HELPER_ERROR: "采集助手运行异常",
+  HOTEL_NOT_FOUND: "未找到酒店",
+  IDEMPOTENCY_CONFLICT: "重复上传的数据不一致",
+  INPUT_ATTACH_FAILED: "无法连接浏览器自动操作",
+  INPUT_PERMISSION_REQUIRED: "需要启用浏览器自动操作权限",
+  INPUT_TAB_NOT_OWNED: "当前页面不是采集任务专用页面",
+  INPUT_TARGET_CHANGED: "页面操作目标发生变化",
+  INTERNAL_ERROR: "服务运行异常",
+  INVALID_AVAILABILITY: "房型可售状态无效",
+  INVALID_CATEGORY: "酒店分类无效",
+  INVALID_CREDENTIAL: "设备凭证无效",
+  INVALID_DATE: "日期无效",
+  INVALID_DETAIL_RESULTS: "详情结果无效",
+  INVALID_DEVICE_ID: "采集设备标识无效",
+  INVALID_DEVICE_STATUS: "设备状态无效",
+  INVALID_ENABLED: "启用状态无效",
+  INVALID_HORIZON: "观察天数无效",
+  INVALID_HOTELS: "酒店数据无效",
+  INVALID_INPUT_ACTION: "页面操作指令无效",
+  INVALID_JSON: "请求数据格式无效",
+  INVALID_LIMIT: "采集数量无效",
+  INVALID_MARKET_QUERY: "市场查询条件无效",
+  INVALID_ORIGIN: "请求来源无效",
+  INVALID_PRICE: "价格无效",
+  INVALID_RANK_OR_AD: "排名或广告标记无效",
+  INVALID_ROOMS: "房型数据无效",
+  INVALID_SCOPE: "采集范围无效",
+  INVALID_SCORE: "评分无效",
+  INVALID_STAY: "入住或退房日期无效",
+  INVALID_STOP_REASON: "采集结束原因无效",
+  INVALID_TAGS: "活动标签无效",
+  INVALID_TASK_TYPE: "任务类型无效",
+  INVALID_TEXT: "文本无效",
+  JSON_REQUIRED: "请求需要有效的数据格式",
+  KEYWORD_AMBIGUOUS: "关键词匹配到多个结果",
+  LOGIN_REQUIRED: "需要重新登录携程",
+  MANAGED_TAB_NAVIGATED: "采集页面被切换",
+  MANUAL_CONFIRMATION_REQUIRED: "需要人工确认",
+  MAPPING_NOT_FOUND: "未找到酒店映射",
+  MAX_ATTEMPTS_REACHED: "已达到最大执行次数",
+  NOT_FOUND: "未找到请求的记录",
+  NO_MANAGED_TAB: "未找到任务采集页面",
+  OBSERVATION_OUTSIDE_ATTEMPT: "采集时间不在本次执行范围内",
+  PAGE_CONTEXT_MISMATCH: "页面搜索条件不一致",
+  PARSER_SCHEMA_CHANGED: "平台页面结构发生变化",
+  PARTIAL_COLLECTION: "部分数据未采集完成",
+  PLATFORM_HOTEL_NOT_FOUND: "未找到平台酒店",
+  REGISTRATION_RATE_LIMITED: "设备注册过于频繁，请稍后再试",
+  ROOM_HOTEL_NAME_MISMATCH: "房型所属酒店名称不一致",
+  ROOM_NOT_CORE_IN_MARKET: "房型酒店不是当前市场的重点酒店",
+  SEARCH_CONTEXT_NOT_CONFIRMED: "搜索条件尚未确认",
+  SEARCH_CONTROL_TIMEOUT: "搜索条件设置超时",
+  SERVER_ATTEMPT_FINISHED: "云端已结束本次执行",
+  SOLD_OUT_EVIDENCE_REQUIRED: "已订完状态缺少证据",
+  TASK_NOT_FOUND: "未找到任务",
+  TOO_MANY_EVENTS: "上传日志数量过多",
+  TRUSTED_CONTEXTS: "操作来源不受信任",
+  UNKNOWN_MESSAGE: "无法识别操作指令",
+  UNSUPPORTED_PLATFORM: "暂不支持该平台",
+  UPLOAD_FAILED: "数据上传失败",
+};
+export function errorLabel(value) {
+  if (!value) return "";
+  const code = String(value).split(/[:\s]/)[0];
+  return (
+    errorLabels[code] ??
+    (/[\u4e00-\u9fff]/.test(value) ? String(value) : "操作异常，请查看技术详情")
+  );
+}
+export function technicalError(value) {
+  return value ? `${errorLabel(value)}\n${value}` : "无错误";
+}
+export const eventLabels = {
+  CLAIMED: "已领取任务",
+  TASK_CLAIMED: "已领取任务",
+  FAST_NAV_START: "正在进入目标酒店列表",
+  FAST_NAV_VERIFIED: "已进入目标酒店列表，搜索条件验证通过",
+  LIST_READY: "酒店列表已就绪",
+  PAGE_READY: "采集页面已就绪",
+  MARKET_LOCKED: "市场列表采集完成",
+  UPLOAD_START: "正在上传数据",
+  COMPLETED: "数据上传成功，任务已完成",
+  PARTIAL: "数据上传完成，任务部分完成",
+  FAILED: "本次执行失败",
+  UPLOAD_RETRY: "数据上传重试",
+  DETAIL_ENTRY_WAIT: "正在等待酒店详情入口",
+  DETAIL_CONTEXT: "正在验证酒店详情条件",
+  PHASE: "采集步骤已切换",
+  PAGE_STEP: "正在处理采集页面",
+  TASK_TIMING: "已记录任务耗时",
+  PERF_FINAL: "已记录完整性能信息",
+  PERF_CHECKPOINT: "已记录阶段耗时",
+  UI_FALLBACK: "改用搜索页面导航",
+  DISABLED_REJECTED: "已拦截禁用设备领取任务",
+};
+export function businessLog(log) {
+  if (log.event === "MARKET_LOCKED") {
+    const count = String(log.message).match(/^(\d+)家唯一酒店/);
+    if (count) return `✓ 已采集${count[1]}家酒店`;
+    try {
+      const data = JSON.parse(log.message);
+      if (Number.isInteger(data.count)) return `✓ 已采集${data.count}家酒店`;
+    } catch {}
+  }
+  const label =
+    eventLabels[log.event] ?? errorLabels[log.event] ?? "已记录运行诊断";
+  return `${errorLabels[log.event] || log.event === "FAILED" ? "×" : "✓"} ${label}`;
+}
