@@ -64,3 +64,5 @@ Plan -> Task -> Attempt分离。部分索引保证每设备/任务只有一个RU
 普通合成DOM事件在真实携程候选项上不能稳定触发导航。Helper从公开DOM读取控件坐标，使用Chrome官方`chrome.debugger`的Input命令发送点击和搜索文本；`debugger`声明为可选权限，由用户在Helper明确启用。此权限在Chrome层面能力较广，业务代码每条命令前核验自有active/managed_tab及HTTPS携程酒店路径，只发送Input命令，每次操作finally断开；不使用Runtime、Network或Storage协议命令。原有设备凭证仍仅在后台存储/API请求使用，不传入页面脚本。
 
 参考：[Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger)、[Input协议](https://chromedevtools.github.io/devtools-protocol/tot/Input/)。
+
+第二阶段发生输入权限、输入连接或采集标签页作用域故障时，Helper保留锁定的市场列表和成功房型，为剩余详情记录明确失败代码，并通过原有result接口上传部分结果。服务端照常拒绝过期或失去资格的Attempt；不会为了保存列表跨窗口补采。

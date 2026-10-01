@@ -6,6 +6,7 @@ import {
   detailLink,
 } from "./mobile.js";
 import { performInput } from "./input.js";
+import { failRemainingDetails } from "./detail-state.js";
 const API = "https://api.livv.cc",
   VERSION = "1.0.0";
 let busy = false,
@@ -282,6 +283,7 @@ async function run(a) {
       return;
     }
     const r = await execute(a, detailLink, [h.hotel_id]);
+    if (!r) return;
     if (r?.action) await performInput(chrome, a.tab_id, r.action);
     if (r?.error) {
       a.detail_results.push({
@@ -477,6 +479,15 @@ async function tick(heartbeat = false) {
     ) {
       if (["INPUT_PERMISSION_REQUIRED", "INPUT_ATTACH_FAILED"].includes(code))
         await chrome.storage.local.set({ auto: false });
+      if (failRemainingDetails(state.active, code)) {
+        await log(code, e.message);
+        await finish(
+          state.active,
+          state.active.stop_reason,
+          state.active.exhausted,
+        );
+        return;
+      }
       await fail(state.active, code, e.message);
       return;
     }

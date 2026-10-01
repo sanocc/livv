@@ -4,7 +4,7 @@
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
-| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；17项Node测试通过；架构/Schema/API文档已建立 |
+| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；19项Node测试通过；架构/Schema/API文档已建立 |
 | B 云端基础 | PASS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；提交2d905d8三个Workers Builds均成功；Chrome真实Access登录后OTA市场页加载成功；生产表暂无采集数据 |
 | C 设备 | PASS | Chrome加载当前Helper；真实UUID注册待批准；用户人工批准；在线空闲；禁用后生产API拒绝claim；停止心跳后离线；恢复在线，同一Device ID保留 |
 | D 任务闭环 | PASS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；生产D1只读核验两次自动领取、开始、SEARCH_CONTROL_TIMEOUT失败、返回同一任务池的完整时间线；该任务窗口到期后FAILED / EXECUTION_WINDOW_EXPIRED；新Task 4765e749-a69c-45ed-974a-e811e467c712真实5/5后FAILED / MAX_ATTEMPTS_REACHED；相关自动测试通过 |
@@ -24,3 +24,5 @@
 当前生产API健康检查返回200及database: ok，提交bd8f595的Workers Builds完成成功。Mac已解锁；自动领取关闭，新增可选输入权限尚未授予，没有把失败Attempt或解析预览伪造为生产采集成功。
 
 输入适配新增3项测试：外域/未授权/非自有标签页拒绝；仅发送Input点击/文本命令并断开；操作中导航离开携程立即停止并断开。这些测试不替代真实页面验收。
+
+详情故障新增2项测试：第二阶段浏览器故障保留锁定列表、成功房型和已记录的失败原因，只将尚未完成的详情标记失败；搜索/未锁定列表不进入此恢复路径。详情打开时页面仍在加载则等待，不提前进入解析阶段。正式上传仍受服务端Attempt与原始窗口校验约束。
