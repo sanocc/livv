@@ -14,11 +14,15 @@
 
 五个Custom Domains已启用；poai.cc区域active，原旧域名路由不再作为正式开发目标。保留Worker名称可避免重建Secrets、Service Binding和现有Git Builds；这不是双轨业务。Access应用ID、JWT audience与管理员授权规则保持不变，仅名称/目标域名更新。团队技术域livvcc.cloudflareaccess.com暂时保留。
 
+品牌代码f55bc9373504ed09e128d920412c4e08d1fd5460已推送main；原API/OTA/主站三项Workers Builds全部success。新增OPS/AI也连接sanocc/livv的main，复用原构建令牌、不扩大权限，构建命令npm ci && npm test && npm run check，分别部署ops/wrangler.jsonc与ai/wrangler.jsonc，预览构建关闭。后续提交由五项Git Builds自动部署。
+
 本机代理曾将新域解析成198.18.0.x并对poai.cc/ai.poai.cc重置连接；公开Cloudflare DNS为104.21.50.133/172.67.206.138。使用真实公开地址且保持TLS证书验证的HTTPS请求两站均200；相同部署Worker地址也通过真实浏览器检查。不是绕过证书警告，不修改用户代理/系统DNS。其他新域通过正常本机访问验证。
 
 ## 保留范围
 
 原D1 livv-v1 / 68cfcb1e-913a-4013-aa9d-5ae27f2a1150未清空。原表、Schema字段、身份、历史Observation/PARTIAL/FAILED保留。正式14天Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c整行不变、enabled=1。临时验收Plan仍enabled=0。
+
+迁移后核对：原58个历史快照仍58个，总快照61个；FAILED仍40、PARTIAL仍11，COMPLETED由47增加到50。两个Plan整行与迁移前JSON一致。Mac原设备已心跳上报1.3.1；Windows仍1.2.0，需更新原扩展并完成新域名真机验收。
 
 内部保留项：仓库sanocc/livv、livvcc/与helper/路径、三个旧Worker名称、DB名、livv_hotels/livv_hotel_id协议字段、X-LIVV-Device-ID、livv-heartbeat闹钟、原Analytics数据集及只读Token名称。原因是身份/鉴权/绑定/历史连续性；不在普通品牌页面展示。
 
