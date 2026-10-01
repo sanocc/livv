@@ -19,6 +19,7 @@ export function failRemainingDetails(active, errorCode) {
 }
 // Even a partial list must account for every frozen core hotel actually observed.
 export function completeDetailResults(active) {
+  if (active.task?.task_type === "MARKET_LIST") return [];
   const expected = (active.core_hotels ?? []).filter((h) =>
     (active.market ?? []).some((m) => m.hotel_id === h.hotel_id),
   );

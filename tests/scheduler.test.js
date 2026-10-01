@@ -202,3 +202,20 @@ test("scheduled tasks keep Plan/Task/Attempt identity, single-device exclusion a
     0,
   );
 });
+
+test("new schedule materializes MARKET_LIST while Plan fields and existing legacy tasks stay unchanged", async () => {
+  const db = database();
+  insertPlan(db, { ...plan, horizon: 14 });
+  const before = db.raw.prepare("SELECT * FROM plans").all();
+  await generatePlans(db, midnight);
+  assert.ok(
+    db.raw
+      .prepare("SELECT task_type FROM tasks")
+      .all()
+      .every((t) => t.task_type === "MARKET_LIST"),
+  );
+  assert.deepEqual(db.raw.prepare("SELECT * FROM plans").all(), before);
+  const n = db.raw.prepare("SELECT count(*) n FROM tasks").get().n;
+  await generatePlans(db, midnight + 60000);
+  assert.equal(db.raw.prepare("SELECT count(*) n FROM tasks").get().n, n);
+});

@@ -30,6 +30,7 @@ export function stageLabel(a) {
   if (a.phase === "LIST") return "正在采集市场列表";
   if (a.phase === "DETAIL_OPEN") return "正在寻找详情入口";
   if (a.phase === "DETAIL_RETURN") return "正在返回市场列表";
+  if (a.phase === "FAST_NAVIGATION") return "正在快速导航并验证搜索条件";
   if (a.phase === "DETAIL_READ")
     return a.waiting_stable ? "等待房型稳定" : "正在读取酒店房型";
   if (["SEARCH", "LIST_KEYWORD_INPUT"].includes(a.phase))

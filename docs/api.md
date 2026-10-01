@@ -1,5 +1,11 @@
 # API V1
 
+## MARKET_LIST契约（Helper1.2.0）
+
+POST tasks（管理员/设备）默认task_type=MARKET_LIST，可显式LEGACY_MARKET_DETAIL保留旧合并契约；其他类型拒绝。Task响应包含task_type。新物化计划Task使用MARKET_LIST，已有schedule_key行不改写。MARKET_LIST的core_hotels/rooms/detail_results为空，达到collection_limit直接上传；不足仍按原规则PARTIAL/FAILED。详情以后由独立COMPETITOR_DETAIL任务负责，本轮未开放该类型或新增详情计划。旧Task不重新解释为列表任务，鉴权与窗口约束不变。
+
+新增FAST_NAV_START/FAST_NAV_VERIFIED/FAST_NAV_FAILED/FAST_NAV_CONTEXT_MISMATCH、LIST_READY、UPLOAD_START事件，沿用现有events接口及100条上限。MARKET_LOCKED.message追加真实阶段耗时JSON；TASK_TIMING仅本地日志，不在终态后伪造云端事件。
+
 JSON。除GET /health和注册外，全部鉴权；错误为{error:{code,message}}。注册入口有Cloudflare Rate Limiting，初始只能pending。注册允许任意设备申请但不授予工作资格。
 
 ## 设备

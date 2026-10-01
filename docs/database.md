@@ -2,7 +2,7 @@
 
 数据库livv-v1。仅api/wrangler.jsonc绑定DB，ota通过API Service Binding读取。
 
-迁移：api/migrations/0001_v1.sql，全新数据库使用，不应用于旧表。
+迁移：0001_v1.sql用于全新数据库，后续顺序应用0002_task_type.sql。0002仅增加tasks.task_type，历史默认LEGACY_MARKET_DETAIL；新任务显式MARKET_LIST。不修改Observation Schema或历史结果。
 
 - platforms：平台字典，V1只有ctrip，价格列不以平台命名。
 - devices：永久ID、凭证摘要、审批状态、名称、心跳、错误。
@@ -23,3 +23,5 @@
 Gate I展示只读关联当前hotel_mappings与原始market_observations，支持采集后的人工映射；不重写market_analyses.my_price或facts。无需Schema迁移。
 
 Gate J沿用现有Plan/Task/Attempt表和schedule_key唯一约束，无Schema迁移；滚动按业务日物化D0～D+horizon。jitter与负载只决定新Task.due_at/capacity_warning，已有Task排期和Attempt历史不重写。
+
+Helper1.2.0的MARKET_LIST领取时Attempt.core_hotels冻结为空数组，既有上传校验拒绝额外详情/房型；LEGACY_MARKET_DETAIL仍冻结原映射。状态、窗口、租约及幂等键不变。平台导航资料存于Helper本机navigation_profiles，不写Hotel Observation或云端数据库。

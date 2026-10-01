@@ -242,3 +242,37 @@ V1.2线上验收：f3363f7自动Git构建成功，真实已登录OTA市场14/30�
 生产Plan前后整行完全一致，唯一临时验收Plan仍停用；18:06:50设备approved/1.1.0/last_error=null，无RUNNING Attempt；18:08最终展示修正重载后auto=true、在线空闲。最后小修仅保留本地多Attempt摘要、避免提交期间刷新重新启用按钮，不改采集执行。证据位于本地忽略目录.local/proofs/sidepanel-before.json、sidepanel-final.json、sidepanel-tests.txt及真实Chrome截图。未使用生产Mock、修改终态或新建验收Plan。
 
 18:13最终已登录OTA真实刷新，仍正常读取新生产快照：当日最新17:53:54，详情3/3、30家有价样本、中位¥189.5，生产最近COMPLETED为17:54:44（只统计正式启用Plan，18:01手动任务不纳入该运行指标）。Side Panel在切换到OTA后仍在线、空闲、auto=true；重载后任务页仍保留c00da60e的真实COMPLETED、13房型及Snapshot ID。API health=200/database=ok，LIVVCC=200，未登录OTA仍正常302至Access；不把302代替已登录应用核验。日志/开发工具实际打开检查通过；不清空本机历史作为演示。
+
+## MARKET_LIST快速导航真实验证（2026-10-01，Helper1.2.0）
+
+先通过真实携程UI生成A/B/C URL，实际DOM曝光验证城市937、日期、中心花坛/咸宁北站关键词；参数对比、失败候选和限制见helper-fast-navigation.md。精简URL实际落到上海和错误日期，未采集上传；保留完整opaque原生参数后日期切换匹配。没有伪注入input/change、生产Mock或改写终态。
+
+新增及新物化Task显式MARKET_LIST，列表达到目标即上传、不进入详情；旧Task默认LEGACY_MARKET_DETAIL，不改历史契约。迁移仅增加task_type；领取空core_hotels由API冻结，现有上传校验拒绝MARKET_LIST详情/房型。独立COMPETITOR_DETAIL及其自动计划尚未实现，本轮不宣称独立详情PASS。
+
+51项npm test通过，npm run check/MV3/语法/数据库边界及API Worker dry-run通过。新增验证覆盖真实曝光城市ID/日期逐卡一致、隐藏关键词拒绝、导航资料须完整Context、原生opaque URL仅替换日期、未知城市/关键词/过期资料/日期缓存/不安全URL回退、列表任务拒绝额外详情并正常COMPLETED、旧详情契约保留、新物化类型/幂等/Plan不变。既有自然优先广告去重测试继续通过；本次DOM样本未出现同Hotel ID广告/自然重复，不宣称新实际重复案例已覆盖。
+
+真实办公室Mac设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9，approved，单设备单任务，三次均Helper→API创建正式Task→设备自动领取→真实DOM→D1，没有本地绕过。首次navigation_profiles取自已验证原生UI页面；不将冷启动UI自动缓存或故障后的完整UI回退标为独立真实PASS。最后一次在空闲重载最终源码后从Helper“开始采集”真实表单创建。
+
+| Task | Attempt | Snapshot | 入住→离店 | 结果 |
+|---|---|---|---|---|
+| f80a622c-c506-4167-ab6e-0c4cc50a27e0 | 455da2a0-99db-4156-a639-3fea8ae24f11 | e0b0d4fe-469b-42f3-a61b-6f1c97226350 | 10/05→10/06 | COMPLETED，30唯一ID，详情0/0，房型0 |
+| ed8365eb-25f6-4413-bae8-87da4976fcdc | bcd2f863-c908-463b-8700-d883acb0fc6a | 885707ed-f5f4-4f53-a8bb-27e1909cdaff | 10/06→10/07 | COMPLETED，30唯一ID，详情0/0，房型0 |
+| ea16f8b1-7a42-4168-9ce5-30de4189c394 | 9c9f89d9-a51c-4bde-9b95-90ef66d47da7 | a0980c77-d57a-44df-9dc5-f72bc81f0c65 | 10/06→10/07 | COMPLETED，30唯一ID，详情0/0，房型0 |
+
+三次Context均咸宁/中心花坛，日期如上。D1 Task/Attempt/Device/Snapshot/Observation关联一致、有效时窗内上传。A及最终复验各30条与当次DOM逐行对照，Hotel ID/原名/排名/广告标记/起售价/划线价零差异。B任务后只读检查遇到后续正式任务已换页面（10/05、空关键词），该诊断不作为B的DOM对照，不混入B数据；B仍以其真实严格Context事件和D1快照为证据。观察原始值不借用前次结果。
+
+| 秒 | 快速A | 快速B | 最终复验 | 三次平均 |
+|---|---:|---:|---:|---:|
+| 领取→LIST_READY | 4.877 | 4.673 | 4.803 | 4.784 |
+| LIST_READY→锁定30家 | 24.865 | 25.163 | 26.927 | 25.652 |
+| 领取→锁定30家 | 29.743 | 29.836 | 31.730 | 30.436 |
+| MARKET_LIST总耗时（至上传响应） | 31.008 | 31.274 | 32.901 | 31.728 |
+| 上传请求→响应 | 0.884 | 0.929 | 0.835 | 0.883 |
+
+旧真实UI流程同城市/关键词/日期的领取→30家锁定：bfe9075d17df123bf8e8e9d3f3ac0763/da33525f-83c2-4f3a-a445-9f08489a767f为54.674秒，7257e234-3fec-4f59-bc1a-aa219fb9af7c/6e94b1a2-1f14-4e69-8183-de85734fc9b1为53.637秒（均10/05），cf8a5b97-7fd9-494b-bf7d-a1af34c456b8/22ca345d-4b4c-4745-b2fd-27e13a019513为58.447秒（10/06）。同端点均值55.586→30.436秒，降低45.2%。新列表任务总耗时P50=31.274秒；仅3样本不报告P95。旧样本没有LIST_READY独立时间戳，也没有列表单独上传总耗时（后续含详情），两项保持缺失，不用合并任务总时长冒充列表基准。不根据此小样本外推全天吞吐或所有关键词都更快。
+
+已知问题原样保留：旧合并Task526c8ed38f61ce423d8b2fbfd4233ad3曾DEVICE_OFFLINE/搜索等待失败；2731c369129837b134ff43dd616593d2自然PARTIAL、仅12家，错误PARTIAL_COLLECTION。其UI_FALLBACK领取→ready29.017秒、总76.904秒不是成功30家速度基准，不清洗成成功。本轮保留UI fallback但未修复原有输入/滚动可靠性问题；完整运行时Context错误→UI成功上传的真实故障注入仍未验收，不宣称全覆盖。未改tick、滚动、详情DOM或sold_out规则。
+
+正式14天Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c整行与本轮开始一致、enabled=1/horizon=14/updated_at=2026-10-01T04:41:45.228Z；原临时Plan仍停用，本轮未创建Plan、不改变频率。三个少量真实手动Task作为真实观察保留，未删除历史；后续新物化任务为MARKET_LIST，原已存在Task仍旧合并契约。证据.local/proofs/fast-nav-production.json、fast-nav-final-production.json、fast-nav-old-baseline.json、fast-nav-A-row-comparison.json、fast-nav-final-row-comparison.json及真实截图。最终设备自动接单保持启用。
+
+21:20最终只读核对Plan整行完全一致，设备approved/1.2.0、心跳21:20:50，无RUNNING Task。20:41:20本地记录HELPER_ERROR/Failed to fetch，设备last_error仍HELPER_ERROR但随后心跳继续成功；API health=200/database=ok。保留此网络/领取错误观察，不因三次成功消除它，也不宣称所有生产错误已解决。

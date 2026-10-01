@@ -53,20 +53,26 @@ async function device(h) {
   return { id, headers };
 }
 const taskInput = () => ({
+  task_type: "LEGACY_MARKET_DETAIL",
   platform: "ctrip",
   city: "咸宁",
   keyword: "中心花坛",
   checkin: addDays(businessDate(), 1),
   scope: "top30",
 });
-async function ready(h) {
+async function ready(h, taskType = "LEGACY_MARKET_DETAIL") {
   const d = await device(h);
   await h.call("/v1/admin/devices/" + d.id, "PATCH", {
     status: "approved",
     name: "验收设备",
   });
   await h.call("/v1/device/heartbeat", "POST", {}, d.headers);
-  const t = (await h.call("/v1/admin/tasks", "POST", taskInput())).data;
+  const t = (
+    await h.call("/v1/admin/tasks", "POST", {
+      ...taskInput(),
+      task_type: taskType,
+    })
+  ).data;
   const c = await h.call("/v1/device/claim", "POST", {}, d.headers);
   assert.equal(c.status, 200);
   assert.equal(c.data.task.id, t.id);
@@ -743,4 +749,56 @@ test("inclusive market presentation adds endpoint dates without changing statist
   ).data;
   assert.equal(edge.curve.at(-1).median, 114.5);
   assert.equal(edge.snapshot.task_id, edgeTask.id);
+});
+
+test("MARKET_LIST freezes no detail targets, completes a genuine list and rejects rooms/details", async () => {
+  const h = harness(),
+    at = new Date().toISOString();
+  h.DB.raw
+    .prepare(
+      "INSERT INTO livv_hotels(id,name,category,created_at,updated_at) VALUES('mine','标准名','mine',?,?)",
+    )
+    .run(at, at);
+  h.DB.raw
+    .prepare("INSERT INTO platform_hotels VALUES('ctrip','1','真实名称1',?,?)")
+    .run(at, at);
+  h.DB.raw
+    .prepare("INSERT INTO hotel_mappings VALUES('ctrip','1','mine',?,'test')")
+    .run(at);
+  const d = await ready(h, "MARKET_LIST");
+  assert.equal(d.t.task_type, "MARKET_LIST");
+  assert.deepEqual(JSON.parse(d.a.core_hotels), []);
+  const invalid = payload(d.t);
+  invalid.detail_results = [
+    { hotel_id: "1", status: "FAILED", error_code: "DETAIL_TIMEOUT" },
+  ];
+  assert.equal(
+    (
+      await h.call(
+        `/v1/device/attempts/${d.a.id}/result`,
+        "POST",
+        invalid,
+        d.headers,
+      )
+    ).status,
+    400,
+  );
+  const r = await h.call(
+    `/v1/device/attempts/${d.a.id}/result`,
+    "POST",
+    payload(d.t),
+    d.headers,
+  );
+  assert.equal(r.status, 200, JSON.stringify(r));
+  assert.equal(r.data.status, "COMPLETED");
+  assert.equal(r.data.market_count, 30);
+  assert.equal(r.data.detail_total, 0);
+  assert.equal(
+    h.DB.raw.prepare("SELECT COUNT(*) n FROM room_observations").get().n,
+    0,
+  );
+  assert.equal(
+    h.DB.raw.prepare("SELECT status FROM tasks WHERE id=?").get(d.t.id).status,
+    "COMPLETED",
+  );
 });

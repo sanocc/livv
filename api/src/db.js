@@ -125,7 +125,7 @@ export async function claim(db, device, now = Date.now()) {
       stmt(
         db,
         `INSERT INTO attempts(id,task_id,attempt_number,device_id,claimed_at,timeout_at,lease_until,status,core_hotels)
- SELECT ?,t.id,(SELECT COUNT(*)+1 FROM attempts WHERE task_id=t.id),?,?,min(t.window_end,?),min(t.window_end,?),'RUNNING',? FROM tasks t
+ SELECT ?,t.id,(SELECT COUNT(*)+1 FROM attempts WHERE task_id=t.id),?,?,min(t.window_end,?),min(t.window_end,?),'RUNNING',CASE WHEN t.task_type='MARKET_LIST' THEN '[]' ELSE ? END FROM tasks t
  WHERE t.status='PENDING' AND t.due_at<=? AND t.window_start<=? AND t.window_end>? AND (t.preferred_device_id IS NULL OR t.preferred_device_id=?) AND t.platform IN(SELECT value FROM json_each((SELECT supported_platforms FROM devices WHERE id=?))) AND (SELECT status FROM devices WHERE id=?)='approved' AND (SELECT last_seen_at FROM devices WHERE id=?)>? AND NOT EXISTS(SELECT 1 FROM attempts WHERE device_id=? AND status='RUNNING') AND (SELECT COUNT(*) FROM attempts WHERE task_id=t.id)<5 ORDER BY t.due_at,t.created_at LIMIT 1`,
         id,
         device.id,

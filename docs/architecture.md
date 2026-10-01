@@ -1,5 +1,13 @@
 # LIVV OTA V1 架构决策
 
+## MARKET_LIST导航与详情分离（Helper1.2.0）
+
+新建与后续新物化Task：领取→导航→严格Context验证→列表→上传，不进入详情/房型。既有Task保留LEGACY_MARKET_DETAIL契约和原详情执行。独立COMPETITOR_DETAIL及其计划属于后续工作，本轮未实现；新列表快照不会自动刷新详情。正式Plan频率及状态机不变，上文核心详情容量描述属于旧合并任务。
+
+优先复用24小时内同平台/城市/关键词的本机原生导航资料，只替换已验证c-in/c-out，其他opaque字段保留。DOM必须确认平台、城市、日期、可见关键词，每张hotel-card曝光城市ID/日期也必须一致；URL本身不是正确Context证据。无资料、过期、参数不支持或Context错误，记录明确事件并走原CITY→DATE→KEYWORD→SEARCH，清空错误页面候选观察。验证码仍真实失败，不自动绕过。
+
+冷启动仍需原生UI搜索；本轮确认咸宁中心花坛/咸宁北站参数，不推断全国城市或任意POI。单设备单Task、自然结果优先去重、采集字段和sold_out要求不降低，未优化tick或滚动。逆向证据与限制见helper-fast-navigation.md。
+
 评估日期：2026-10-01。V1单店、携程移动端、30家唯一酒店、滚动14/30天。api/ota/livvcc/helper为独立工程，不建立ops。
 
 ## 数据库比较与决定

@@ -77,3 +77,11 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无身份重注册或设备禁用；新增sidePanel展示权限，不扩大API/携程主机或debugger能力。点击扩展图标打开右侧正式采集/任务/日志界面；关闭侧边栏不关闭后台采集。云端Worker/Plan配置、API业务逻辑、数据库与OTA资产未改。版本随manifest传入既有注册/心跳。
 
 44项测试及MV3/语法检查通过，真实Side Panel自动领取生产Task和“开始采集”云端Task两次30家/详情3/3/sold_out/上传核验见testing.md。同期间另一Task自然FAILED亦保留；不宣称搜索输入错误已经修复。最终auto=true，保持当前Chrome/设备在线以继续正式14天Plan。任务页仅本地近期缓存，不冒充全量云端历史；查看权威终态与全部错误仍用OTA任务详情。
+
+## Helper1.2.0 MARKET_LIST快速导航部署（2026-10-01）
+
+先完成真实A/B/C原生URL/曝光逆向及错误URL不采集验证，再应用生产D1增量0002_task_type.sql（历史任务LEGACY_MARKET_DETAIL，不改观察），部署API版本add62570-a9f2-4aeb-81a9-4e25de192aba。新任务/新物化行显式MARKET_LIST，既有行不改排期或详情契约。Cron仍每分钟、Plan配置整行不变；API鉴权/Worker绑定/市场口径/OTA源码不变。
+
+批准办公室Mac空闲时重载Helper1.2.0，身份/权限/本机缓存沿用，auto=true。三次真实MARKET_LIST全COMPLETED、30唯一酒店/详情0/房型0，最后一次确认最终上下文防护源码；详见testing.md。未知或失效资料回退旧UI，不保证其既有超时/停滞问题已解决；错误历史原样保留。新列表任务不自动刷新详情，独立详情Task未在本轮部署。
+
+回滚需匹配契约：兼容数据库列可保留，既有观察/Task/Attempt不删除；若需回滚应在空闲时暂缓新领取并协调API/Helper版本、验证新旧Task契约，不修改历史终态。全套检查及GitHub main发布后状态继续补记。

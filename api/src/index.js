@@ -55,9 +55,14 @@ async function newTask(db, b, device = null, now = Date.now()) {
   const t = target(b, { now }),
     id = crypto.randomUUID(),
     at = nowIso(now);
+  const taskType = b.task_type ?? "MARKET_LIST";
+  requireThat(
+    ["MARKET_LIST", "LEGACY_MARKET_DETAIL"].includes(taskType),
+    "INVALID_TASK_TYPE",
+  );
   await stmt(
     db,
-    `INSERT INTO tasks(id,platform,city,keyword,scope,collection_limit,checkin,checkout,preferred_device_id,created_at,due_at,window_start,window_end) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO tasks(id,platform,city,keyword,scope,collection_limit,checkin,checkout,preferred_device_id,created_at,due_at,window_start,window_end,task_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     id,
     t.platform,
     t.city,
@@ -71,6 +76,7 @@ async function newTask(db, b, device = null, now = Date.now()) {
     at,
     at,
     nowIso(now + CONFIG.immediateWindowMinutes * 60000),
+    taskType,
   ).run();
   return first(db, "SELECT * FROM tasks WHERE id=?", id);
 }

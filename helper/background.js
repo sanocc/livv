@@ -9,6 +9,12 @@ import {
 import { performInput } from "./input.js";
 import { failRemainingDetails, completeDetailResults } from "./detail-state.js";
 import { taskView, publicState, remember, trustedView } from "./view-state.js";
+import {
+  contextMatches,
+  navigationProfile,
+  fastNavigation,
+  rememberNavigation,
+} from "./navigation.js";
 const API = "https://api.livv.cc",
   VERSION = chrome.runtime.getManifest().version;
 let busy = false,
@@ -24,6 +30,7 @@ const read = async () =>
     "logs",
     "managed_tab",
     "ui_history",
+    "navigation_profiles",
   ]);
 async function log(event, message = "") {
   const { logs = [], active } = await read();
@@ -162,8 +169,43 @@ async function fail(a, code, message) {
   if (["CAPTCHA_REQUIRED", "LOGIN_REQUIRED"].includes(code))
     await chrome.storage.local.set({ auto: false });
 }
+async function phaseEvent(a, event, message = "") {
+  await log(event, message);
+  await request(`/v1/device/attempts/${a.attempt.id}/events`, {
+    event,
+    message,
+  });
+}
+async function navigationFallback(a, code, message) {
+  await phaseEvent(a, code, message);
+  a.navigation_mode = "UI_FALLBACK";
+  a.phase = "CITY_OPEN";
+  a.phase_at = Date.now();
+  a.positions = {};
+  a.market = [];
+  delete a.list_ready_at;
+  delete a.last_growth;
+  delete a.market_observed_at;
+  await save(a);
+  await chrome.tabs.update(a.tab_id, {
+    url: "https://m.ctrip.com/webapp/hotels/",
+  });
+}
 async function run(a) {
   if (a.upload) {
+    if (!a.upload_started_at) {
+      a.upload_started_at = Date.now();
+      await save(a);
+      await phaseEvent(
+        a,
+        "UPLOAD_START",
+        JSON.stringify({
+          navigation: a.navigation_mode,
+          claim_to_upload_ms:
+            a.upload_started_at - Date.parse(a.attempt.claimed_at),
+        }),
+      );
+    }
     a.upload.detail_results = completeDetailResults(a);
     try {
       const result = await request(
@@ -171,6 +213,15 @@ async function run(a) {
         a.upload,
       );
       await log(result.status, `保存真实酒店${result.market_count}家`);
+      await log(
+        "TASK_TIMING",
+        JSON.stringify({
+          navigation: a.navigation_mode,
+          task_type: a.task.task_type,
+          upload_ms: Date.now() - a.upload_started_at,
+          total_ms: Date.now() - Date.parse(a.attempt.claimed_at),
+        }),
+      );
       await recordView({
         ...taskView(a),
         status: result.status ?? null,
@@ -222,6 +273,35 @@ async function run(a) {
     await fail(a, "SEARCH_CONTROL_TIMEOUT", "城市、关键词或搜索控件无法确认");
     return;
   }
+  if (a.phase === "FAST_NAVIGATION") {
+    try {
+      const r = await execute(a, inspectList);
+      if (r?.captcha) {
+        await fail(a, "CAPTCHA_REQUIRED", "携程需要人工验证码");
+        return;
+      }
+      if (contextMatches(r, a.task)) {
+        a.phase = "LIST";
+        a.phase_at = Date.now();
+        await save(a);
+        await phaseEvent(
+          a,
+          "FAST_NAV_VERIFIED",
+          "URL, visible keyword and card city/dates match task",
+        );
+      } else if (r?.hotels?.length || Date.now() - a.phase_at > 45000) {
+        await navigationFallback(
+          a,
+          "FAST_NAV_CONTEXT_MISMATCH",
+          "Direct page context did not match task; UI fallback",
+        );
+      }
+    } catch (e) {
+      if (e.code === "MANAGED_TAB_NAVIGATED") throw e;
+      await navigationFallback(a, "FAST_NAV_FAILED", e.code ?? e.message);
+    }
+    return;
+  }
   if (a.phase === "LIST") {
     const r = await execute(a, inspectList);
     if (!r) return;
@@ -229,14 +309,14 @@ async function run(a) {
       await fail(a, "CAPTCHA_REQUIRED", "携程需要人工验证码");
       return;
     }
-    if (
-      !r.context_verified ||
-      r.context.city !== a.task.city ||
-      r.context.keyword !== a.task.keyword ||
-      r.context.checkin !== a.task.checkin ||
-      r.context.checkout !== a.task.checkout
-    ) {
-      if (Date.now() - a.phase_at > 45000)
+    if (!contextMatches(r, a.task)) {
+      if (a.navigation_mode === "FAST_NAVIGATION")
+        await navigationFallback(
+          a,
+          "FAST_NAV_CONTEXT_MISMATCH",
+          "Context changed before collection",
+        );
+      else if (Date.now() - a.phase_at > 45000)
         await fail(a, "PAGE_CONTEXT_MISMATCH", "携程实际搜索条件未与任务一致");
       return;
     }
@@ -247,6 +327,25 @@ async function run(a) {
         `${r.unparsed_cards}张卡片缺少Hotel ID或酒店名，停止以保护排名真实性`,
       );
       return;
+    }
+    if (!a.list_ready_at) {
+      a.list_ready_at = Date.now();
+      await phaseEvent(
+        a,
+        "LIST_READY",
+        JSON.stringify({
+          navigation: a.navigation_mode,
+          claim_to_ready_ms: a.list_ready_at - Date.parse(a.attempt.claimed_at),
+        }),
+      );
+      const state = await read();
+      const profile = navigationProfile(r, a.task);
+      await chrome.storage.local.set({
+        navigation_profiles: rememberNavigation(
+          state.navigation_profiles ?? [],
+          profile,
+        ),
+      });
     }
     const map = new Map((a.market ?? []).map((h) => [h.hotel_id, h])),
       before = map.size;
@@ -267,9 +366,9 @@ async function run(a) {
         a.market = a.market.slice(0, a.task.collection_limit);
       a.stop_reason = reached ? "TARGET_REACHED" : "NATURAL_END";
       a.exhausted = !reached && r.exhausted;
-      a.details = a.core_hotels.filter((h) =>
-        a.market.some((m) => m.hotel_id === h.hotel_id),
-      );
+      a.details = (
+        a.task.task_type === "MARKET_LIST" ? [] : a.core_hotels
+      ).filter((h) => a.market.some((m) => m.hotel_id === h.hotel_id));
       a.rooms = [];
       a.detail_results = [];
       a.detail_index = 0;
@@ -279,7 +378,12 @@ async function run(a) {
       );
       await request(`/v1/device/attempts/${a.attempt.id}/events`, {
         event: "MARKET_LOCKED",
-        message: `${a.market.length} unique hotels; ${a.details.length} details`,
+        message: JSON.stringify({
+          count: a.market.length,
+          details: a.details.length,
+          ready_to_lock_ms: Date.now() - a.list_ready_at,
+          claim_to_lock_ms: Date.now() - Date.parse(a.attempt.claimed_at),
+        }),
       });
       if (!a.details.length) {
         await finish(a, a.stop_reason, a.exhausted);
@@ -515,6 +619,16 @@ async function tick(heartbeat = false) {
       }
       const c = await request("/v1/device/claim");
       if (c) {
+        let navigationUrl = null;
+        if (c.task.task_type === "MARKET_LIST") {
+          try {
+            navigationUrl = fastNavigation(
+              c.task,
+              state.navigation_profiles ?? [],
+            );
+          } catch {}
+        }
+        const entryUrl = navigationUrl ?? "https://m.ctrip.com/webapp/hotels/";
         let old = (await chrome.storage.local.get("managed_tab")).managed_tab,
           tab;
         try {
@@ -524,25 +638,34 @@ async function tick(heartbeat = false) {
           tab = null;
         if (!tab)
           tab = await chrome.tabs.create({
-            url: "https://m.ctrip.com/webapp/hotels/",
+            url: entryUrl,
             active: true,
           });
         else
           await chrome.tabs.update(tab.id, {
-            url: "https://m.ctrip.com/webapp/hotels/",
+            url: entryUrl,
             active: true,
           });
         await chrome.storage.local.set({ managed_tab: tab.id, error: null });
         const a = {
           ...c,
           tab_id: tab.id,
-          phase: "CITY_OPEN",
+          phase: navigationUrl ? "FAST_NAVIGATION" : "CITY_OPEN",
+          navigation_mode: navigationUrl ? "FAST_NAVIGATION" : "UI_FALLBACK",
           phase_at: Date.now(),
           positions: {},
           market: [],
         };
         await save(a);
         await request(`/v1/device/attempts/${a.attempt.id}/start`);
+        if (c.task.task_type === "MARKET_LIST")
+          await phaseEvent(
+            a,
+            navigationUrl ? "FAST_NAV_START" : "FAST_NAV_FAILED",
+            navigationUrl
+              ? "Verified native navigation profile"
+              : "No verified city/keyword profile; UI fallback",
+          );
         await log(
           "CLAIMED",
           `${a.task.id} / Attempt #${a.attempt.attempt_number}`,

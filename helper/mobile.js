@@ -195,7 +195,14 @@ export function inspectList() {
     urlKeyword = JSON.parse(params.get("s-keyword"))?.[0] ?? "";
   } catch {}
   const outside = Array.from(document.querySelectorAll("span,div"))
-    .filter((n) => n.children.length === 0 && !n.closest(".hotel-card"))
+    .filter(
+      (n) =>
+        n.children.length === 0 &&
+        !n.closest(".hotel-card") &&
+        n.getBoundingClientRect().width > 0 &&
+        n.getBoundingClientRect().height > 0 &&
+        getComputedStyle(n).visibility !== "hidden",
+    )
     .map((n) => norm(n.textContent));
   const actualKeyword =
     urlKeyword === "" ? "" : outside.includes(urlKeyword) ? urlKeyword : null;
@@ -209,12 +216,14 @@ export function inspectList() {
   const contextVerified =
     cards.length > 0 &&
     context.city === urlCity &&
+    String(first.cityid ?? "") === params.get("d-city") &&
     context.checkin === params.get("c-in") &&
     context.checkout === params.get("c-out") &&
     actualKeyword !== null &&
     exposures.every(
       (x) =>
         x.cityname === first.cityname &&
+        String(x.cityid ?? "") === params.get("d-city") &&
         x.checkin === first.checkin &&
         x.checkout === first.checkout,
     );
@@ -279,6 +288,7 @@ export function inspectList() {
     url: u.href,
     context,
     context_verified: contextVerified,
+    platform_city_id: String(first.cityid ?? ""),
     hotels: hotels.filter((x) => x.hotel_id && x.hotel_name),
     unparsed_cards: hotels.filter(
       (x) => !x.hotel_id || !x.hotel_name || x.rank === null,

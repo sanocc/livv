@@ -123,8 +123,8 @@ export async function generatePlans(db, now = Date.now()) {
   // JSON bulk insert keeps even a 30-day plan below D1 per-invocation query limits.
   const r = await db
     .prepare(
-      `INSERT OR IGNORE INTO tasks(id,plan_id,schedule_key,platform,city,keyword,scope,collection_limit,checkin,checkout,status,created_at,due_at,window_start,window_end,capacity_warning)
- SELECT lower(hex(randomblob(16))),json_extract(value,'$.plan_id'),json_extract(value,'$.schedule_key'),json_extract(value,'$.platform'),json_extract(value,'$.city'),json_extract(value,'$.keyword'),json_extract(value,'$.scope'),json_extract(value,'$.collection_limit'),json_extract(value,'$.checkin'),json_extract(value,'$.checkout'),'PENDING',?,json_extract(value,'$.due_at'),json_extract(value,'$.window_start'),json_extract(value,'$.window_end'),json_extract(value,'$.capacity_warning') FROM json_each(?)`,
+      `INSERT OR IGNORE INTO tasks(id,plan_id,schedule_key,platform,city,keyword,scope,collection_limit,checkin,checkout,status,created_at,due_at,window_start,window_end,capacity_warning,task_type)
+ SELECT lower(hex(randomblob(16))),json_extract(value,'$.plan_id'),json_extract(value,'$.schedule_key'),json_extract(value,'$.platform'),json_extract(value,'$.city'),json_extract(value,'$.keyword'),json_extract(value,'$.scope'),json_extract(value,'$.collection_limit'),json_extract(value,'$.checkin'),json_extract(value,'$.checkout'),'PENDING',?,json_extract(value,'$.due_at'),json_extract(value,'$.window_start'),json_extract(value,'$.window_end'),json_extract(value,'$.capacity_warning'),'MARKET_LIST' FROM json_each(?)`,
     )
     .bind(nowIso(now), JSON.stringify(generated))
     .run();
