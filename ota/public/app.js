@@ -42,7 +42,10 @@ async function api(path, method = "GET", body) {
 function table(headers, rows) {
   return `<div class="table"><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="${headers.length}" class="empty">暂无真实数据</td></tr>`}</tbody></table></div>`;
 }
-const money = (x) => (x == null ? "—" : `¥${Number(x).toFixed(0)}`);
+const money = (x) =>
+  x == null
+    ? "—"
+    : `¥${Number(x).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
 const datetime = (x) =>
   x ? new Date(x).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—";
 function chart(curve) {
@@ -132,12 +135,52 @@ function renderMarketHotels() {
       `携程\n${h.hotel_name}\nHotel ID: ${h.hotel_id}\n划线价: ${money(h.original_price)}\n活动: ${(h.activity_tags ?? []).join(" / ") || "—"}\n起售价: ${money(h.display_price)}`,
     );
   $("#hotel-table").innerHTML = table(
-    ["酒店名称", "分类", "携程排名", "携程起售价"],
+    ["酒店名称", "分类", "排名", "起售价"],
     list.map(
       (h) =>
         `<tr><td>${esc(h.standard_name)}<small>${esc(h.hotel_id)}</small></td><td><span class="pill">${categories[h.category]}</span></td><td><span tabindex="0" class="tip" data-tip="${tip(h)}">${h.rank}${h.is_ad ? " · 广告" : ""}</span></td><td><span tabindex="0" class="tip" data-tip="${tip(h)}">${money(h.display_price)}</span></td></tr>`,
     ),
   );
+  // One platform group spans its horizontal rank and starting-price columns.
+  $("#hotel-table table thead").insertAdjacentHTML(
+    "afterbegin",
+    '<tr><th colspan="2" scope="colgroup">酒店</th><th colspan="2" scope="colgroup">携程</th></tr>',
+  );
+  document.querySelectorAll("#hotel-table .tip").forEach((cell) => {
+    const show = () => {
+      const tip =
+        $("#market-tooltip") ??
+        document.body.appendChild(
+          Object.assign(document.createElement("div"), {
+            id: "market-tooltip",
+            role: "tooltip",
+          }),
+        );
+      tip.textContent = cell.dataset.tip;
+      tip.hidden = false;
+      cell.setAttribute("aria-describedby", tip.id);
+      const rect = cell.getBoundingClientRect();
+      tip.style.left =
+        Math.max(
+          8,
+          Math.min(rect.left, window.innerWidth - tip.offsetWidth - 8),
+        ) + "px";
+      tip.style.top =
+        Math.max(
+          8,
+          Math.min(rect.bottom + 6, window.innerHeight - tip.offsetHeight - 8),
+        ) + "px";
+    };
+    const hide = () => {
+      const tip = $("#market-tooltip");
+      if (tip) tip.hidden = true;
+    };
+    cell.onmouseenter = cell.onfocus = show;
+    cell.onmouseleave = cell.onblur = hide;
+    cell.onkeydown = (e) => {
+      if (e.key === "Escape") hide();
+    };
+  });
 }
 const scopeFields = `<label>采集范围<select name="scope"><option value="top30">30家</option><option value="custom">自定义</option><option value="all">全市场</option></select></label><label>自定义数量<input type="number" name="limit" value="30" min="1" max="2000"></label>`;
 const targetFields = `<label>平台<select name="platform"><option value="ctrip">携程</option></select></label><label>城市<input name="city" value="咸宁" required></label><label>关键词<input name="keyword" value="中心花坛"></label>`;
@@ -307,6 +350,8 @@ async function hotels() {
   );
 }
 async function action(fn) {
+  const tooltip = $("#market-tooltip");
+  if (tooltip) tooltip.hidden = true;
   $("#error").textContent = "";
   try {
     await fn();

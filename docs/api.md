@@ -33,3 +33,5 @@ CF-Access-Jwt-Assertion签名验证+ADMIN_EMAILS。OTA的/api/v1/admin/*经Servi
 生产无本地管理员后门。测试只能ENVIRONMENT=local并且API URL为localhost/127.0.0.1且LOCAL_ADMIN_TOKEN匹配。
 
 GET /health执行D1 SELECT 1，只返回数据库依赖状态；成功200，数据库不可用503，不披露业务记录或内部错误。
+
+市场curve.myPrice按当前人工映射读取该日期快照原始观察；snapshot.facts与strategy_history仍保留采集时不可变策略事实。缺失快照/未映射/缺失价格返回null，不插值。

@@ -121,6 +121,20 @@ async function market(db, u) {
         selected.id,
       )
     : [];
+  // Display uses current human mapping; immutable strategy facts retain their original context.
+  const minePrices = snapshots.length
+    ? await rows(
+        db,
+        `SELECT o.snapshot_id,o.display_price FROM market_observations o
+     JOIN hotel_mappings m ON m.platform=o.platform AND m.hotel_id=o.hotel_id
+     JOIN livv_hotels h ON h.id=m.livv_hotel_id AND h.category='mine'
+     WHERE o.snapshot_id IN (SELECT value FROM json_each(?))`,
+        JSON.stringify(snapshots.map((s) => s.id)),
+      )
+    : [];
+  const mineBy = new Map(
+    minePrices.map((o) => [o.snapshot_id, o.display_price]),
+  );
   const by = new Map(snapshots.map((s) => [s.checkin, s]));
   const curve = Array.from({ length: horizon }, (_, i) => {
     const checkin = addDays(today, i),
@@ -132,7 +146,8 @@ async function market(db, u) {
       market_status: s?.market_status ?? null,
       ...(s
         ? JSON.parse(s.facts)
-        : { minimum: null, median: null, maximum: null, myPrice: null }),
+        : { minimum: null, median: null, maximum: null }),
+      myPrice: s ? (mineBy.get(s.id) ?? null) : null,
     };
   });
   const history = selected

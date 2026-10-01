@@ -501,3 +501,50 @@ test("production health verifies its actual database dependency", async () => {
   assert.equal(response.status, 503);
   assert.equal((await response.json()).database, "unavailable");
 });
+
+test("market display follows later manual mappings while strategy history stays immutable", async () => {
+  const h = harness(),
+    d = await ready(h),
+    p = payload(d.t);
+  await h.call(`/v1/device/attempts/${d.a.id}/result`, "POST", p, d.headers);
+  const path = `/v1/admin/market?checkin=${d.t.checkin}&horizon=30`;
+  const before = (await h.call(path)).data;
+  assert.equal(before.curve.length, 30);
+  assert.equal(before.hotels[0].category, "other");
+  assert.equal(before.hotels[0].standard_name, p.hotels[0].hotel_name);
+  const livv = (
+    await h.call("/v1/admin/livv-hotels", "POST", {
+      name: "我的标准名",
+      category: "mine",
+    })
+  ).data.id;
+  await h.call("/v1/admin/mappings", "POST", {
+    platform: "ctrip",
+    hotel_id: "1",
+    livv_hotel_id: livv,
+    confirm: true,
+  });
+  const mapped = (await h.call(path)).data;
+  const point = mapped.curve.find((x) => x.checkin === d.t.checkin);
+  assert.equal(point.myPrice, 100);
+  assert.equal(point.minimum, 100);
+  assert.equal(point.median, 114.5);
+  assert.equal(point.maximum, 129);
+  assert.equal(mapped.hotels[0].standard_name, "我的标准名");
+  assert.equal(mapped.hotels[0].hotel_name, p.hotels[0].hotel_name);
+  assert.deepEqual(mapped.strategy_history, before.strategy_history);
+  assert.ok(
+    mapped.curve
+      .filter((x) => !x.snapshot_id)
+      .every((x) =>
+        [x.minimum, x.median, x.maximum, x.myPrice].every((v) => v === null),
+      ),
+  );
+  await h.call("/v1/admin/mappings?platform=ctrip&hotel_id=1", "DELETE");
+  const unlinked = (await h.call(path)).data;
+  assert.equal(
+    unlinked.curve.find((x) => x.checkin === d.t.checkin).myPrice,
+    null,
+  );
+  assert.equal(unlinked.hotels[0].category, "other");
+});

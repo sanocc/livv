@@ -168,19 +168,18 @@ td small {
   position: relative;
   cursor: help;
 }
-.tip:hover:after,
-.tip:focus:after {
-  content: attr(data-tip);
-  position: absolute;
-  top: 24px;
-  left: 0;
+#market-tooltip {
+  position: fixed;
   white-space: pre-line;
   background: #172d31;
   color: white;
   padding: 12px;
-  min-width: 220px;
-  z-index: 3;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 16px));
+  overflow-wrap: anywhere;
+  z-index: 10;
   border-radius: 6px;
+  pointer-events: none;
 }
 .chart {
   width: 100%;
