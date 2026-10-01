@@ -8,7 +8,9 @@ const root = path.resolve(import.meta.dirname, ".."),
 for (const file of [
   manifest.background.service_worker,
   manifest.action.default_popup,
+  manifest.side_panel?.default_path,
   ...manifest.content_scripts.flatMap((x) => x.js),
 ])
-  if (!fs.existsSync(path.join(dir, file))) throw new Error("Missing " + file);
+  if (file && !fs.existsSync(path.join(dir, file)))
+    throw new Error("Missing " + file);
 console.log("MV3 helper validated; load unpacked: " + dir);

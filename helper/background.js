@@ -8,8 +8,9 @@ import {
 } from "./mobile.js";
 import { performInput } from "./input.js";
 import { failRemainingDetails, completeDetailResults } from "./detail-state.js";
+import { taskView, publicState, remember, trustedView } from "./view-state.js";
 const API = "https://api.livv.cc",
-  VERSION = "1.0.0";
+  VERSION = chrome.runtime.getManifest().version;
 let busy = false,
   timer;
 const read = async () =>
@@ -22,13 +23,21 @@ const read = async () =>
     "error",
     "logs",
     "managed_tab",
+    "ui_history",
   ]);
 async function log(event, message = "") {
-  const { logs = [] } = await read();
+  const { logs = [], active } = await read();
   await chrome.storage.local.set({
-    logs: [...logs, { at: new Date().toISOString(), event, message }].slice(
-      -100,
-    ),
+    logs: [
+      ...logs,
+      {
+        at: new Date().toISOString(),
+        event,
+        message,
+        task_id: active?.task.id ?? null,
+        attempt_id: active?.attempt.id ?? null,
+      },
+    ].slice(-100),
   });
 }
 async function identity() {
@@ -117,13 +126,38 @@ async function execute(a, func, args = []) {
   });
   return result[0]?.result;
 }
-const save = (a) => chrome.storage.local.set({ active: a });
+async function recordView(record) {
+  try {
+    const { ui_history = [] } = await read();
+    await chrome.storage.local.set({
+      ui_history: remember(ui_history, record),
+    });
+  } catch {
+    /* A display cache must never prevent collection or upload. */
+  }
+}
+async function save(a) {
+  await chrome.storage.local.set({ active: a });
+  await recordView(taskView(a));
+}
 async function fail(a, code, message) {
   await log(code, message);
+  let acknowledged = false;
   await request(`/v1/device/attempts/${a.attempt.id}/fail`, {
     error_code: code,
     error_message: message,
-  }).catch(() => {});
+  })
+    .then(() => {
+      acknowledged = true;
+    })
+    .catch(() => {});
+  await recordView({
+    ...taskView(a),
+    status: null,
+    attempt_status: acknowledged ? "FAILED" : null,
+    error_code: code,
+    finished_at: new Date().toISOString(),
+  });
   await chrome.storage.local.set({ active: null, error: code });
   if (["CAPTCHA_REQUIRED", "LOGIN_REQUIRED"].includes(code))
     await chrome.storage.local.set({ auto: false });
@@ -137,6 +171,19 @@ async function run(a) {
         a.upload,
       );
       await log(result.status, `保存真实酒店${result.market_count}家`);
+      await recordView({
+        ...taskView(a),
+        status: result.status ?? null,
+        attempt_status: result.status ?? null,
+        count: result.market_count ?? a.market?.length,
+        detail_success:
+          result.detail_success ??
+          a.detail_results.filter((d) => d.status === "SUCCESS").length,
+        detail_total: result.detail_total ?? a.details?.length,
+        snapshot_id: result.snapshot_id,
+        error_code: result.status === "PARTIAL" ? "PARTIAL_COLLECTION" : null,
+        finished_at: new Date().toISOString(),
+      });
       await chrome.storage.local.set({
         active: null,
         error: null,
@@ -436,6 +483,13 @@ async function tick(heartbeat = false) {
     }
     if (state.active) {
       if (heartbeatFetched && !state.cloud.active_attempt) {
+        await recordView({
+          ...taskView(state.active),
+          status: null,
+          attempt_status: null,
+          error_code: "SERVER_ATTEMPT_FINISHED",
+          finished_at: new Date().toISOString(),
+        });
         await log("SERVER_ATTEMPT_FINISHED", state.active.attempt.id);
         await chrome.storage.local.set({ active: null, error: null });
         return;
@@ -553,30 +607,16 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     });
     return;
   }
-  if (
-    sender.id !== chrome.runtime.id ||
-    sender.url !== chrome.runtime.getURL("popup.html")
-  )
-    return;
+  if (!trustedView(sender, chrome.runtime)) return;
   (async () => {
     if (m.type === "STATE") {
       const s = await read(),
         i = await identity();
-      return {
-        device_id: i.device_id,
-        auto: s.auto,
-        cloud: s.cloud,
-        active: s.active
-          ? {
-              task_id: s.active.task.id,
-              attempt: s.active.attempt.attempt_number,
-              phase: s.active.phase,
-              count: s.active.market?.length,
-            }
-          : null,
-        last_error: s.error,
-        logs: s.logs,
-      };
+      return publicState(s, i.device_id, chrome.runtime.getManifest().version);
+    }
+    if (m.type === "CLEAR_LOGS") {
+      await chrome.storage.local.set({ logs: [] });
+      return { ok: true };
     }
     if (m.type === "AUTO") {
       await chrome.storage.local.set({ auto: !!m.enabled });
@@ -639,7 +679,21 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
       return { ok: true };
     }
     if (m.type === "TASK") {
-      return request("/v1/device/tasks", m.task);
+      const task = await request("/v1/device/tasks", m.task);
+      await recordView({
+        task_id: task.id,
+        task,
+        status: task.status,
+        attempt_status: null,
+        started_at: null,
+        created_at: task.created_at,
+        count: 0,
+        detail_total: 0,
+        detail_success: 0,
+        detail_failed: 0,
+        detail_results: [],
+      });
+      return task;
     }
     if (m.type === "POLL") {
       await tick(true);
@@ -653,4 +707,12 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
 });
 
 // Recover heartbeat alarms whenever the MV3 worker wakes, including re-enable.
+// Display-only migration; panels never own execution timers or active state.
+if (chrome.sidePanel?.setPanelBehavior) {
+  void chrome.sidePanel
+    .setPanelBehavior({ openPanelOnActionClick: true })
+    .catch(() => {});
+} else {
+  void chrome.action.setPopup({ popup: "popup.html" });
+}
 void tick(true);

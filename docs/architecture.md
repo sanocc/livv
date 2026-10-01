@@ -78,3 +78,7 @@ Plan -> Task -> Attempt分离。部分索引保证每设备/任务只有一个RU
 计划horizon=14/30表示D0加未来14/30天（D+14/D+30均包含）；市场曲线horizon仍是14/30个日期点，从今日开始。修复原调度循环遗漏端点，与既有频率表一致。D+15～30按业务日序号和Plan ID稳定相位隔日一次；不是隔日采不同日期。
 
 每分钟仅为尚未到期的窗口生成缺失schedule_key，due_at不早于生成时间。按稳定hash排序和窗口内jitter，使用在线已批准设备数量、执行中Attempt硬截止与已有待执行任务预留估计180秒负载；不足时标capacity_warning，不跨窗口延长。既有Task的due_at不重排，唯一schedule_key抵御Cron重复/并发插入。设备离线、禁用和Attempt最终互斥仍以领取事务与原始窗口为准。
+
+## Helper正式侧边栏展示
+
+Helper1.1.0采用Chrome Side Panel；background/service worker继续独占注册、心跳、领取、执行与上传，panel关闭/页面切换只影响展示。STATE只返回白名单任务摘要、设备云端名称、进度、日志及本地30条近期任务缓存，凭证/全量房型payload不进入panel。精确允许扩展自身popup.html/sidepanel.html发出管理消息；内容脚本仍只能对自有managed_tab发送PAGE_READY。无新取消语义、后台计时器调整、Schema或业务API。旧popup开发入口保留，Side Panel不可用时回退popup。Task终态不能由Attempt失败推断，未确认状态展示待云端确认。

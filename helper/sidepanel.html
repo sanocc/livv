@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LIVV Helper</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+    <script type="module" src="sidepanel.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <strong>LIVV <span>Helper</span></strong
+        ><small id="version">—</small>
+      </div>
+      <span class="badge neutral" id="online">连接中</span>
+    </header>
+    <nav aria-label="Helper导航">
+      <button data-tab="collect" aria-selected="true">采集</button
+      ><button data-tab="tasks" aria-selected="false">任务</button
+      ><button data-tab="logs" aria-selected="false">日志</button>
+    </nav>
+    <main>
+      <p id="error" role="status" hidden></p>
+      <section id="collect">
+        <div id="current"></div>
+        <article class="card" id="request-card">
+          <div class="card-title">
+            <h2>立即采集</h2>
+            <span class="muted">创建云端任务</span>
+          </div>
+          <p class="hint">云端创建正式Task，由当前设备依序领取并执行。</p>
+          <form id="task">
+            <label
+              >平台<select name="platform">
+                <option value="ctrip">携程</option>
+              </select></label
+            ><label
+              >城市<input
+                name="city"
+                value="咸宁"
+                required
+                maxlength="80" /></label
+            ><label>入住日期<input type="date" name="checkin" required /></label
+            ><label
+              >退房日期<input type="date" name="checkout" required /></label
+            ><label class="wide"
+              >关键词<input
+                name="keyword"
+                value="中心花坛"
+                maxlength="120"
+                required /></label
+            ><label
+              >采集范围<select name="scope">
+                <option value="top30">30家</option>
+                <option value="custom">自定义</option>
+                <option value="all">全市场</option>
+              </select></label
+            ><label id="custom-limit" hidden
+              >自定义数量<input
+                name="limit"
+                type="number"
+                value="30"
+                min="1"
+                max="2000" /></label
+            ><button class="primary wide" id="start" type="submit">
+              开始采集
+            </button>
+          </form>
+          <p id="created" class="hint" role="status"></p>
+        </article>
+        <article class="card">
+          <label class="auto-row"
+            >自动接单<input type="checkbox" id="auto"
+          /></label>
+          <p class="hint">关闭仅暂缓新领取，正在执行的任务继续运行。</p>
+        </article>
+      </section>
+      <section id="tasks" hidden>
+        <div class="page-heading">
+          <h2>当前设备最近任务</h2>
+          <span class="muted">本地保留30条</span>
+        </div>
+        <p class="hint">
+          仅记录此Helper实际创建或执行过的任务。完整云端历史请在OTA查看。
+        </p>
+        <div id="history"></div>
+      </section>
+      <section id="logs" hidden>
+        <div class="page-heading">
+          <h2>执行日志</h2>
+          <button id="copy">复制日志</button>
+        </div>
+        <div class="log-toolbar">
+          <span class="muted">仅当前Helper本地日志</span
+          ><button id="clear">清空本地显示</button>
+        </div>
+        <pre id="log-list"></pre>
+        <details class="card">
+          <summary>开发工具</summary>
+          <div class="tools">
+            <button id="poll">刷新 / 心跳</button
+            ><button id="debug">当前页面结构</button
+            ><button id="input-permission">检查自动操作权限</button
+            ><button id="probe">验证禁用拦截</button>
+          </div>
+          <pre id="dom">尚未探测</pre>
+          <h3>性能信息</h3>
+          <p class="hint">
+            仅展示已记录的真实计时；当前版本未采集的阶段保持缺失。
+          </p>
+          <pre id="performance">暂无阶段计时</pre>
+        </details>
+      </section>
+    </main>
+    <footer id="device"></footer>
+  </body>
+</html>

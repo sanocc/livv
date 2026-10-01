@@ -1,17 +1,23 @@
 {
   "manifest_version": 3,
   "name": "LIVV 酒店助手",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "领取云端任务并自动采集携程移动端真实酒店市场数据",
-  "permissions": ["storage", "alarms", "tabs", "scripting", "debugger"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "debugger",
+    "sidePanel"
+  ],
   "host_permissions": ["https://api.livv.cc/*", "https://m.ctrip.com/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "action": {
-    "default_popup": "popup.html"
-  },
+  "action": { "default_title": "打开 LIVV Helper" },
+  "side_panel": { "default_path": "sidepanel.html" },
   "content_scripts": [
     {
       "matches": ["https://m.ctrip.com/webapp/hotels/*"],

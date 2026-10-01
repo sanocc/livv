@@ -71,3 +71,9 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 实现提交e5b7f3545f659ef96deccdbd51f8a7750eeb3d14已Push main，Workers Builds livv-api于16:43:50、livv-ota于16:43:57（UTC+8）completed/success。线上真实已登录Chrome核验：顶部只有入住日期/市场范围，默认未来14天至10月15日T+14，切未来30天至10月31日T+30，所选入住日期10月1日、30家市场、五卡价格及酒店列表保持原样；胶囊位于图表标题旁，副标题无重复周期，四线和真实缺失—保留。证据.local/proofs/period-builds.json、period-online.png。
 
 发布前后D1 Plan逐字段比较完全一致：正式3963a563-7687-45dc-9b2a-d33cbdd0cd7c仍enabled=1/horizon=14，停用验收Plan仍enabled=0。16:44只读核验设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9 approved/1.0.0，心跳16:44:09、last_error=null。期间自然Task96afe25685b21ad2b4823b7e6baf7778在16:00～18:00原窗口内于16:08:53真实COMPLETED；该成功早于本次16:43发布，证明开发期间仍自然运行，不冒充发布后新的采集验收。全部历史错误与结果保留，无人工任务、生产数据改写或Helper重载。比较证据.local/proofs/period-production-before.json、period-production-after.json。
+
+## Helper正式Side Panel UI V1部署（2026-10-01）
+
+Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无身份重注册或设备禁用；新增sidePanel展示权限，不扩大API/携程主机或debugger能力。点击扩展图标打开右侧正式采集/任务/日志界面；关闭侧边栏不关闭后台采集。云端Worker/Plan配置、API业务逻辑、数据库与OTA资产未改。版本随manifest传入既有注册/心跳。
+
+44项测试及MV3/语法检查通过，真实Side Panel自动领取生产Task和“开始采集”云端Task两次30家/详情3/3/sold_out/上传核验见testing.md。同期间另一Task自然FAILED亦保留；不宣称搜索输入错误已经修复。最终auto=true，保持当前Chrome/设备在线以继续正式14天Plan。任务页仅本地近期缓存，不冒充全量云端历史；查看权威终态与全部错误仍用OTA任务详情。

@@ -215,3 +215,30 @@ V1.2线上验收：f3363f7自动Git构建成功，真实已登录OTA市场14/30�
 38项npm test通过，npm run check及OTA Worker dry-run构建通过。新增验证覆盖15/31端点、T+30真实快照可读、旧接口响应兼容/非法参数/只读、周期切换不改变卡片与表格、选中T+30不变、快速响应竞态、周末/假期优先颜色及缺失断线。所有任务Fixture仅内存。
 
 本地1440px预览使用真实生产D1的只读SELECT；默认15点、切30天31点，切换前后入住日期/范围/卡片/核心竞品表HTML逐项一致。无生产Mock或人工Task；正式Plan、Helper、Schema、调度与市场统计口径未修改。线上发布核验补记于部署文档。
+
+## Helper正式Side Panel UI V1（2026-10-01）
+
+界面迁移使用Chrome Side Panel，白色卡片、采集/任务/日志导航；后台仍唯一持有active、单任务执行timer与设备凭证。关闭界面只清理显示刷新timer，重开读取既有持久状态。新增权限仅sidePanel，携程/API主机范围、debugger输入约束和原解析器不变；旧popup与全部DOM探测/权限检查/禁用探测保留。依据[Chrome官方Side Panel文档](https://developer.chrome.com/docs/extensions/reference/api/sidePanel)。
+
+立即采集沿用TASK消息→既有POST /v1/device/tasks，当前设备依序领取；没有本地绕过执行，没有新增cancel或业务状态机。自动接单开关只暂缓新领取，不中断active。市场列表与详情处理数分别展示，详情完成数含成功+失败并明确失败数；失败时间线显示真实错误。设备名称仅云端读取，API/在线以最近真实心跳判断，不伪称无错误。
+
+任务页为当前Helper本地最近30条创建/执行记录，非完整云端历史；仅API确认的COMPLETED/PARTIAL显示为Task终态。fail接口只确认Attempt失败，Task可能重排，因此Task显示待云端确认；服务器失去active也不猜测最终状态。本地记录追加最近5次Attempt摘要，不覆盖云端历史。清空日志仅清本机logs，不删除任务缓存、观察或云端事件。性能剖析草稿按用户最新“本轮只做UI”要求暂存，阶段数据未记录时明确暂无，不制造示例耗时。
+
+新增6项自动测试覆盖持久状态恢复/无凭证输出/列表详情分开、PARTIAL和Attempt失败与Task未知区分、精确可信扩展页面消息来源、MV3/主机边界/无cancel、云端TASK提交与关闭仅销毁显示timer、本地多Attempt失败摘要保留；连同既有测试44项通过，MV3构建/语法/数据库边界检查通过。真实验收完成证据继续补记，不将此自动测试当真实采集PASS。
+
+### 真实Chrome验收：UI链路PASS，历史错误原样保留
+
+办公室Mac设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9空闲时重载Helper1.1.0，注册身份、审批与权限沿用；实际Side Panel打开、采集/任务/日志导航、云端设备名、在线心跳及30家/详情分段进度核验通过。此前为安全重载暂缓新领取，最终已恢复auto=true。没有改动Task频率或Plan开关。
+
+| 类型 | Task / Attempt / Snapshot | 真实结果 |
+|---|---|---|
+| 正式Plan自然领取 | a307530ce0142765261ab66488843a31 / 791aa7c4-5770-4559-afdd-1650dc3994e6 / ccc069e6-2ba7-49e8-9c88-e176e940aaf3 | 17:53:05～17:54:44，10月1～2日，COMPLETED，30条/30唯一ID、详情3/3，房型4+5+3=12，明确sold_out 3条 |
+| 从Side Panel“开始采集”创建 | c00da60e-a10d-4529-b2dc-6bd00cf61318 / f9322c9e-2648-4987-9757-09a50963198f / cc3a3d94-a03b-44f9-b274-ca98ad24df79 | 17:52:53云端正式创建，preferred_device为当前设备；先执行既有生产任务，18:00:21～18:01:59自动执行10月2～3日，COMPLETED，30条/30唯一ID、详情3/3，房型4+5+4=13，明确sold_out 2条 |
+
+三家为2114264 / 6422421 / 6955433。两份快照Attempt/Task/Device关联一致，observed_at在started_at之后、received_at之前，上传在原窗口内。5条sold_out均真实房型卡片“已订完”，original_price/display_price均NULL，不将缺价猜为售罄。不同入住日期房型数量如实保存，不借用历史14房型补齐。携程mobile.js、input.js、detail-state.js、ready.js与本轮基线逐字节相同。
+
+第一次在a307530详情阶段关闭Side Panel，后台继续完成并上传；第二次a0dc4e2c59d7ae37f65f8efef8d15d09执行中快速关闭重开，仍显示相同Task及Attempt04c509ee-006d-4b0b-8da1-f14533774f71，搜索阶段继续推进。该Task随后出现INPUT_TARGET_CHANGED，并自然保留3次失败Attempt：SEARCH_CONTROL_TIMEOUT、ATTEMPT_TIMEOUT、ATTEMPT_TIMEOUT；18:00原窗口结束后Task最终FAILED。此失败不改写、不删除，不将上述两个COMPLETED宣称为所有任务均无错误。搜索控件超时/输入目标变动在本轮UI迁移前的生产样本已存在，但尚未证明本次失败的具体因果；单独保留为后续采集可靠性/性能剖析观察项，本轮不修改搜索状态机。任务页对未获云端终态确认记录仍显示待云端确认。
+
+生产Plan前后整行完全一致，唯一临时验收Plan仍停用；18:06:50设备approved/1.1.0/last_error=null，无RUNNING Attempt；18:08最终展示修正重载后auto=true、在线空闲。最后小修仅保留本地多Attempt摘要、避免提交期间刷新重新启用按钮，不改采集执行。证据位于本地忽略目录.local/proofs/sidepanel-before.json、sidepanel-final.json、sidepanel-tests.txt及真实Chrome截图。未使用生产Mock、修改终态或新建验收Plan。
+
+18:13最终已登录OTA真实刷新，仍正常读取新生产快照：当日最新17:53:54，详情3/3、30家有价样本、中位¥189.5，生产最近COMPLETED为17:54:44（只统计正式启用Plan，18:01手动任务不纳入该运行指标）。Side Panel在切换到OTA后仍在线、空闲、auto=true；重载后任务页仍保留c00da60e的真实COMPLETED、13房型及Snapshot ID。API health=200/database=ok，LIVVCC=200，未登录OTA仍正常302至Access；不把302代替已登录应用核验。日志/开发工具实际打开检查通过；不清空本机历史作为演示。
