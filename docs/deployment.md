@@ -61,3 +61,7 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 ## V1.2市场UI发布（2026-10-01）
 
 只修改OTA静态前端、UI测试和文档，沿用market/runtime只读API与现有Access/Service Binding。npm test（34项）、npm run check、OTA Worker dry-run及本地真实数据UI检查通过；从GitHub main Push触发既有Cloudflare Workers Builds，等待自动部署后验证线上。无手工部署替代自动部署、无迁移、无新Secret/权限/接口/业务规则。生产Plan/Device只读前后证据保存在.local/proofs/v12-production-before.json及发布后证据，本地预览仅GET/SELECT，结束后停止。
+
+发布代码提交f3363f7579f31435e11ed41cfca6948d7cbed4cb：GitHub Workers Builds livv-api于15:42:24、livv-ota于15:42:32（UTC+8）均completed/success。API因tests/**监视路径触发相同源码自动构建，API业务代码未改。随后已登录真实Chrome加载ota.livv.cc，确认OTA V1.2资产、默认市场/14天、五卡真实价格、30天走势至10月30日（无数据四项—）、核心竞品两家、Vienna悬浮原始Hotel ID/划线/优惠/起售价正常；线上截图确认五卡一行和蓝色商务布局，无需继续像素调整。构建证据.local/proofs/v12-builds.json。
+
+15:43:39 Helper设备仍approved/在线/1.0.0，无RUNNING Attempt；正式14天Plan及停用验收Plan整行与发布前完全相同。API health=200/database=ok。设备last_error=API_TIMEOUT在15:38本地预览证据中已存在，早于15:42发布，保留为实际观察项，不归因此次UI也不伪称消失。下一自然Task due_at为16:06:55.233，本轮未新增人工Task、未重载扩展、不宣称执行了新真实采集复验；以未修改业务源码/配置、计划整行不变、设备心跳及API健康确认UI未变更生产链路。发布后证据.local/proofs/v12-production-after.json。已结束本地仅读预览，完成第一版后停止新增开发。
