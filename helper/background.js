@@ -1,3 +1,4 @@
+import { telemetryEvent, telemetryQueue } from "./telemetry.js";
 import {
   pageStep,
   inspectList,
@@ -17,6 +18,33 @@ import {
 } from "./navigation.js";
 const API = "https://api.livv.cc",
   VERSION = chrome.runtime.getManifest().version;
+const telemetry = telemetryQueue({
+  storage: chrome.storage.local,
+  send: async (body) => {
+    const id = await identity();
+    const r = await fetch(API + "/v1/device/telemetry", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-LIVV-Device-ID": id.device_id,
+        Authorization: `Bearer ${id.credential}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok || !(await r.json()).available)
+      throw Error("Telemetry unavailable");
+  },
+});
+function observe(event, active) {
+  try {
+    void telemetry
+      .enqueue(telemetryEvent(event, active, VERSION))
+      .catch(() => {});
+  } catch {}
+}
+let progressKey = "",
+  onlineObservedAt = 0;
 let busy = false,
   timer;
 const read = async () =>
@@ -32,8 +60,9 @@ const read = async () =>
     "ui_history",
     "navigation_profiles",
   ]);
-async function log(event, message = "") {
+async function log(event, message = "", context = null) {
   const { logs = [], active } = await read();
+  observe(event, context ?? active);
   await chrome.storage.local.set({
     logs: [
       ...logs,
@@ -144,6 +173,14 @@ async function recordView(record) {
   }
 }
 async function save(a) {
+  if (a.phase === "LIST") {
+    const count = Math.floor((a.market?.length ?? 0) / 10) * 10,
+      key = `${a.attempt.id}:${count}`;
+    if (count > 0 && key !== progressKey) {
+      progressKey = key;
+      observe("LIST_PROGRESS", a);
+    }
+  }
   await chrome.storage.local.set({ active: a });
   await recordView(taskView(a));
 }
@@ -158,6 +195,7 @@ async function fail(a, code, message) {
       acknowledged = true;
     })
     .catch(() => {});
+  if (acknowledged) observe("ATTEMPT_FAILED", a);
   await recordView({
     ...taskView(a),
     status: null,
@@ -170,7 +208,7 @@ async function fail(a, code, message) {
     await chrome.storage.local.set({ auto: false });
 }
 async function phaseEvent(a, event, message = "") {
-  await log(event, message);
+  await log(event, message, a);
   await request(`/v1/device/attempts/${a.attempt.id}/events`, {
     event,
     message,
@@ -212,7 +250,8 @@ async function run(a) {
         `/v1/device/attempts/${a.attempt.id}/result`,
         a.upload,
       );
-      await log(result.status, `保存真实酒店${result.market_count}家`);
+      observe("UPLOAD_SUCCESS", a);
+      await log(result.status, `保存真实酒店${result.market_count}家`, a);
       await log(
         "TASK_TIMING",
         JSON.stringify({
@@ -362,6 +401,7 @@ async function run(a) {
     const reached =
       a.task.collection_limit !== null && map.size >= a.task.collection_limit;
     if (reached || r.exhausted) {
+      a.market_locked_at = Date.now();
       if (a.task.collection_limit)
         a.market = a.market.slice(0, a.task.collection_limit);
       a.stop_reason = reached ? "TARGET_REACHED" : "NATURAL_END";
@@ -375,6 +415,7 @@ async function run(a) {
       await log(
         "MARKET_LOCKED",
         `${a.market.length}家唯一酒店，详情目标${a.details.length}家`,
+        a,
       );
       await request(`/v1/device/attempts/${a.attempt.id}/events`, {
         event: "MARKET_LOCKED",
@@ -578,6 +619,11 @@ async function tick(heartbeat = false) {
         error_code: state.error ?? null,
       });
       await chrome.storage.local.set({ cloud, cloud_at: Date.now() });
+      if (Date.now() - onlineObservedAt > 300000) {
+        onlineObservedAt = Date.now();
+        observe("DEVICE_ONLINE", null);
+      }
+      void telemetry.flush();
       heartbeatFetched = true;
       state = { ...state, cloud };
     }
@@ -636,6 +682,7 @@ async function tick(heartbeat = false) {
         } catch {}
         if (tab && !tab.url?.startsWith("https://m.ctrip.com/webapp/hotels/"))
           tab = null;
+        const navigationStartedAt = Date.now();
         if (!tab)
           tab = await chrome.tabs.create({
             url: entryUrl,
@@ -650,6 +697,7 @@ async function tick(heartbeat = false) {
         const a = {
           ...c,
           tab_id: tab.id,
+          navigation_started_at: navigationStartedAt,
           phase: navigationUrl ? "FAST_NAVIGATION" : "CITY_OPEN",
           navigation_mode: navigationUrl ? "FAST_NAVIGATION" : "UI_FALLBACK",
           phase_at: Date.now(),

@@ -1,3 +1,4 @@
+import { ingestTelemetry, deviceDiagnostics } from "./telemetry.js";
 import { CONFIG, nowIso, businessDate, addDays } from "./config.js";
 import {
   HttpError,
@@ -296,6 +297,8 @@ export async function handle(req, env) {
         server_time: nowIso(),
       });
     }
+    if (p === "/v1/device/telemetry" && method === "POST")
+      return json(await ingestTelemetry(env, d, b));
     if (p === "/v1/device/tasks" && method === "POST")
       return json(await newTask(db, b, d.id), 201);
     if (p === "/v1/device/claim" && method === "POST")
@@ -449,6 +452,9 @@ export async function handle(req, env) {
         list.map((d) => ({ ...d, display_status: deviceStatus(d, d.running) })),
       );
     }
+    const diagnostics = p.match(/^\/v1\/admin\/devices\/([^/]+)\/diagnostics$/);
+    if (diagnostics && method === "GET")
+      return json(await deviceDiagnostics(env, diagnostics[1]));
     const dm = p.match(/^\/v1\/admin\/devices\/([^/]+)$/);
     if (dm && method === "PATCH") {
       requireThat(

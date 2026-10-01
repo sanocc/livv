@@ -9,6 +9,7 @@ import {
   technicalError,
   statusLabels,
   errorLabels,
+  eventLabels,
 } from "../helper/i18n.js";
 import {
   taskView,
@@ -20,6 +21,8 @@ import {
   taskCard,
   historyCards,
   stageLabel,
+  updateHTML,
+  updateText,
 } from "../helper/sidepanel-view.js";
 const active = () => ({
   task: {
@@ -182,6 +185,7 @@ test("sidepanel submit goes through existing background TASK message; closing vi
     if (!nodes.has(s))
       nodes.set(s, {
         value: "",
+        dataset: {},
         hidden: false,
         textContent: "",
         innerHTML: "",
@@ -225,6 +229,8 @@ test("sidepanel submit goes through existing background TASK message; closing vi
       },
     },
     setInterval: () => 42,
+    setTimeout,
+    clearTimeout,
     clearInterval: (id) => calls.push({ clearTimer: id }),
     Intl,
     Date,
@@ -251,6 +257,8 @@ test("sidepanel submit goes through existing background TASK message; closing vi
     time: (v) => String(v),
     taskCard: () => "",
     historyCards: () => "",
+    updateHTML,
+    updateText,
   });
   vm.runInContext(source, ctx);
   await new Promise((r) => setImmediate(r));
@@ -388,7 +396,10 @@ test("all emitted API/helper error codes have Chinese display mapping; business 
       ),
   );
   for (const code of codes)
-    assert.ok(errorLabels[code], `Missing display translation: ${code}`);
+    assert.ok(
+      errorLabels[code] || eventLabels[code],
+      `Missing display translation: ${code}`,
+    );
   assert.equal(errorLabel("SEARCH_CONTROL_TIMEOUT"), "搜索条件设置超时");
   assert.equal(errorLabel("INPUT_TARGET_CHANGED"), "页面操作目标发生变化");
   assert.equal(errorLabel("NEW_ERROR"), "操作异常，请查看技术详情");

@@ -11,7 +11,13 @@ test("price chart preserves gaps, all four series and decimal medians", () => {
   const context = vm.createContext({
     document: { querySelector: () => ({}), querySelectorAll: () => [] },
   });
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   const curve = [100, null, 120].map((v, i) => ({
     checkin: `2026-10-0${i + 1}`,
     minimum: v,
@@ -125,7 +131,13 @@ test("market cards and horizontal platform table use supplied facts and original
     new URL("../ota/public/app.js", import.meta.url),
     "utf8",
   );
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   await vm.runInContext("market()", context);
   const view = node("#view").innerHTML,
     table = node("#hotel-table").innerHTML;
@@ -199,7 +211,13 @@ test("empty market and missing date hover show gaps, not invented prices or stra
     new URL("../ota/public/app.js", import.meta.url),
     "utf8",
   );
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   await vm.runInContext("market()", context);
   const html = node("#view").innerHTML;
   assert.ok(html.includes("暂无真实价格数据"));
@@ -261,7 +279,13 @@ test("chart period reads inclusive 15/31 dates without changing selected market,
     new URL("../ota/public/app.js", import.meta.url),
     "utf8",
   );
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   vm.runInContext(
     "filter={city:'咸宁',keyword:'中心花坛',scope:'all',horizon:30,inclusive:1,checkin:'2026-10-31'}; marketData={hotels:[{category:'core'}]}",
     context,
@@ -316,7 +340,13 @@ test("chart calendar and smooth area keep factual gaps, holiday precedence and u
     new URL("../ota/public/app.js", import.meta.url),
     "utf8",
   );
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   assert.equal(
     vm.runInContext("dateLabel('2026-10-02','2026-10-01').color", context),
     "holiday-date",
@@ -372,7 +402,13 @@ test("late period response cannot overwrite the latest choice", async () => {
     new URL("../ota/public/app.js", import.meta.url),
     "utf8",
   );
-  vm.runInContext(source.replace(/load\(\);\s*$/, ""), context);
+  vm.runInContext(
+    source
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/^import[\s\S]*?;\n/, "")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
   const first = vm.runInContext("setChartHorizon(14)", context),
     last = vm.runInContext("setChartHorizon(30)", context);
   const result = (n) => ({
@@ -406,6 +442,7 @@ test("all 15/31 equal full date columns remain, including missing dates and work
   vm.runInContext(
     fs
       .readFileSync(new URL("../ota/public/app.js", import.meta.url), "utf8")
+      .replace(/^import[\s\S]*?;\n/, "")
       .replace(/load\(\);\s*$/, ""),
     context,
   );
@@ -455,6 +492,7 @@ test("floating tooltip follows pointer Y, flips sides, avoids the date column an
   vm.runInContext(
     fs
       .readFileSync(new URL("../ota/public/app.js", import.meta.url), "utf8")
+      .replace(/^import[\s\S]*?;\n/, "")
       .replace(/load\(\);\s*$/, ""),
     context,
   );

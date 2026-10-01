@@ -122,3 +122,15 @@ export function historyCards(history, logs = []) {
     })
     .join("");
 }
+
+export function updateHTML(node, html) {
+  // Cache the desired markup: expanded details change DOM serialization themselves.
+  if (node.dataset.renderedHtml === html) return false;
+  node.innerHTML = html;
+  node.dataset.renderedHtml = html;
+  return true;
+}
+
+export function updateText(node, text) {
+  if (node.textContent !== text) node.textContent = text;
+}

@@ -1,5 +1,11 @@
 # LIVV OTA V1 架构决策
 
+## Helper V1.3可观测性分层
+
+D1维持原业务表与必要阶段事件，不增加高频日志表。Helper本地日志保持，白名单标量事件独立批量POST到API，再写Analytics Engine。上传事件失败只影响本地有限队列，不抛入Task执行链路；API读取既有Attempt关系及真实Task终态，不能让执行失败冒充Task最终FAILED。Workers Logs继续持久化API调用与异常，未使用Logpush/R2或第三方监控。OTA设备运行概况读取D1业务状态及可选Analytics采样事件。详情见helper-observability.md。
+
+Side Panel保留STATE轮询，展示内容未变化不替换innerHTML/textContent；storage变化只监听界面相关键并合并刷新。错误不再每次先隐藏再显示，展开状态与滚动恢复。不调整采集状态机、tick或滚动等待。
+
 ## MARKET_LIST导航与详情分离（Helper1.2.0）
 
 Helper1.2.1（FAST_NAV Mac: PASS；Windows: PENDING）在24小时本机缓存之外，为咸宁/中心花坛提供独立浏览器回放过的原生导航模板，解决新设备无缓存冷启动；每次仍必须通过真实DOM/卡片曝光Context，不通过则UI fallback。本版本完成三轮Mac真实30家验收（含无缓存），尚未完成Windows真实30家验收，不宣称跨平台PASS，见helper-fast-navigation.md与testing.md。以下1.2.0限制保留为历史基线。

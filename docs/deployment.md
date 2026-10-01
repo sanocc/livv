@@ -1,5 +1,13 @@
 # 部署实况
 
+## Helper V1.3生产部署（2026-10-02）
+
+livv-api增加HELPER_EVENTS→livv_helper_events Analytics Engine绑定与公开CF_ACCOUNT_ID；Workers Logs显式开启invocation_logs/enabled、head_sampling_rate=1，沿用原已启用持久化配置。无Schema迁移、Cron频率、正式Plan或API鉴权变动。API预验收版本98cd5605-77b1-4b6e-b49e-940f7388868d、OTA预验收版本e9eee497-24bc-43d3-abbf-5cd3ce56978c。main推送后既有Workers Builds再部署，最终版本以Cloudflare记录为准。
+
+用户即时确认后，通过已登录Cloudflare创建LIVV Helper Analytics Read，仅当前LIVV账户“账户分析：读取”，配置为livv-api的CF_ANALYTICS_READ_TOKEN Secret。Token未写仓库/Helper/前端/聊天，临时0600文件已移除；部署必须保留Secret。若撤销/过期，OTA显示Analytics暂不可用，不影响采集或D1业务。
+
+Mac空闲时重载Helper1.3.0，保留身份与自动接单；Git Push不会自动更新已安装解压扩展，Windows需空闲时更新原目录并重载，真实验收PENDING。排障先看OTA设备运行概况，再看Task/Attempt详情和Workers Logs；Analytics可能采样，不能以少一条事件认定任务失败。字段/边界见helper-observability.md。
+
 2026-10-01：新仓库 https://github.com/sanocc/livv ，创建时间2026-09-30T16:59:15Z，验证时size=0，无refs，管理员写权限正常。本地旧.git移入忽略目录.local/discarded-git-v0；新main重新初始化，旧9个提交不推送。
 
 Cloudflare账号已通过现有Wrangler OAuth验证。创建全新D1 livv-v1；数据库ID在api/wrangler.jsonc。旧数据库/Worker未迁移；盘点时Worker、D1与Access Apps均为空。

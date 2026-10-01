@@ -1,3 +1,8 @@
+import {
+  diagnosticsView,
+  errorLabel,
+  statusLabel,
+} from "./device-diagnostics.js";
 const $ = (s) => document.querySelector(s),
   esc = (v) =>
     String(v ?? "—").replace(
@@ -566,13 +571,29 @@ async function tasks() {
 async function devices() {
   const data = await api("devices");
   $("#view").innerHTML =
-    `<p class="muted">首次安装待批准。设备凭证独立于 Device ID，禁用立即阻止正式工作。</p>${table(
-      ["设备", "永久 Device ID", "状态", "最近心跳", "操作"],
+    `<p class="muted">首次安装待批准。设备凭证独立于设备 ID，禁用立即阻止正式工作。</p>${table(
+      ["设备", "永久设备 ID", "状态", "最近心跳", "操作"],
       data.map(
         (d) =>
-          `<tr><td>${esc(d.name ?? "未命名")}<small>${esc(d.version)}</small></td><td>${esc(d.id)}</td><td>${d.display_status}<small>${esc(d.last_error)}</small></td><td>${datetime(d.last_seen_at)}</td><td><button data-name="${d.id}">改名</button> <button data-device="${d.id}" data-status="${d.status === "approved" ? "disabled" : "approved"}">${d.status === "pending" ? "批准" : d.status === "approved" ? "禁用" : "恢复"}</button></td></tr>`,
+          `<tr><td>${esc(d.name ?? "未命名")}<small>${esc(d.version)}</small></td><td>${esc(d.id)}</td><td>${esc(d.display_status)}<small>${esc(errorLabel(d.last_error))}</small></td><td>${datetime(d.last_seen_at)}</td><td><button data-diagnostics="${d.id}">运行概况</button> <button data-name="${d.id}">改名</button> <button data-device="${d.id}" data-status="${d.status === "approved" ? "disabled" : "approved"}">${d.status === "pending" ? "批准" : d.status === "approved" ? "禁用" : "恢复"}</button></td></tr>`,
       ),
     )}`;
+  $("#view").insertAdjacentHTML(
+    "beforeend",
+    '<div id="device-diagnostics"></div>',
+  );
+  document.querySelectorAll("[data-diagnostics]").forEach(
+    (b) =>
+      (b.onclick = () =>
+        action(async () => {
+          const data = await api(
+            "devices/" +
+              encodeURIComponent(b.dataset.diagnostics) +
+              "/diagnostics",
+          );
+          $("#device-diagnostics").innerHTML = diagnosticsView(data);
+        })),
+  );
   document.querySelectorAll("[data-device]").forEach(
     (b) =>
       (b.onclick = () =>

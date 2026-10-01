@@ -4,7 +4,14 @@ import {
   businessLog,
   technicalError,
 } from "./i18n.js";
-import { esc, time, taskCard, historyCards } from "./sidepanel-view.js";
+import {
+  esc,
+  time,
+  taskCard,
+  historyCards,
+  updateHTML,
+  updateText,
+} from "./sidepanel-view.js";
 const $ = (s) => document.querySelector(s);
 let state = null,
   updating = false,
@@ -16,7 +23,6 @@ const send = async (m) => {
 };
 const action = async (fn) => {
   try {
-    $("#error").hidden = true;
     await fn();
   } catch (e) {
     $("#error").textContent = errorLabel(e.message);
@@ -25,11 +31,12 @@ const action = async (fn) => {
   }
 };
 function render(s) {
+  const scroll = document.scrollingElement?.scrollTop;
   state = s;
   const age = s.cloud_at ? Date.now() - s.cloud_at : Infinity,
     online = age < 120000;
-  $("#version").textContent = `v${s.version}`;
-  $("#online").textContent = online ? "● 在线" : "○ 离线";
+  updateText($("#version"), `v${s.version}`);
+  updateText($("#online"), online ? "● 在线" : "○ 离线");
   $("#online").className = "badge " + (online ? "good" : "neutral");
   $("#auto").checked = !!s.auto;
   const openTasks = new Set(
@@ -43,8 +50,8 @@ function render(s) {
         : `tech:${d.dataset.technicalId}`,
     ),
   );
-  $("#current").innerHTML = taskCard(s.active, s.logs);
-  $("#history").innerHTML = historyCards(s.history, s.logs);
+  updateHTML($("#current"), taskCard(s.active, s.logs));
+  updateHTML($("#history"), historyCards(s.history, s.logs));
   document
     .querySelectorAll("#current details, #history details")
     .forEach((d) => {
@@ -59,34 +66,42 @@ function render(s) {
   $("#request-card").hidden = active;
   $("#start").disabled = !approved || submitting;
   $("#start").title = approved ? "" : "设备批准后方可创建任务";
-  $("#log-list").textContent =
+  updateText(
+    $("#log-list"),
     s.logs
       .slice()
       .reverse()
       .map((l) => `${time(l.at)} ${businessLog(l)}`)
-      .join("\n\n") || "暂无本地日志";
-  $("#technical-logs").textContent =
+      .join("\n\n") || "暂无本地日志",
+  );
+  updateText(
+    $("#technical-logs"),
     s.logs
       .slice()
       .reverse()
       .map((l) => `${time(l.at)} ${businessLog(l)}\n${l.event}\n${l.message}`)
-      .join("\n\n") || "暂无技术日志";
-  $("#technical-error").textContent = technicalError(s.last_error);
+      .join("\n\n") || "暂无技术日志",
+  );
+  updateText($("#technical-error"), technicalError(s.last_error));
   const profiles = s.logs.filter((l) =>
     ["PERF_FINAL", "PERF_CHECKPOINT"].includes(l.event),
   );
-  $("#performance").textContent = profiles.length
-    ? profiles
-        .slice(-3)
-        .map((l) => `${time(l.at)} ${l.message}`)
-        .join("\n")
-    : "暂无阶段计时；性能剖析尚未部署。";
-  $("#device").innerHTML =
-    `<div><strong>设备：${esc(s.cloud?.name ?? "未命名设备")}</strong> · ${online ? "● 在线" : "○ 离线"}</div><div title="${esc(s.device_id)}" class="id">采集设备 ID：${esc(s.device_id)}</div><div>批准状态：${esc(s.cloud?.status ? statusLabel(s.cloud.status) : "未确认")} · 接口：${online ? "最近心跳正常" : "连接未确认"}</div><div>浏览器：${s.last_error?.startsWith("INPUT_") || s.last_error === "MANAGED_TAB_NAVIGATED" ? "存在执行错误" : "未报告浏览器错误"} · 最近心跳：${time(s.cloud?.server_time)}</div>`;
-  if (s.last_error) {
-    $("#error").textContent = errorLabel(s.last_error);
-    $("#error").hidden = false;
-  }
+  updateText(
+    $("#performance"),
+    profiles.length
+      ? profiles
+          .slice(-3)
+          .map((l) => `${time(l.at)} ${l.message}`)
+          .join("\n")
+      : "暂无阶段计时；性能剖析尚未部署。",
+  );
+  updateHTML(
+    $("#device"),
+    `<div><strong>设备：${esc(s.cloud?.name ?? "未命名设备")}</strong> · ${online ? "● 在线" : "○ 离线"}</div><div title="${esc(s.device_id)}" class="id">采集设备 ID：${esc(s.device_id)}</div><div>批准状态：${esc(s.cloud?.status ? statusLabel(s.cloud.status) : "未确认")} · 接口：${online ? "最近心跳正常" : "连接未确认"}</div><div>浏览器：${s.last_error?.startsWith("INPUT_") || s.last_error === "MANAGED_TAB_NAVIGATED" ? "存在执行错误" : "未报告浏览器错误"} · 最近心跳：${time(s.cloud?.server_time)}</div>`,
+  );
+  updateText($("#error"), errorLabel(s.last_error));
+  $("#error").hidden = !s.last_error;
+  if (scroll != null) document.scrollingElement.scrollTop = scroll;
 }
 async function load() {
   if (updating) return;
@@ -188,9 +203,23 @@ $("#probe").onclick = () =>
     await send({ type: "PROBE_DISABLED" });
     await load();
   });
-chrome.storage.onChanged.addListener((_changes, area) => {
-  if (area === "local") action(load);
+let storageTimer;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (
+    area === "local" &&
+    Object.keys(changes).some((k) =>
+      ["active", "ui_history", "auto", "cloud", "cloud_at", "error"].includes(
+        k,
+      ),
+    )
+  ) {
+    clearTimeout(storageTimer);
+    storageTimer = setTimeout(() => action(load), 150);
+  }
 });
 const timer = setInterval(() => action(load), 3000);
-window.addEventListener("unload", () => clearInterval(timer));
+window.addEventListener("unload", () => {
+  clearInterval(timer);
+  clearTimeout(storageTimer);
+});
 action(load);

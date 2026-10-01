@@ -21,10 +21,16 @@
     "crons": ["* * * * *"]
   },
   "observability": {
-    "enabled": true
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    }
   },
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "CF_ACCOUNT_ID": "de623dd659f63579a4656ab3a8ada602"
   },
   "ratelimits": [
     {
@@ -34,6 +40,12 @@
         "limit": 10,
         "period": 60
       }
+    }
+  ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "HELPER_EVENTS",
+      "dataset": "livv_helper_events"
     }
   ]
 }

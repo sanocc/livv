@@ -1,5 +1,13 @@
 # API V1
 
+## Helper V1.3运行事件与设备诊断
+
+POST /v1/device/telemetry：沿用已批准设备鉴权，body={events:[...]}，最多25条；接受白名单事件、24小时内/未来最多60秒的occurred_at、UUID事件标识与有限标量字段。设备身份由鉴权决定，关联task_id/attempt_id必须属于该设备。TASK_COMPLETED/PARTIAL/FAILED必须匹配D1 Task真实状态；ATTEMPT_FAILED必须匹配执行FAILED，仅Task真实FAILED才转换为TASK_FAILED。绑定不可用返回available=false，Helper独立重试，不改变Task状态。字段与隐私边界见helper-observability.md。
+
+GET /v1/admin/devices/:id/diagnostics（OTA代理/api同路径）：沿用现有人类Access鉴权，只读。返回at/since、device（无credential_hash，approved且心跳不足120秒才online）、最近20次执行及其Task/Snapshot、24小时关联Task真实状态分组/Attempt状态分组/主要Attempt错误，以及已完成MARKET_LIST执行平均领取至完成耗时与样本数。范围是该设备最近24小时领取的执行，含人工及正式Plan任务，不冒充正式计划今日统计；缺失不填成功。
+
+analytics返回available/reason/events，限该设备24小时最多100条采样事件，按event_id去重；时间使用occurred_at，数值缺失null。查询使用固定SQL、ID校验、5秒上限与Worker Secret，仅账户分析读取；不可用时D1概况照常返回。无用户SQL入口，不向前端暴露Token。
+
 ## MARKET_LIST契约（Helper1.2.0）
 
 POST tasks（管理员/设备）默认task_type=MARKET_LIST，可显式LEGACY_MARKET_DETAIL保留旧合并契约；其他类型拒绝。Task响应包含task_type。新物化计划Task使用MARKET_LIST，已有schedule_key行不改写。MARKET_LIST的core_hotels/rooms/detail_results为空，达到collection_limit直接上传；不足仍按原规则PARTIAL/FAILED。详情以后由独立COMPETITOR_DETAIL任务负责，本轮未开放该类型或新增详情计划。旧Task不重新解释为列表任务，鉴权与窗口约束不变。

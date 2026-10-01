@@ -25,3 +25,5 @@ Gate I展示只读关联当前hotel_mappings与原始market_observations，支�
 Gate J沿用现有Plan/Task/Attempt表和schedule_key唯一约束，无Schema迁移；滚动按业务日物化D0～D+horizon。jitter与负载只决定新Task.due_at/capacity_warning，已有Task排期和Attempt历史不重写。
 
 Helper1.2.0的MARKET_LIST领取时Attempt.core_hotels冻结为空数组，既有上传校验拒绝额外详情/房型；LEGACY_MARKET_DETAIL仍冻结原映射。状态、窗口、租约及幂等键不变。平台导航资料存于Helper本机navigation_profiles，不写Hotel Observation或云端数据库。
+
+Helper V1.3无新增D1表、列、迁移或触发器，生产Schema维持0001/0002。device telemetry仅SELECT验证当前设备Task/Attempt归属和真实终态，然后写Analytics Engine，不INSERT高频D1日志。原attempt_events领取/开始/FAST_NAV/ready/锁定/上传/终态记录保留；新增LIST_PROGRESS、DEVICE_ONLINE等遥测不进入该表。既有失败/PARTIAL/Observation不删除或改写。

@@ -1,5 +1,41 @@
 # 验收记录（持续更新）
 
+## Helper V1.3：采集简化与云端观测（2026-10-02）
+
+核查main bd50b6e：task_type、MARKET_LIST列表/详情解耦、达到目标立即上传、FAST_NAV默认路径及UI fallback已经实现，未重复重构。原mobile/input/navigation/平台模板未修改；本轮增加观测与设备诊断、修复Side Panel重复渲染。所有旧失败/PARTIAL与Observation保留。
+
+FAST_NAV Mac: PASS
+
+Windows FAST_NAV real-browser acceptance: PENDING
+
+已批准Mac设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9，Helper1.3.0，真实咸宁/中心花坛、2026-10-03→10-04、30家。三次人工云端任务加一次正式Plan自然任务，不改变Plan排期。以下为D1 CLAIMED/LIST_READY/MARKET_LOCKED/finished_at时间差（持久化事件含网络耗时；本机阶段时间另存Analytics occurred_at，不混算）。
+
+| Task | 领取→ready 秒 | ready→30家 秒 | 总耗时 秒 | 真实结果 |
+|---|---:|---:|---:|---|
+| 34add241-efcc-4be7-a1fa-89af9c2a5933 | 5.187 | 23.066 | 28.901 | COMPLETED |
+| 0773a23763a7813a4dcb7f258c2a3e80（正式Plan自然运行） | 5.226 | 26.708 | 32.584 | COMPLETED |
+| 6f8ad463-8d3c-459f-8a4d-9c18d0dcc284 | 5.581 | 26.470 | 32.882 | COMPLETED |
+| add2b2ba-badf-49f1-868d-2f39b68e3300（最终时间戳版本） | 5.259 | 26.830 | 32.765 | COMPLETED |
+| 平均 | 5.313 | 25.769 | 31.783 | 4/4 COMPLETED |
+
+总耗时P50=32.675秒，样本4不报告P95/长期成功率。前一版同机三轮平均32.811秒，本轮31.783秒，未见观测引起明显下降，不将约3%差异解释为已证明提速。当前既有27～33秒生产范围保持；旧UI领取→列表锁定49.527秒仅作历史导航对照，不把含详情总时长当纯列表基准。
+
+四轮均FAST_NAV_VERIFIED/Context通过，FAST_NAV成功4/4；FAST_NAV_FAILED/CONTEXT_MISMATCH、UI fallback、SEARCH_CONTROL_TIMEOUT、INPUT_TARGET_CHANGED本轮均0。四个快照30条/30唯一Hotel ID、排名1～30、详情0/房型0；MARKET_LIST未进入详情。第一与最终样本在完成后直接读取同一受管页面既有inspectList：34张/34唯一、曝光城市937与日期匹配、可见关键词匹配、unparsed=0；按原自然优先去重/排名截取30，与D1的Hotel ID、原名、排名、广告标记、划线/起售价逐行零差异。另两轮以任务严格Context事件与D1记录核验，未冒充做过逐行DOM对照。本轮页面没有重复广告/自然Hotel ID，既有自动测试验证自然优先规则，不制造生产重复。
+
+Task/Attempt/Snapshot关联证据：.local/proofs/v13-final-d1.json、v13-performance.json；第一轮v13-compare-first.json，最终v13-compare-final.json与v13-dom-final.txt。最终Attempt592f26c4-6458-481f-b4aa-8824be755d59、Snapshotf05ee8a1-4bb8-484c-bbda-f84712a4414e。正式Plan整行与v13-before.json一致，enabled=1/horizon=14；旧临时Plan停用。本轮无Schema迁移/调度/统计口径修改。
+
+Analytics Engine真实数据livv_helper_events可云端SQL查询，阶段/进度/上传事件与真实Task关联，最终TASK_CLAIMED occurred_at精确等于D1 claimed_at；本地待上传队列最终为空。实际_sample_interval=1～2，部分终态事件未保留，故不标“完整事件审计PASS”。上传/终态以D1为准；字段与失败退避/隐私边界见helper-observability.md，证据v13-events-final.json、v13-sampling.json。新增遥测没有写入D1，四轮原业务attempt_events各8条，未出现LIST_PROGRESS/DEVICE_ONLINE。Workers Logs持久化配置已启用；live tail真实health/heartbeat/claim返回200/outcome=ok，无异常；敏感Header未保留于证据，见v13-workers-log-proof.json。
+
+Windows设备酒店办公室3cad8b8e-0a99-410d-9fb3-8e1bf88004c7仍待真实更新和操作：不点击城市/日期/关键词、直接目标listPage、严格Context、30唯一酒店/正确排名价格、上传、性能与搜索超时检查。在线心跳不等于FAST_NAV验收，不宣称跨平台PASS。
+
+63项自动测试PASS，check/MV3/语法/数据库边界检查PASS，API与OTA Worker dry-run PASS。新增测试覆盖认证/归属/隐私白名单、失败执行不冒充失败Task、异步队列并发ACK/重试/上限、缺失指标、固定只读SQL与事件去重、真实阶段时间戳、相同展示内容不重建节点。Mac普通卡片与日志中文，列表任务没有详情0/0/房型0，原始标识通过技术详情查看。
+
+真实Chrome线上设备页→Mac运行概况查询通过：1.3.0/在线/已批准、真实心跳；24小时Task已完成47/部分完成11/失败9与Attempt已完成47/部分完成11/失败52分开；MARKET_LIST平均31.7秒/13个完成样本。旧搜索超时31次、执行超时9次等真实错误保留。Cloudflare只读Secret配置后，页面显示真实Analytics事件和采样提示，未以本机OAuth查询替代生产Worker查询。证据v13-ota-diagnostics.txt/png。上述为验收时快照，未来数字自然变化。
+
+Side Panel抖动原因：STATE每3秒及storage变化重复innerHTML重建，加上action每次隐藏错误再显示；增加遥测存储后更容易触发。现只监听UI相关存储并150ms合并，相同HTML/文字不重建，错误无数据变化不切换隐藏。保留当前Tab、展开与滚动，输入字段不在刷新时覆盖；后台任务管理不变。未人为制造API_TIMEOUT或改写Task来测试视觉；自动测试验证相同节点保持，真实任务与空闲心跳期间面板正常。
+
+线上真实侧栏切至任务并展开最终任务，跨多次3秒轮询/心跳后仍在任务页且详情保持展开，正常中文卡片仅市场列表30家/33秒；证据v13-panel-stable.txt/png。未观测持续闪烁，不将本次无API_TIMEOUT样本宣称网络超时根因已修复。网络/API_TIMEOUT、旧UI fallback搜索超时与ATTEMPT_TIMEOUT仍为真实生产观察项。
+
 2026-10-01。第一阶段封板，生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。此记录严格区分自动测试与真实携程验收；下表含V1.1补证后的当前状态，后文按时间保留历次证据。
 
 | Gate | 状态 | 实际证据 |
