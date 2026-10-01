@@ -61,7 +61,7 @@ action(load);
 
 $("#input-permission").onclick = () =>
   action(async () => {
-    const granted = await chrome.permissions.request({
+    const granted = await chrome.permissions.contains({
       permissions: ["debugger"],
     });
     if (!granted) throw new Error("INPUT_PERMISSION_REQUIRED");
