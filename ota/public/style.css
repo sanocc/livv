@@ -592,8 +592,7 @@ label select {
   stroke: #b8c8e0;
   stroke-dasharray: 4 4;
 }
-.chart-day:hover .crosshair,
-.chart-day:focus-within .crosshair {
+.chart-day.active-day .crosshair {
   visibility: visible;
 }
 .chart-hit {
@@ -952,4 +951,88 @@ h2 {
 .chart .price-line {
   stroke-linejoin: round;
   stroke-linecap: round;
+}
+
+/* Date columns retain 64px minimum spacing; only the plot scrolls. */
+.chart-wrap {
+  position: relative;
+}
+.chart-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.chart {
+  height: 300px;
+}
+.chart-wrap {
+  overflow: visible;
+}
+.chart .date-band {
+  pointer-events: none;
+}
+.chart .ordinary-date {
+  fill: transparent;
+}
+.chart .weekend-date {
+  fill: #f2f5fa;
+}
+.chart .holiday-date {
+  fill: #fcf3e8;
+}
+.chart .date-text {
+  fill: #42526b;
+  font-size: 11px;
+}
+.chart .column-highlight {
+  fill: #3169df;
+  opacity: 0;
+  pointer-events: none;
+}
+.chart-day.active-day .column-highlight {
+  opacity: 0.055;
+}
+.chart .price-dot {
+  pointer-events: none;
+}
+.chart .active-dot {
+  r: 5px;
+  stroke: white;
+  stroke-width: 2;
+}
+.chart-tooltip {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  pointer-events: none;
+  width: 280px;
+  padding: 13px 15px;
+  background: #23334c;
+  color: #f5f8ff;
+  border-radius: 8px;
+  border: 1px solid #354862;
+  box-shadow: 0 6px 18px #1723361a;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.chart-tip-heading {
+  display: block;
+  white-space: nowrap;
+  font-size: 11px;
+  margin-bottom: 7px;
+}
+.chart-tip-prices > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chart-tip-prices b {
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-prices .mine-tip {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+.chart-hit {
+  outline: none;
 }

@@ -75,20 +75,33 @@ const holidayBreaks = [
   ["2026-09-25", "2026-09-27", "中秋节假期"],
   ["2026-10-01", "2026-10-07", "国庆节假期"],
 ];
+const holidayWorkdays = new Set([
+  "2026-01-04",
+  "2026-02-14",
+  "2026-02-28",
+  "2026-05-09",
+  "2026-09-20",
+  "2026-10-10",
+]);
 function dateLabel(date, origin) {
   const weekday = new Date(date + "T00:00:00Z").getUTCDay();
   const holiday = holidayBreaks.find(
     ([start, end]) => date >= start && date <= end,
   )?.[2];
+  const workday = holidayWorkdays.has(date);
   return {
     week: "周" + "日一二三四五六"[weekday],
     offset: Math.round((Date.parse(date) - Date.parse(origin)) / 86400000),
     holiday:
       holiday ??
-      (date.startsWith("2026-") ? "非节假日假期" : "节假日安排未确认"),
+      (workday
+        ? "调休上班"
+        : date.startsWith("2026-")
+          ? ""
+          : "节假日安排未确认"),
     color: holiday
       ? "holiday-date"
-      : [5, 6].includes(weekday)
+      : !workday && [5, 6].includes(weekday)
         ? "weekend-date"
         : "ordinary-date",
   };
@@ -118,13 +131,17 @@ function chart(curve) {
     .flatMap((v) => priceSeries.map(([k]) => v[k]))
     .filter((v) => v != null);
   const max = Math.ceil((Math.max(1, ...values) * 1.12) / 100) * 100;
-  const x = (i) => 60 + (i * 920) / Math.max(curve.length - 1, 1),
+  const width = 80 + curve.length * 64;
+  const x = (i) => 60 + (i + 0.5) * 64,
     y = (p) => 215 - (p / max) * 190;
-  let svg =
-    '<svg class="chart" viewBox="0 0 1000 260" role="group" aria-label="未来日期价格走势，缺失数据不插值"><defs><linearGradient id="mine-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3169df" stop-opacity=".12"/><stop offset="100%" stop-color="#3169df" stop-opacity="0"/></linearGradient></defs>';
+  let svg = `<svg class="chart" style="min-width:${width}px" viewBox="0 0 ${width} 260" preserveAspectRatio="none" role="group" aria-label="未来日期价格走势，缺失数据不插值"><defs><linearGradient id="mine-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3169df" stop-opacity=".12"/><stop offset="100%" stop-color="#3169df" stop-opacity="0"/></linearGradient></defs>`;
+  curve.forEach((v, i) => {
+    const meta = dateLabel(v.checkin, curve[0].checkin);
+    svg += `<rect class="date-band ${meta.color}" x="${60 + i * 64}" y="20" width="64" height="235"/>`;
+  });
   for (let i = 0; i <= 4; i++) {
     const p = (max * i) / 4;
-    svg += `<line x1="60" y1="${y(p)}" x2="980" y2="${y(p)}"/><text x="46" y="${y(p) + 4}" text-anchor="end">${money(p)}</text>`;
+    svg += `<line x1="60" y1="${y(p)}" x2="${width - 20}" y2="${y(p)}"/><text x="46" y="${y(p) + 4}" text-anchor="end">${money(p)}</text>`;
   }
   for (const [k, color] of priceSeries) {
     let segment = [];
@@ -143,25 +160,31 @@ function chart(curve) {
         return;
       }
       segment.push([x(i), y(v[k])]);
-      svg += `<circle cx="${x(i)}" cy="${y(v[k])}" r="3" fill="${color}"><title>${esc(v.checkin)} ${money(v[k])}</title></circle>`;
+      svg += `<circle class="price-dot" data-day="${i}" cx="${x(i)}" cy="${y(v[k])}" r="3" fill="${color}"><title>${esc(v.checkin)} ${money(v[k])}</title></circle>`;
     });
     flush();
   }
   curve.forEach((v, i) => {
     const meta = dateLabel(v.checkin, curve[0].checkin);
-    if (curve.length <= 15 || i % 3 === 0 || i === curve.length - 1)
-      svg += `<text class="${meta.color}" x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5))}</text>`;
-    const width = 920 / Math.max(curve.length - 1, 1),
-      left = Math.max(55, x(i) - width / 2),
-      right = Math.min(985, x(i) + width / 2);
-    const tip = [
-      `${v.checkin} · ${meta.week} · T+${meta.offset}`,
+    svg += `<text class="date-text" x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5).replace("-", "/"))}</text>`;
+    const heading = [
+      v.checkin.slice(5).replace("-", "/"),
+      meta.week,
+      meta.offset ? `T+${meta.offset}` : "T",
       meta.holiday,
-      ...priceSeries.map(([k, , name]) => `${name}：${money(v[k])}`),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const tip = [
+      heading,
+      ...priceSeries.map(
+        ([k, , name]) =>
+          `${name === "我的酒店起售价" ? "我的酒店" : name}：${money(v[k])}`,
+      ),
     ].join("\n");
-    svg += `<g class="chart-day"><line class="crosshair" x1="${x(i)}" x2="${x(i)}" y1="20" y2="215"/><rect class="chart-hit tip" x="${left}" y="20" width="${right - left}" height="205" fill="transparent" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"/></g>`;
+    svg += `<g class="chart-day"><rect class="column-highlight" x="${60 + i * 64}" y="20" width="64" height="235"/><line class="crosshair" x1="${x(i)}" x2="${x(i)}" y1="20" y2="215"/><rect class="chart-hit tip" data-day="${i}" x="${60 + i * 64}" y="20" width="64" height="235" fill="transparent" tabindex="0" data-tip="${esc(tip)}" data-date="${esc(v.checkin)}" aria-label="${esc(tip)}"/></g>`;
   });
-  return `<div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap">${svg}</svg>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
+  return `<div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap"><div class="chart-scroll">${svg}</svg></div>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
 }
 async function setChartHorizon(horizon) {
   if (![14, 30].includes(horizon)) return;
@@ -189,8 +212,111 @@ async function setChartHorizon(horizon) {
     );
   bindTips($("#trend-chart"));
 }
+// Viewport coordinates; keep the entire tooltip in the visible plot, away from the date column.
+function chartTipPosition(bounds, column, pointer, width, height) {
+  const gap = 16,
+    pad = 6;
+  const right = Math.max(pointer.x, column.right) + gap;
+  const left = Math.min(pointer.x, column.left) - width - gap;
+  const preferRight = pointer.x < (bounds.left + bounds.right) / 2;
+  let x = preferRight ? right : left;
+  if (x < bounds.left + pad || x + width > bounds.right - pad)
+    x = preferRight ? left : right;
+  x = Math.max(bounds.left + pad, Math.min(x, bounds.right - width - pad));
+  let y = pointer.y + gap;
+  if (y + height > bounds.bottom - pad) y = pointer.y - height - gap;
+  y = Math.max(bounds.top + pad, Math.min(y, bounds.bottom - height - pad));
+  return { x, y };
+}
+function bindChartTips(root) {
+  const wrap = root.querySelector(".chart-wrap");
+  if (!wrap) return;
+  const tip = wrap.appendChild(
+    Object.assign(document.createElement("div"), {
+      className: "chart-tooltip",
+      role: "tooltip",
+      hidden: true,
+    }),
+  );
+  tip.id = "chart-tooltip";
+  let current = null;
+  const hide = () => {
+    tip.hidden = true;
+    if (current) {
+      current.removeAttribute("aria-describedby");
+      current.parentElement.classList.remove("active-day");
+    }
+    current = null;
+    root
+      .querySelectorAll(".price-dot")
+      .forEach((p) => p.classList.remove("active-dot"));
+  };
+  const move = (cell, e) => {
+    const r = wrap.getBoundingClientRect(),
+      column = cell.getBoundingClientRect();
+    const bounds = {
+      left: Math.max(r.left, 0),
+      right: Math.min(r.right, window.innerWidth),
+      top: Math.max(r.top, 0),
+      bottom: Math.min(r.bottom, window.innerHeight),
+    };
+    tip.style.width =
+      Math.max(0, Math.min(280, bounds.right - bounds.left - 12)) + "px";
+    const pointer =
+      e?.clientX != null
+        ? { x: e.clientX, y: e.clientY }
+        : { x: (column.left + column.right) / 2, y: bounds.top + 30 };
+    const pos = chartTipPosition(
+      bounds,
+      column,
+      pointer,
+      tip.offsetWidth,
+      tip.offsetHeight,
+    );
+    tip.style.left = pos.x - r.left + "px";
+    tip.style.top = pos.y - r.top + "px";
+  };
+  root.querySelectorAll(".chart-hit").forEach((cell) => {
+    const show = (e) => {
+      if (current !== cell) {
+        if (current) {
+          current.removeAttribute("aria-describedby");
+          current.parentElement.classList.remove("active-day");
+        }
+        current = cell;
+        current.parentElement.classList.add("active-day");
+        const [heading, ...rows] = cell.dataset.tip.split("\n");
+        tip.innerHTML = `<strong class="chart-tip-heading">${esc(heading)}</strong><div class="chart-tip-prices">${rows
+          .map((row, i) => {
+            const at = row.indexOf("：");
+            return `<div class="${i === 0 ? "mine-tip" : ""}"><span>${esc(row.slice(0, at))}</span><b>${esc(row.slice(at + 1))}</b></div>`;
+          })
+          .join("")}</div>`;
+        root
+          .querySelectorAll(".price-dot")
+          .forEach((p) =>
+            p.classList.toggle(
+              "active-dot",
+              p.dataset.day === cell.dataset.day,
+            ),
+          );
+        cell.setAttribute("aria-describedby", tip.id);
+      }
+      tip.hidden = false;
+      move(cell, e);
+    };
+    cell.onmouseenter = cell.onfocus = show;
+    cell.onmousemove = show;
+    cell.onmouseleave = cell.onblur = hide;
+    cell.onkeydown = (e) => {
+      if (e.key === "Escape") hide();
+    };
+  });
+  wrap.querySelector(".chart-scroll").onscroll = hide;
+}
 function bindTips(root) {
-  root.querySelectorAll(".tip").forEach((cell) => {
+  bindChartTips(root);
+  root.querySelectorAll(".tip:not(.chart-hit)").forEach((cell) => {
     const hide = () => {
       const tip = $("#market-tooltip");
       if (tip) tip.hidden = true;

@@ -276,3 +276,15 @@ V1.2线上验收：f3363f7自动Git构建成功，真实已登录OTA市场14/30�
 正式14天Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c整行与本轮开始一致、enabled=1/horizon=14/updated_at=2026-10-01T04:41:45.228Z；原临时Plan仍停用，本轮未创建Plan、不改变频率。三个少量真实手动Task作为真实观察保留，未删除历史；后续新物化任务为MARKET_LIST，原已存在Task仍旧合并契约。证据.local/proofs/fast-nav-production.json、fast-nav-final-production.json、fast-nav-old-baseline.json、fast-nav-A-row-comparison.json、fast-nav-final-row-comparison.json及真实截图。最终设备自动接单保持启用。
 
 21:20最终只读核对Plan整行完全一致，设备approved/1.2.0、心跳21:20:50，无RUNNING Task。20:41:20本地记录HELPER_ERROR/Failed to fetch，设备last_error仍HELPER_ERROR但随后心跳继续成功；API health=200/database=ok。保留此网络/领取错误观察，不因三次成功消除它，也不宣称所有生产错误已解决。
+
+## 未来价格走势等宽列与浮动Tooltip（2026-10-01）
+
+仅ota/public图表布局、交互和测试变动。未来14天仍T～T+14共15列，30天T～T+30共31列；每列至少64px，宽屏按比例填满，超宽只滚动chart-scroll绘图区，标题/周期/图例保持在外。所有日期MM/DD显示，不稀疏标签或删点。普通背景透明，周五/六浅灰蓝，法定假期浅暖色且优先；调休上班按普通背景。日期字色统一，2026调休日期来自既有官方通知（10/10周六普通背景，Tooltip调休上班）；未知年份继续明确安排未确认。
+
+整列从绘图区上部到日期区域响应鼠标与键盘焦点；唯一active-day参考线/轻高亮，四条线当天实际点同时强调。Tooltip约280px，日期/星期/T或T+n/假期或调休标签，两列价格对齐、我的酒店权重最高。mouseenter/focus选择日期，mousemove更新位置且同列不改内容或高亮点；左右按可视区域翻转，16px间距并上下限位，pointer-events:none，无延迟动画。滚动隐藏旧提示，继续移鼠标重新显示当前真实日期。表格Hover仍用原身份Tooltip，没有更改酒店列表交互。
+
+53项npm test通过，npm run check及OTA Worker dry-run通过。新增测试覆盖15/31列完整等距/最小宽度/所有日期/全缺失无点、调休背景，以及Tooltip上下跟随、左右翻转/列外间距/四边界。既有缺失断线、单调平滑曲线/我的酒店渐变区域、真实小数中位价、周期请求竞态及不改变入住日期/范围/酒店列表测试继续通过。
+
+本地预览经现有API Worker查询生产D1，只允许GET与SELECT（无写入）；1280px下列宽64px，1440px下14天15列填满1120px可视区、每日约68.923px，30天31列绘图区2064px/可视1120px，横向滚至944px显示末日10/31。真实10/03 Hover显示周六/T+2/国庆节假期及190/361/170.5/83，鼠标Y从300移220时提示top从316移236，日期和4高亮点不变；底部向上限位、右半区提示向左均通过。10/10背景透明，10/09周五浅色，国庆列暖色。滚至10/31仍可整列Hover，四项全部—、0高亮点，无补0或延伸10/19后的曲线。截图.local/proofs/chart-14-tooltip.png、chart-30-missing.png；真实API响应保存在本地忽略目录，未用Mock。
+
+本轮未修改API、数据库、Helper、Task、Attempt、Plan、观察/统计口径。开发期间正式Plan自然成功采集（21:42:15观察，21:43:13成功上传）仍显示于真实只读预览，不将其算作图表开发触发的验收任务。未重载Helper、创建任务或写生产数据；设备/Plan只读证据.local/proofs/chart-production-status.json。

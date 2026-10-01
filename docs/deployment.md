@@ -85,3 +85,7 @@ Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无�
 批准办公室Mac空闲时重载Helper1.2.0，身份/权限/本机缓存沿用，auto=true。三次真实MARKET_LIST全COMPLETED、30唯一酒店/详情0/房型0，最后一次确认最终上下文防护源码；详见testing.md。未知或失效资料回退旧UI，不保证其既有超时/停滞问题已解决；错误历史原样保留。新列表任务不自动刷新详情，独立详情Task未在本轮部署。
 
 回滚需匹配契约：兼容数据库列可保留，既有观察/Task/Attempt不删除；若需回滚应在空闲时暂缓新领取并协调API/Helper版本、验证新旧Task契约，不修改历史终态。全套51项测试、MV3/语法/数据库边界检查与API Worker dry-run通过。实现提交a7683dae7db16a12cd85023c96e84c854d3ed6ab已Push main，Workers Builds: livv-api于21:25:13（UTC+8）completed/success，构建证据.local/proofs/fast-nav-builds.json。API health=200/database=ok；OTA资产未修改。生产Plan整行未变，设备approved/1.2.0、自动接单开启；保留20:41 Failed to fetch / HELPER_ERROR观察，随后心跳继续成功。已关闭本轮创建的逆向/独立Helper测试标签页，保留正式Side Panel和后台管理采集页。
+
+## 等宽日期列与鼠标浮动Tooltip发布
+
+仅OTA静态app.js/style.css、市场UI测试及文档，沿用既有真实market/runtime只读接口，无API/Helper/Schema/调度变更。53项测试、check与OTA Worker dry-run通过，真实生产数据本地预览覆盖15/31列、横向末日滚动、假期/调休背景、整列高亮与上下跟随Tooltip，见testing.md。发布沿用GitHub main Push→Cloudflare Workers Builds，不手动修改生产数据库配合视觉。后台正式Plan继续自然运行。

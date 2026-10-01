@@ -50,6 +50,7 @@ test("market cards and horizontal platform table use supplied facts and original
         innerHTML: "",
         value: "",
         querySelectorAll: () => [],
+        querySelector: () => null,
       });
     return nodes.get(selector);
   };
@@ -156,7 +157,12 @@ test("empty market and missing date hover show gaps, not invented prices or stra
   const nodes = new Map(),
     node = (s) => {
       if (!nodes.has(s))
-        nodes.set(s, { innerHTML: "", value: "", querySelectorAll: () => [] });
+        nodes.set(s, {
+          innerHTML: "",
+          value: "",
+          querySelector: () => null,
+          querySelectorAll: () => [],
+        });
       return nodes.get(s);
     };
   const curve = Array.from({ length: 31 }, (_, i) => ({
@@ -201,7 +207,7 @@ test("empty market and missing date hover show gaps, not invented prices or stra
   assert.ok(!html.includes('class="price-line"'));
   assert.ok(!html.includes("<circle "));
   assert.equal((html.match(/class="chart-hit tip"/g) ?? []).length, 15);
-  assert.ok(html.includes("我的酒店起售价：—"));
+  assert.ok(html.includes("我的酒店：—"));
   assert.ok(html.includes("市场最高价：—"));
   assert.ok(html.includes("市场中位价：—"));
   assert.ok(html.includes("市场最低价：—"));
@@ -212,7 +218,12 @@ test("chart period reads inclusive 15/31 dates without changing selected market,
   const nodes = new Map(),
     node = (s) => {
       if (!nodes.has(s))
-        nodes.set(s, { innerHTML: "", value: "", querySelectorAll: () => [] });
+        nodes.set(s, {
+          innerHTML: "",
+          value: "",
+          querySelector: () => null,
+          querySelectorAll: () => [],
+        });
       return nodes.get(s);
     };
   const buttons = [14, 30].map((n) => ({
@@ -336,15 +347,19 @@ test("chart calendar and smooth area keep factual gaps, holiday precedence and u
   assert.ok(html.includes(" C"));
   assert.ok(html.includes("周六 · T+2"));
   assert.ok(html.includes("国庆节假期"));
-  const day3 = html.match(/data-tip="([^\"]*2026-10-03[^\"]*)"/)[1];
-  assert.ok(day3.includes("我的酒店起售价：—"));
+  const day3 = html.match(/data-tip="([^\"]*10\/03[^\"]*)"/)[1];
+  assert.ok(day3.includes("我的酒店：—"));
 });
 
 test("late period response cannot overwrite the latest choice", async () => {
   const nodes = new Map(),
     node = (s) => {
       if (!nodes.has(s))
-        nodes.set(s, { innerHTML: "", querySelectorAll: () => [] });
+        nodes.set(s, {
+          innerHTML: "",
+          querySelector: () => null,
+          querySelectorAll: () => [],
+        });
       return nodes.get(s);
     };
   const pending = [];
@@ -382,4 +397,82 @@ test("late period response cannot overwrite the latest choice", async () => {
     31,
   );
   assert.equal(vm.runInContext("chartHorizon", context), 30);
+});
+
+test("all 15/31 equal full date columns remain, including missing dates and workdays", () => {
+  const context = vm.createContext({
+    document: { querySelector: () => ({}), querySelectorAll: () => [] },
+  });
+  vm.runInContext(
+    fs
+      .readFileSync(new URL("../ota/public/app.js", import.meta.url), "utf8")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
+  for (const n of [15, 31]) {
+    context.curve = Array.from({ length: n }, (_, i) => ({
+      checkin: new Date(Date.UTC(2026, 9, 1 + i)).toISOString().slice(0, 10),
+      myPrice: null,
+      maximum: null,
+      median: null,
+      minimum: null,
+    }));
+    const html = vm.runInContext("chart(curve)", context);
+    const hits = [
+      ...html.matchAll(
+        /class="chart-hit tip"[^>]*x="([\d.]+)"[^>]*width="([\d.]+)"/g,
+      ),
+    ];
+    assert.equal(hits.length, n);
+    hits.forEach((hit, i) => {
+      assert.equal(Number(hit[1]), 60 + i * 64);
+      assert.equal(Number(hit[2]), 64);
+    });
+    assert.equal((html.match(/class="date-text"/g) || []).length, n);
+    assert.ok(html.includes(`min-width:${80 + n * 64}px`));
+    assert.ok(html.includes(n === 31 ? "10/31" : "10/15"));
+    assert.ok(!html.includes("<circle "));
+    assert.ok(html.includes("我的酒店：—"));
+  }
+  assert.equal(
+    vm.runInContext("dateLabel('2026-10-10','2026-10-01').color", context),
+    "ordinary-date",
+  );
+  assert.equal(
+    vm.runInContext("dateLabel('2026-10-10','2026-10-01').holiday", context),
+    "调休上班",
+  );
+  assert.equal(
+    vm.runInContext("dateLabel('2026-10-16','2026-10-01').holiday", context),
+    "",
+  );
+});
+
+test("floating tooltip follows pointer Y, flips sides, avoids the date column and stays inside plot", () => {
+  const context = vm.createContext({
+    document: { querySelector: () => ({}), querySelectorAll: () => [] },
+  });
+  vm.runInContext(
+    fs
+      .readFileSync(new URL("../ota/public/app.js", import.meta.url), "utf8")
+      .replace(/load\(\);\s*$/, ""),
+    context,
+  );
+  context.bounds = { left: 100, right: 1300, top: 100, bottom: 400 };
+  let ys = [];
+  for (const x of [200, 1200])
+    for (const y of [101, 180, 399]) {
+      context.pointer = { x, y };
+      context.column = { left: x - 32, right: x + 32 };
+      const p = vm.runInContext(
+        "chartTipPosition(bounds,column,pointer,280,140)",
+        context,
+      );
+      assert.ok(p.x >= 106 && p.x + 280 <= 1294);
+      assert.ok(p.y >= 106 && p.y + 140 <= 394);
+      assert.ok(x === 200 ? p.x >= 232 + 12 : p.x + 280 <= 1168 - 12);
+      if (x === 200) ys.push(p.y);
+    }
+  assert.notEqual(ys[0], ys[1]);
+  assert.notEqual(ys[1], ys[2]);
 });
