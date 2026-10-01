@@ -261,7 +261,7 @@ function bindChartTips(root) {
       bottom: Math.min(r.bottom, window.innerHeight),
     };
     tip.style.width =
-      Math.max(0, Math.min(280, bounds.right - bounds.left - 12)) + "px";
+      Math.max(0, Math.min(250, bounds.right - bounds.left - 12)) + "px";
     const pointer =
       e?.clientX != null
         ? { x: e.clientX, y: e.clientY }
@@ -286,10 +286,13 @@ function bindChartTips(root) {
         current = cell;
         current.parentElement.classList.add("active-day");
         const [heading, ...rows] = cell.dataset.tip.split("\n");
-        tip.innerHTML = `<strong class="chart-tip-heading">${esc(heading)}</strong><div class="chart-tip-prices">${rows
+        const parts = heading.split(" · "),
+          calendar = parts.slice(3).join(" · "),
+          badge = calendar.replace("国庆节假期", "国庆假期");
+        tip.innerHTML = `<div class="chart-tip-heading"><strong>${esc(parts.slice(0, 3).join(" · "))}</strong>${calendar ? `<span class="chart-tip-badge ${calendar === "调休上班" || calendar === "节假日安排未确认" ? "neutral-badge" : ""}">${esc(badge)}</span>` : ""}</div><div class="chart-tip-prices">${rows
           .map((row, i) => {
             const at = row.indexOf("：");
-            return `<div class="${i === 0 ? "mine-tip" : ""}"><span>${esc(row.slice(0, at))}</span><b>${esc(row.slice(at + 1))}</b></div>`;
+            return `<div class="${i === 0 ? "mine-tip" : ""}"><span>${esc(row.slice(0, at).replace("市场最高价", "市场最高").replace("市场中位价", "市场中位").replace("市场最低价", "市场最低"))}</span><b>${esc(row.slice(at + 1))}</b></div>`;
           })
           .join("")}</div>`;
         root

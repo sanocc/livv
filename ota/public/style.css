@@ -1004,21 +1004,44 @@ h2 {
   z-index: 10;
   box-sizing: border-box;
   pointer-events: none;
-  width: 280px;
-  padding: 13px 15px;
+  width: auto;
+  min-width: min(230px, calc(100vw - 24px));
+  max-width: 270px;
+  padding: 11px 12px;
   background: #23334c;
   color: #f5f8ff;
   border-radius: 8px;
   border: 1px solid #354862;
   box-shadow: 0 6px 18px #1723361a;
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 .chart-tip-heading {
-  display: block;
-  white-space: nowrap;
-  font-size: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  font-size: 12px;
   margin-bottom: 7px;
+}
+.chart-tip-heading strong {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.chart-tip-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 7px;
+  border-radius: 4px;
+  background: #a7672d;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chart-tip-badge.neutral-badge {
+  background: #5b687b;
 }
 .chart-tip-prices > div {
   display: flex;
@@ -1030,8 +1053,12 @@ h2 {
 }
 .chart-tip-prices .mine-tip {
   font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 3px;
+}
+.chart-tip-prices b {
+  font-weight: 500;
+}
+.chart-tip-prices .mine-tip b {
+  font-weight: 700;
 }
 .chart-hit {
   outline: none;

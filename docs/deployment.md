@@ -89,3 +89,5 @@ Helper1.1.0在已批准办公室Mac通过chrome://extensions空闲重载，无�
 ## 等宽日期列与鼠标浮动Tooltip发布
 
 仅OTA静态app.js/style.css、市场UI测试及文档，沿用既有真实market/runtime只读接口，无API/Helper/Schema/调度变更。53项测试、check与OTA Worker dry-run通过，真实生产数据本地预览覆盖15/31列、横向末日滚动、假期/调休背景、整列高亮与上下跟随Tooltip，见testing.md。发布沿用GitHub main Push→Cloudflare Workers Builds，不手动修改生产数据库配合视觉。后台正式Plan继续自然运行。
+
+等宽图表实现f725fd41d970d3bd30b5b3aed4bb5cc71def8d87已Push main，Cloudflare livv-ota于2026-10-01 22:15:28（UTC+8）自动构建成功，线上默认14天/真实10月3日价格/浮动提示已确认，API health正常。随后Tooltip紧凑视觉仅调整OTA app.js/style.css及文档，不修改生产采集或调度。
