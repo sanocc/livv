@@ -65,3 +65,9 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 发布代码提交f3363f7579f31435e11ed41cfca6948d7cbed4cb：GitHub Workers Builds livv-api于15:42:24、livv-ota于15:42:32（UTC+8）均completed/success。API因tests/**监视路径触发相同源码自动构建，API业务代码未改。随后已登录真实Chrome加载ota.livv.cc，确认OTA V1.2资产、默认市场/14天、五卡真实价格、30天走势至10月30日（无数据四项—）、核心竞品两家、Vienna悬浮原始Hotel ID/划线/优惠/起售价正常；线上截图确认五卡一行和蓝色商务布局，无需继续像素调整。构建证据.local/proofs/v12-builds.json。
 
 15:43:39 Helper设备仍approved/在线/1.0.0，无RUNNING Attempt；正式14天Plan及停用验收Plan整行与发布前完全相同。API health=200/database=ok。设备last_error=API_TIMEOUT在15:38本地预览证据中已存在，早于15:42发布，保留为实际观察项，不归因此次UI也不伪称消失。下一自然Task due_at为16:06:55.233，本轮未新增人工Task、未重载扩展、不宣称执行了新真实采集复验；以未修改业务源码/配置、计划整行不变、设备心跳及API健康确认UI未变更生产链路。发布后证据.local/proofs/v12-production-after.json。已结束本地仅读预览，完成第一版后停止新增开发。
+
+## 走势周期胶囊发布（2026-10-01）
+
+实现提交e5b7f3545f659ef96deccdbd51f8a7750eeb3d14已Push main，Workers Builds livv-api于16:43:50、livv-ota于16:43:57（UTC+8）completed/success。线上真实已登录Chrome核验：顶部只有入住日期/市场范围，默认未来14天至10月15日T+14，切未来30天至10月31日T+30，所选入住日期10月1日、30家市场、五卡价格及酒店列表保持原样；胶囊位于图表标题旁，副标题无重复周期，四线和真实缺失—保留。证据.local/proofs/period-builds.json、period-online.png。
+
+发布前后D1 Plan逐字段比较完全一致：正式3963a563-7687-45dc-9b2a-d33cbdd0cd7c仍enabled=1/horizon=14，停用验收Plan仍enabled=0。16:44只读核验设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9 approved/1.0.0，心跳16:44:09、last_error=null。期间自然Task96afe25685b21ad2b4823b7e6baf7778在16:00～18:00原窗口内于16:08:53真实COMPLETED；该成功早于本次16:43发布，证明开发期间仍自然运行，不冒充发布后新的采集验收。全部历史错误与结果保留，无人工任务、生产数据改写或Helper重载。比较证据.local/proofs/period-production-before.json、period-production-after.json。
