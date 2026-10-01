@@ -285,8 +285,15 @@ async function run(a) {
       await finish(a, a.stop_reason, a.exhausted);
       return;
     }
-    const r = await execute(a, detailLink, [h.hotel_id]);
+    const r = await execute(a, detailLink, [
+      h.hotel_id,
+      Date.now() - a.phase_at,
+    ]);
     if (!r) return;
+    if (r.pending) {
+      await log("DETAIL_ENTRY_WAIT", JSON.stringify(r.diagnostic));
+      return;
+    }
     if (r?.action) await performInput(chrome, a.tab_id, r.action);
     if (r?.error) {
       a.detail_results.push({
@@ -295,6 +302,7 @@ async function run(a) {
         error_code: r.error,
       });
       a.detail_index++;
+      a.phase_at = Date.now();
       await save(a);
       return;
     }

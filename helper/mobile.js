@@ -471,7 +471,7 @@ export function scrollDetail() {
     .querySelector("#htl_room_list_content_filterRooms")
     ?.scrollIntoView({ block: "end" });
 }
-export function detailLink(hotelId) {
+export function detailLink(hotelId, elapsed = 0) {
   const nodes = Array.from(
     document.querySelectorAll(
       '[data-hotelid],[data-hotel-id],[class*="hotelCard"],[class*="hotel-card"],[class*="hotelItem"]',
@@ -491,7 +491,28 @@ export function detailLink(hotelId) {
         hotelId || e.querySelector(`img[src*="_ubt_hotelId=${hotelId}&"]`)
     );
   });
-  if (!card) return { error: "DETAIL_CARD_NOT_FOUND" };
+  if (!card) {
+    const diagnostic = {
+      hotel_id: hotelId,
+      ready_state: document.readyState,
+      cards: nodes.length,
+    };
+    // Returning from a detail reloads only the first batch of list cards.
+    // Restore the frozen target's entry without recollecting the market list.
+    if (elapsed < 45000) {
+      const scrollables = Array.from(document.querySelectorAll("div")).filter(
+        (e) =>
+          e.scrollHeight > e.clientHeight + 100 &&
+          /(auto|scroll)/.test(getComputedStyle(e).overflowY),
+      );
+      const e =
+        scrollables.sort((a, b) => b.clientHeight - a.clientHeight)[0] ??
+        document.scrollingElement;
+      e.scrollTop += Math.max(500, e.clientHeight * 0.8);
+      return { pending: true, diagnostic };
+    }
+    return { error: "DETAIL_CARD_NOT_FOUND", diagnostic };
+  }
   card.scrollIntoView({ block: "center" });
   const rect = card.getBoundingClientRect();
   const path = [];

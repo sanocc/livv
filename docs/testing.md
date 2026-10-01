@@ -103,6 +103,40 @@
 
 ## Helper维也纳详情兼容性问题（独立记录，未修复）
 
+以下为修复前记录；修复与新的真实复验见下一节，历史PARTIAL未改写。
+
 正式14天Plan已自动生成任务，真实Helper执行与上传成立，但完整详情不能标为PASS。Task `638b35b1a40f0f22cf0c61229ea28212`（10月15～16日）与 `a8db0d6e41b0e7396c10f64b454ecaf7`（10月10～11日）均自然PARTIAL / PARTIAL_COLLECTION，快照分别为 `716271b3-173a-4fc0-8f32-682a6ed5d908`、`0170ae72-9811-49c7-b227-9b82d499e22f`：30家唯一酒店，三家详情成功2/3；我的酒店2114264与核心竞品6422421成功，维也纳6955433失败 `DETAIL_CARD_NOT_FOUND`。这里“2/3”是成功比例，失败为1/3。两份快照各保存9种真实房型，本次没有sold_out记录，不借用Gate H的售罄结果。
 
 后续正式Task `5ca4f15e1ca6e7b56a97fe7970566a5f`、`07de2130c3604c66a5a3357be31cdc5e` 也保存30条列表、详情2/3及同一维也纳错误。Task `d206c4a22688e6802d129b55b3abbc74` 自然PARTIAL，保存22条列表、三家DETAIL_INCOMPLETE；其部分采集原因未在本轮定位。所有结果原样保留，不纳入临时窗口过期证明，也未修改Helper兼容逻辑。既有Gate H的历史3/3证据仍有效，但不代表这些新的入住日期全部成功。
+
+## 维也纳详情入口最小兼容修复与完整详情复验（2026-10-01）
+
+结论：完整详情复验PASS。以main 0a1d942为基线，仅修改Helper详情入口恢复、增加3项自动测试；没有修改Plan/Task/Attempt调度、自动计划、鉴权、Schema、市场展示、酒店映射或携程列表采集逻辑。`mobile.js`中detailLink之前的搜索、列表、房型解析函数与基线逐字节一致。生产正式14天Plan整行与验收前只读证据完全相同，仍正常启用。
+
+真实复现与根因：错误 `DETAIL_CARD_NOT_FOUND` 发生于DETAIL_OPEN，尚未进入维也纳详情页。失败任务中我的酒店/另一核心竞品为第2/5位，维也纳为第15位（10月15日）或第14位（10月10日）。返回列表使用原有list_url重新加载，而首次DOM只包含首批酒店；旧代码找不到目标即失败，没有恢复后续批次入口。
+
+13:35:15.164（UTC+8）Chrome DevTools只读公开DOM诊断重现10月15～16日：document.readyState=complete，`.hotel-card`只有12个，Hotel ID依次为111856815、2114264、1286886、6422421、116905374、2261358、15154559、121746305、10476245、740437、104586680、28327212；6955433不在DOM，携程显示“上拉加载更多”。卡片class为`xtaro-xview xt-xview hotel-card`，公开data-exposure.data.masterhotelid用于身份匹配；10月2日的页面首批已含6955433，图像URL带`_ubt_hotelId=6955433&`，同一旧Helper当天也曾完成三家详情。这说明差异在返回列表后的入口加载批次，不能归因于维也纳房型解析器或平台阻止详情自动化。
+
+修复：仅在DETAIL_OPEN找不到冻结目标Hotel ID时，限45秒滚动实际列表容器并等待下次tick；返回pending，保持锁定市场列表、详情目标和原始参数不变。超时继续保存DETAIL_CARD_NOT_FOUND；切换到下一个失败目标时重置其入口等待起点。已有入口直接打开，原有详情上下文确认、房型选择器、价格及sold_out解析完全沿用。原有任务/Attempt剩余时间限制继续生效，不跨窗口。
+
+真实加载证据：修复后10月12日Task的Helper日志13:44:55.404、13:44:57.521保存 `DETAIL_ENTRY_WAIT {cards:13,hotel_id:"6955433",ready_state:"complete"}`（cards为入口选择器候选节点数）；随后13:45:00.702详情房型卡片0、13:45:02.655为3、13:45:04.799为5，最终上传成功。房型卡片命中原有BASE_ROOM_CARD/RECOMMEND_ROOM_CARD选择器，无需改房型卡片结构适配。此处DOM入口诊断为人工只读检查，下面的Task搜索、列表/详情采集与结果上传由真实Helper全自动完成。
+
+新增自动测试覆盖：首批缺失维也纳后加载目标，仅点击精确冻结Hotel ID；嵌套滚动容器恢复、45秒截止仍失败、相似ID不误点；我的酒店/另一核心竞品及公开exposure/attribute/image身份路径立即打开不回归。全套30项测试通过，Helper MV3、JS语法、数据库边界与git diff --check通过；测试Fixture仅在内存，不写生产D1。
+
+当前已批准Mac设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9已重载本次Helper，权限和设备身份不变。诊断/重载期间暂缓新领取后恢复自动接单，没有停用或改动正式Plan。另通过现有Helper“云端发布立即任务”创建10月15～16日、携程/咸宁/中心花坛/top30真实复验Task，使用原有45分钟窗口；没有人工领取、上传或改写终态。
+
+| 真实复验 | 正式计划Task（10月12～13日） | 立即复验Task（10月15～16日） |
+|---|---|---|
+| Task | 9c5d448d3bfc6f848c362fb5e2939a0a | b1eb79b3-d503-4e3e-900c-955b8bed346b |
+| 成功Attempt | #3 / 60552b2b-ec52-491b-b306-7803d33f6cec | #1 / 82157ede-e537-4f5b-9a11-3fe695ef0db8 |
+| 执行时间（UTC+8） | 13:43:24.013～13:45:14.152 | 13:47:00.679～13:48:55.700 |
+| 原始窗口 | 12:00～14:00 | 13:40:05.312～14:25:05.312 |
+| Snapshot | 69c6c63a-8aae-4212-bc13-05f59da333cf | aee7e0b8-cbc8-4b27-9d55-3859d7af2652 |
+| 最终状态 | COMPLETED / 详情3/3 | COMPLETED / 详情3/3 |
+| 市场列表 | 30条、30唯一Hotel ID | 30条、30唯一Hotel ID |
+| 三家排名（2114264 / 6422421 / 6955433） | 2 / 4 / 14 | 2 / 5 / 14 |
+| 三家房型数 | 4 / 5 / 5，共14种 | 4 / 5 / 5，共14种 |
+
+两份快照的Device、Task、Attempt、Market Observation、Room Observation及MARKET_LOCKED事件关联核验一致；observed_at在开始之后、received_at之前，上传在原窗口与Attempt截止之前。维也纳保存城景大床房、商务大床房、商务双床房、亲子双床房、家庭套房的真实价格与活动。两次均无明确sold_out，不借用Gate H的售罄数据。新的3/3结果支持本次兼容修复通过，不保证平台未来所有日期永远稳定。
+
+正式10月12日Task较早的Attempt #1自然FAILED / DEVICE_OFFLINE，#2自然FAILED / SEARCH_CONTROL_TIMEOUT；两次发生在详情阶段之前，不作为维也纳修复失败或成功证据，原样保留。此前10月15日/10月10日的两个PARTIAL及DETAIL_CARD_NOT_FOUND亦原样保留。生产只读证据在本地忽略目录 `.local/proofs/vienna-watch-*`、`vienna-final.json`、`vienna-verification.json`；可按以上ID复查D1。此次没有修改平台页面、系统时钟或生产结果。
