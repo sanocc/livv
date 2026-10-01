@@ -49,3 +49,11 @@ main代码提交72f36ca50040f50b2683da976fca79c356969fb6包含Gate I/J；API和O
 14:01:26（UTC+8）HTTP核验：api.livv.cc/health=200、database=ok；livv.cc/=200；未登录ota.livv.cc/=302到既有Cloudflare Access，未登录API管理员session=401。随后已登录Chrome刷新OTA成功，市场实际加载快照、酒店表、我的酒店¥190与中位价¥190，确认Access、OTA资产及API Service Binding链路正常；302本身不单独作为已登录应用健康证据。这些价格仅是该快照值。
 
 正式14天Plan仍启用，每分钟Cron配置未变；唯一短窗口验收Plan已停用，其Task全部终态，无其他独立验收任务继续执行。生产无Debug表、无测试Fixture写入观察；历史结果全部保留，14:03验收跟进已暂停。本轮只修正文档交接状态，不修改或部署业务逻辑。封板期间未新增Secret、权限或数据库迁移。
+
+## V1.1稳定化部署与轻量运行检查（2026-10-01）
+
+32项自动测试及scripts/check.mjs通过后，用既有Wrangler授权部署API只读runtime接口，再部署OTA任务页；无迁移、Secret/鉴权/权限或Cron变动。API版本1af23dd6-77d4-48bb-8c2d-9fd7e8cbfb2b，OTA版本789eb7d8-88fc-4cc8-9dab-a685146e7aad。14:58核验API health=200/database=ok，OTA首页200、LIVVCC首页200；已登录真实OTA任务页成功显示与D1一致的汇总。
+
+日常只需打开现有任务页并刷新：看今日已生成Task、终态成功率、来源分开的错误代码、在线设备和最近成功上传；需要具体原因时查看既有Task详情的Attempt/事件时间线。指标与范围定义见docs/api.md、docs/testing.md。设备最近错误随后续心跳变化，历史Attempt错误不变；无数据不能当成功。
+
+保持设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9的Chrome/Helper在线、电脑不休眠，现有正式14天Plan自然运行。不补采过期窗口，不额外创建验收Task，不删除PARTIAL/FAILED。ATTEMPT_TIMEOUT保留观察项，积累跨窗口/多次真实证据后再评估，不能为个别错误延长租约或改写终态。Gate G独立映射已恢复正确名称/other分类，原三家详情目标不变；停用验收Plan仍无活动Task。此次范围完成后停止新增开发，无新监控平台或OPS。

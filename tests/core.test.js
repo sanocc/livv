@@ -558,3 +558,132 @@ test("market display follows later manual mappings while strategy history stays 
   );
   assert.equal(unlinked.hotels[0].category, "other");
 });
+
+test("runtime is authenticated, empty-safe and read-only", async () => {
+  const h = harness();
+  assert.equal(
+    (await h.call("/v1/admin/runtime", "GET", undefined, {})).status,
+    501, // No Access configuration in the local harness; never grants anonymous access.
+  );
+  const r = await h.call("/v1/admin/runtime");
+  assert.equal(r.status, 200);
+  assert.equal(r.data.total, 0);
+  assert.equal(r.data.success_rate, null);
+  assert.equal(r.data.last_success_at, null);
+  assert.equal(r.data.attempts, 0);
+  assert.deepEqual(r.data.online_devices, []);
+});
+
+test("runtime counts all production windows, keeps PARTIAL and retry errors, excludes acceptance/manual tasks", async () => {
+  const h = harness(),
+    d = await ready(h);
+  await h.call(
+    `/v1/device/attempts/${d.a.id}/result`,
+    "POST",
+    payload(d.t),
+    d.headers,
+  );
+  const raw = h.DB.raw,
+    at = nowIso(),
+    day = businessDate();
+  const start = new Date(day + "T00:00:00+08:00").toISOString();
+  const end = new Date(addDays(day, 1) + "T00:00:00+08:00").toISOString();
+  const plan = raw.prepare(
+    "INSERT INTO plans VALUES(?, 'ctrip', '咸宁', '中心花坛', 'top30', 30, 14, ?, ?, ?)",
+  );
+  plan.run("production", 1, at, at);
+  plan.run("acceptance", 0, at, at);
+  raw
+    .prepare(
+      "UPDATE tasks SET plan_id=?,window_start=?,window_end=? WHERE id=?",
+    )
+    .run("production", start, end, d.t.id);
+  const insert = raw.prepare(
+    "INSERT INTO tasks(id,plan_id,platform,city,keyword,checkin,checkout,scope,collection_limit,status,created_at,due_at,window_start,window_end,error_code) VALUES(?,?,'ctrip','咸宁','中心花坛',?,?,'top30',30,?,?,?,?,?,?)",
+  );
+  function task(
+    id,
+    status,
+    planId = "production",
+    window = start,
+    code = null,
+  ) {
+    insert.run(
+      id,
+      planId,
+      day,
+      addDays(day, 1),
+      status,
+      at,
+      window,
+      window,
+      new Date(Date.parse(window) + 3600000).toISOString(),
+      code,
+    );
+  }
+  for (let i = 0; i < 205; i++) task("pending-" + i, "PENDING");
+  task("partial", "PARTIAL", "production", start, "PARTIAL_COLLECTION");
+  task("failed", "FAILED", "production", start, "WINDOW_EXPIRED");
+  task("running", "RUNNING");
+  task("manual", "FAILED", null, start, "MANUAL_ONLY");
+  task("acceptance", "FAILED", "acceptance", start, "ACCEPTANCE_ONLY");
+  task(
+    "yesterday",
+    "FAILED",
+    "production",
+    new Date(Date.parse(start) - 1).toISOString(),
+    "OLD_DAY",
+  );
+  task("tomorrow", "FAILED", "production", end, "NEXT_DAY");
+  const attempt = raw.prepare(
+    "INSERT INTO attempts(id,task_id,attempt_number,device_id,claimed_at,timeout_at,lease_until,status,error_code) VALUES(?,?,?,?,?,?,?,'FAILED',?)",
+  );
+  attempt.run("retry1", d.t.id, 2, d.id, at, end, end, "ATTEMPT_TIMEOUT");
+  attempt.run("retry2", "failed", 1, d.id, at, end, end, "ATTEMPT_TIMEOUT");
+  const stale = await device(h),
+    pending = await device(h);
+  raw
+    .prepare("UPDATE devices SET status='approved',last_seen_at=? WHERE id=?")
+    .run(new Date(Date.parse(at) - 121000).toISOString(), stale.id);
+  raw
+    .prepare("UPDATE devices SET last_seen_at=? WHERE id=?")
+    .run(at, pending.id);
+  const before = JSON.stringify(
+    raw.prepare("SELECT * FROM tasks ORDER BY id").all(),
+  );
+  const r = (await h.call("/v1/admin/runtime")).data;
+  assert.equal(r.day, day);
+  assert.equal(r.timezone, "Asia/Shanghai");
+  assert.deepEqual(r.statuses, {
+    PENDING: 205,
+    RUNNING: 1,
+    COMPLETED: 1,
+    PARTIAL: 1,
+    FAILED: 1,
+  });
+  assert.equal(r.total, 209);
+  assert.equal(r.terminal, 3);
+  assert.equal(r.success_rate, 1 / 3);
+  assert.equal(r.attempts, 3);
+  assert.deepEqual(r.errors, [
+    { source: "Attempt", code: "ATTEMPT_TIMEOUT", count: 2 },
+    { source: "Task", code: "PARTIAL_COLLECTION", count: 1 },
+    { source: "Task", code: "WINDOW_EXPIRED", count: 1 },
+  ]);
+  assert.equal(r.online_devices.length, 1);
+  assert.equal(r.online_devices[0].id, d.id);
+  assert.equal("credential_hash" in r.online_devices[0], false);
+  assert.equal(
+    r.last_success_at,
+    raw.prepare("SELECT received_at FROM snapshots WHERE task_id=?").get(d.t.id)
+      .received_at,
+  );
+  assert.equal(
+    JSON.stringify(raw.prepare("SELECT * FROM tasks ORDER BY id").all()),
+    before,
+  );
+  assert.equal(
+    raw.prepare("SELECT status FROM tasks WHERE id='running'").get().status,
+    "RUNNING",
+  );
+});

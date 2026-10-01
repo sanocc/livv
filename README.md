@@ -15,4 +15,6 @@ Node >=24，npm ci；npm test；npm run check。三个Worker使用Wrangler独立
 
 完整设计依据见docs/architecture.md；Schema见docs/database.md；接口见docs/api.md。
 
-第一阶段已封板（2026-10-01），生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。Gate A–F、H–J通过；Gate G已完成现用酒店的人工映射与真实采集关联，完整线上修改/解除操作复验仍为已知验收缺口，未冒充PASS。默认14天生产Plan已启用，真实Cron与窗口过期/幂等闭环已验证；Helper维也纳详情入口兼容修复后，两次真实30家任务均COMPLETED、详情3/3、各14种房型。全套30项自动测试通过。历史PARTIAL/FAILED及Gate H的13种房型、3项明确sold_out证据全部保留；临时验收Plan已停用，无遗留验收任务待执行。详细最终状态与封板检查见docs/testing.md、docs/deployment.md。真实Chrome Helper执行仍依赖在线、已批准且具备扩展运行能力的电脑。
+第一阶段已封板（2026-10-01），生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。Gate A–F、H–J通过；Gate G封板时保留的线上修改/解除复验缺口，已在V1.1生产稳定化阶段补证PASS（下述历史详情结果仍保留）。默认14天生产Plan已启用，真实Cron与窗口过期/幂等闭环已验证；Helper维也纳详情入口兼容修复后，两次真实30家任务均COMPLETED、详情3/3、各14种房型。全套30项自动测试通过。历史PARTIAL/FAILED及Gate H的13种房型、3项明确sold_out证据全部保留；临时验收Plan已停用，无遗留验收任务待执行。详细最终状态与封板检查见docs/testing.md、docs/deployment.md。真实Chrome Helper执行仍依赖在线、已批准且具备扩展运行能力的电脑。
+
+V1.1生产稳定化（2026-10-01）：Gate G真实OTA改名、解除、重连及市场恢复通过，永久ID、平台原始身份、既有Observation与正式Plan均未变。现有任务页增加只读今日生产运行状态，分别展示终态任务、成功率、Attempt错误与在线设备；32项自动测试通过。不新增平台、OPS、采集字段或人工验收任务，不调整已通过的调度/采集逻辑；完成后停止新增开发，由正式14天Plan自然积累数据。

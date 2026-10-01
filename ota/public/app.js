@@ -191,9 +191,25 @@ const today = () =>
 const nextDay = (d) =>
   new Date(Date.parse(d + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
 async function tasks() {
-  const [tasks, plans] = await Promise.all([api("tasks"), api("plans")]);
+  const [tasks, plans, runtime] = await Promise.all([
+    api("tasks"),
+    api("plans"),
+    api("runtime"),
+  ]);
   $("#view").innerHTML =
-    `<h2>立即采集</h2><form id="task-form" class="form">${targetFields}<label>入住<input type="date" name="checkin" value="${nextDay(today())}" min="${today()}" required></label><label>退房<input type="date" name="checkout" value="${nextDay(nextDay(today()))}" required></label>${scopeFields}<button class="primary">发布任务</button></form><h2>自动计划 · 滚动日期窗口</h2><p class="muted">业务时区 Asia/Shanghai；D0 10次；D+1 6次；D+2～3 4次；D+4～7 2次；D+8～14 1次；D+15～30 隔日1次。窗口内按设备负载错峰，最多5次Attempt，窗口过期不补采。06:00–08:00无默认窗口。</p><form id="plan-form" class="form">${targetFields}${scopeFields}<label>今日及未来日期<select name="horizon"><option value="14">14天</option><option value="30">30天</option></select></label><button>建立启用计划</button></form>${table(
+    `<h2>今日生产运行状态</h2><p class="muted">${runtime.day} · Asia/Shanghai · 当前启用计划的今日窗口任务，含尚未到期任务；独立任务与停用验收计划不计入。${datetime(runtime.at)} 更新，使用页面刷新获取最新状态。</p>${table(["计划任务", "COMPLETED", "PARTIAL", "FAILED", "待执行 / 运行中", "成功率（终态）", "关联Attempt次数"], [`<tr><td>${runtime.total}</td><td>${runtime.statuses.COMPLETED}</td><td>${runtime.statuses.PARTIAL}</td><td>${runtime.statuses.FAILED}</td><td>${runtime.statuses.PENDING} / ${runtime.statuses.RUNNING}</td><td>${runtime.success_rate == null ? "—" : (runtime.success_rate * 100).toFixed(1) + "%"}<small>COMPLETED / ${runtime.terminal}个终态任务；PARTIAL不算成功</small></td><td>${runtime.attempts}</td></tr>`])}<p>最近成功采集：${datetime(runtime.last_success_at)}（当前启用计划，COMPLETED上传时间）</p><h3>当前在线设备（${runtime.online_devices.length}）</h3>${table(
+      ["设备", "状态", "最近心跳", "最近错误"],
+      runtime.online_devices.map(
+        (d) =>
+          `<tr><td>${esc(d.name ?? "未命名")}<small>${esc(d.id)}</small></td><td>${d.running ? "执行中" : "空闲"}</td><td>${datetime(d.last_seen_at)}</td><td>${esc(d.last_error)}</td></tr>`,
+      ),
+    )}<h3>主要错误代码</h3>${table(
+      ["来源", "错误代码", "次数"],
+      runtime.errors.map(
+        (e) =>
+          `<tr><td>${esc(e.source)}</td><td>${esc(e.code)}</td><td>${e.count}</td></tr>`,
+      ),
+    )}<p class="muted">Task与Attempt错误分别计数，不相加；保留真实失败。ATTEMPT_TIMEOUT为生产观察项。</p><h2>立即采集</h2><form id="task-form" class="form">${targetFields}<label>入住<input type="date" name="checkin" value="${nextDay(today())}" min="${today()}" required></label><label>退房<input type="date" name="checkout" value="${nextDay(nextDay(today()))}" required></label>${scopeFields}<button class="primary">发布任务</button></form><h2>自动计划 · 滚动日期窗口</h2><p class="muted">业务时区 Asia/Shanghai；D0 10次；D+1 6次；D+2～3 4次；D+4～7 2次；D+8～14 1次；D+15～30 隔日1次。窗口内按设备负载错峰，最多5次Attempt，窗口过期不补采。06:00–08:00无默认窗口。</p><form id="plan-form" class="form">${targetFields}${scopeFields}<label>今日及未来日期<select name="horizon"><option value="14">14天</option><option value="30">30天</option></select></label><button>建立启用计划</button></form>${table(
       ["计划", "城市 / 关键词", "范围", "启用状态"],
       plans.map(
         (p) =>

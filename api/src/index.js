@@ -370,6 +370,65 @@ export async function handle(req, env) {
     }
     if (p === "/v1/admin/session" && method === "GET")
       return json({ email: actor });
+    if (p === "/v1/admin/runtime" && method === "GET") {
+      const at = nowIso(),
+        day = businessDate(Date.parse(at)),
+        start = new Date(day + "T00:00:00+08:00").toISOString(),
+        end = new Date(addDays(day, 1) + "T00:00:00+08:00").toISOString();
+      // Read-only totals over today's windows of currently enabled plans.
+      // Disabled acceptance plans and manual tasks stay in history, outside this view.
+      const cohort =
+        "t.plan_id IN (SELECT id FROM plans WHERE enabled=1) AND t.window_start>=? AND t.window_start<?";
+      const counts = await rows(
+        db,
+        `SELECT t.status,count(*) count FROM tasks t WHERE ${cohort} GROUP BY t.status`,
+        start,
+        end,
+      );
+      const statuses = Object.fromEntries(
+        ["PENDING", "RUNNING", "COMPLETED", "PARTIAL", "FAILED"].map((s) => [
+          s,
+          counts.find((x) => x.status === s)?.count ?? 0,
+        ]),
+      );
+      const terminal = statuses.COMPLETED + statuses.PARTIAL + statuses.FAILED;
+      const attempts = await first(
+        db,
+        `SELECT count(*) count FROM attempts a JOIN tasks t ON t.id=a.task_id WHERE ${cohort}`,
+        start,
+        end,
+      );
+      const errors = await rows(
+        db,
+        `SELECT 'Attempt' source,a.error_code code,count(*) count FROM attempts a JOIN tasks t ON t.id=a.task_id WHERE ${cohort} AND a.error_code IS NOT NULL GROUP BY a.error_code UNION ALL SELECT 'Task' source,t.error_code code,count(*) count FROM tasks t WHERE ${cohort} AND t.error_code IS NOT NULL GROUP BY t.error_code ORDER BY count DESC,source,code`,
+        start,
+        end,
+        start,
+        end,
+      );
+      const devices = await rows(
+        db,
+        "SELECT d.id,d.name,d.status,d.last_seen_at,d.last_error,EXISTS(SELECT 1 FROM attempts a WHERE a.device_id=d.id AND a.status='RUNNING') running FROM devices d WHERE d.status='approved' AND d.last_seen_at>? ORDER BY d.id",
+        nowIso(Date.parse(at) - CONFIG.offlineSeconds * 1000),
+      );
+      const last = await first(
+        db,
+        "SELECT max(s.received_at) at FROM snapshots s JOIN tasks t ON t.id=s.task_id WHERE t.status='COMPLETED' AND t.plan_id IN (SELECT id FROM plans WHERE enabled=1)",
+      );
+      return json({
+        at,
+        day,
+        timezone: CONFIG.timezone,
+        statuses,
+        total: Object.values(statuses).reduce((n, x) => n + x, 0),
+        terminal,
+        success_rate: terminal ? statuses.COMPLETED / terminal : null,
+        attempts: attempts.count,
+        errors,
+        online_devices: devices,
+        last_success_at: last.at,
+      });
+    }
     if (p === "/v1/admin/devices" && method === "GET") {
       await reap(db);
       const list = await rows(

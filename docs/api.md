@@ -37,3 +37,9 @@ GET /health执行D1 SELECT 1，只返回数据库依赖状态；成功200，数�
 市场curve.myPrice按当前人工映射读取该日期快照原始观察；snapshot.facts与strategy_history仍保留采集时不可变策略事实。缺失快照/未映射/缺失价格返回null，不插值。
 
 Plan.horizon=14/30含今日D0和D+1～14/30；market.horizon为从今日起14/30个展示点。POST plans保存后立即物化当前业务日剩余窗口；Cron持续滚动。schedule_key=Plan ID/业务日/入住日期/窗口编号，重复生成不新建Task、不移动已有due_at。capacity_warning表示预估设备容量不足；领取/重试均不越过window_end。
+
+## V1.1只读生产运行状态
+
+GET /v1/admin/runtime（OTA代理/api/v1/admin/runtime），沿用现有人类管理员鉴权。返回at、day、timezone、statuses（PENDING/RUNNING/COMPLETED/PARTIAL/FAILED）、total、terminal、success_rate、attempts、errors（source/code/count）、online_devices（id/name/status/last_seen_at/last_error/running）、last_success_at。
+
+统计当前enabled=1 Plan的Task.window_start落于Asia/Shanghai今日[00:00,次日00:00)的已生成Task（含未到期），排除无Plan任务和停用验收计划。success_rate=COMPLETED/terminal，PARTIAL算终态不算成功，无终态null；attempts累计上述Task全部Attempt；errors按Task/Attempt来源分别聚合不合并。在线仅approved且心跳不足120秒，不返回credential_hash。last_success_at取当前启用计划全部COMPLETED快照的最新received_at，无数据null。接口不回收任务、不改变Plan/Task/Attempt或历史，任务页刷新获取最新值。

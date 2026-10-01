@@ -1,6 +1,6 @@
 # 验收记录（持续更新）
 
-2026-10-01。第一阶段封板，生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。此记录严格区分自动测试与真实携程验收；下表为最终状态，后文按时间保留历次证据。
+2026-10-01。第一阶段封板，生产代码基线208a300dfcfd62e200542835e898f82cefc2028e。此记录严格区分自动测试与真实携程验收；下表含V1.1补证后的当前状态，后文按时间保留历次证据。
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
@@ -10,7 +10,7 @@
 | D 任务闭环 | PASS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；生产D1只读核验两次自动领取、开始、SEARCH_CONTROL_TIMEOUT失败、返回同一任务池的完整时间线；该任务窗口到期后FAILED / EXECUTION_WINDOW_EXPIRED；新Task 4765e749-a69c-45ed-974a-e811e467c712真实5/5后FAILED / MAX_ATTEMPTS_REACHED；相关自动测试通过 |
 | E 携程自动化 | PASS | Task a6d6ae1c-a69b-4705-830c-70c4f3e55b1c Attempt #3：Helper实际自动设置咸宁、10月2–3日、中心花坛并搜索；公开DOM和最终上传context校验通过；用户已授权debugger必需权限；未用手动诊断代替本次正式自动搜索 |
 | F 真实列表 | PASS | 同一Task COMPLETED；2026-10-01 11:10:25（Asia/Shanghai）生产D1保存snapshot a0ef566b-fe56-4b82-a081-6bd358a09bc7：30条Observation、30唯一Hotel ID、排名1–30、6条仅广告；OTA选择10月2日展示30家、中位价¥166和原始名称/ID/价格 |
-| G 映射 | 基本完成（封板保留线上复验缺口） | 用户已确认并在OTA建立我的酒店2114264、核心竞品6422421和6955433的永久LIVV映射；生产D1核验原始名称/Hotel ID与历史Observation不变；修改/解除映射本地测试通过，完整线上操作未追加验收，不标全项PASS |
+| G 映射 | PASS（V1.1生产补证） | 2026-10-01 14:52～14:57真实OTA完成1286886独立映射改名、解除、原ID重连、市场恢复；平台原始身份、15条既有Observation、正式Plan与三家主酒店映射不变；mapping_history保留link/unlink/link（见V1.1章节） |
 | H 房型 | PASS（含完整详情复验） | 历史Gate H任务三家详情3/3、13种房型、3项明确sold_out保留；208a300修复后两个新真实30家任务均COMPLETED、三家详情3/3、各14种房型；均在原窗口上传 |
 | I 市场展示 | PASS（代码与线上展示） | 当前映射对应我的酒店价、市场最低/中位/最高价、14/30天框架、五类酒店、携程横向列组、排名/起售价与完整悬浮字段；缺失留空；23项自动测试通过 |
 | J 自动计划 | PASS（代码、正式计划执行与独立短窗口闭环） | 调度可控时间测试通过；真实临时窗口7个COMPLETED、2个自然过期，失败Attempt保留；窗口后两个真实Cron周期无重复、无跨窗口领取/上传；正式14天Plan不变，已有真实30家/详情3/3的计划Task |
@@ -152,3 +152,38 @@
 两份快照的Device、Task、Attempt、Market Observation、Room Observation及MARKET_LOCKED事件关联核验一致；observed_at在开始之后、received_at之前，上传在原窗口与Attempt截止之前。维也纳保存城景大床房、商务大床房、商务双床房、亲子双床房、家庭套房的真实价格与活动。两次均无明确sold_out，不借用Gate H的售罄数据。新的3/3结果支持本次兼容修复通过，不保证平台未来所有日期永远稳定。
 
 正式10月12日Task较早的Attempt #1自然FAILED / DEVICE_OFFLINE，#2自然FAILED / SEARCH_CONTROL_TIMEOUT；两次发生在详情阶段之前，不作为维也纳修复失败或成功证据，原样保留。此前10月15日/10月10日的两个PARTIAL及DETAIL_CARD_NOT_FOUND亦原样保留。生产只读证据在本地忽略目录 `.local/proofs/vienna-watch-*`、`vienna-final.json`、`vienna-verification.json`；可按以上ID复查D1。此次没有修改平台页面、系统时钟或生产结果。
+
+## V1.1生产稳定化：Gate G补证与轻量运行状态（2026-10-01）
+
+本轮从4df8669（V1封板文档）继续，只增加现有任务页的只读汇总；无Schema迁移、鉴权调整、调度或Helper采集修改，无新增业务平台、OPS、采集字段或人工Task。第一阶段封板章节的Gate G缺口是当时事实，此次补证关闭该缺口，保留全部历史记录。
+
+### Gate G生产操作证据：PASS
+
+通过已有登录态的真实Chrome OTA酒店页面操作，选择非核心酒店ctrip/1286886，平台原始名称“7天优品酒店(咸宁温泉购物公园店)”。建立标准酒店“7天优品酒店·咸宁温泉购物公园店”，分类other，永久LIVV Hotel ID为9376a9c7-87c3-4f71-b9a5-82d7ab8210ba；不加入核心详情目标。
+
+| 时间（UTC+8） | 真实操作与核验 |
+|---|---|
+| 14:52:14 | 创建标准酒店，分类市场其他；固定永久LIVV ID |
+| 14:52:54 | 确认正确映射；mapping_history id=4，action=link |
+| 14:54:11 | 标准名修改为“7天优品酒店·咸宁温泉购物公园店（Gate G 名称验收）”；OTA和D1均确认永久ID不变，平台Hotel ID/原始名称不变 |
+| 14:55:05 | 解除该测试映射；history id=5，action=unlink；真实市场页面仍展示原始名称、市场其他、排名3、起售价¥127 |
+| 14:56:29 | 恢复正式标准名称，原永久ID与other分类不变 |
+| 14:57:04 | 重新关联同一LIVV ID；history id=6，action=link；刷新真实市场页恢复标准名称、市场其他、排名3、¥127 |
+
+改名/解除/重连三个阶段只读D1导出与操作前逐记录比较：全部Plan整行一致；我的酒店2114264及核心竞品6422421/6955433映射整行一致；1286886平台原始Hotel ID/原始名称一致；操作前15条market_observations按snapshot_id逐字段一致。目标历史room_observations为0，不冒充房型历史比较通过。本轮没有观察记录写入/删除。期间正式Plan自然采集追加1条目标Observation，最终16条；追加数据不算历史改写。
+
+正确重连保留为真实市场其他酒店的正式映射，不留验收后缀；没有建立或修改测试Plan/Task。映射操作历史不删除。原始导出及比较位于本地Git忽略目录.local/proofs/v11-mapping-before.json、v11-mapping-renamed.json、v11-mapping-unlinked.json、v11-mapping-relinked.json、v11-mapping-comparison.json；日志id及关键不变量已记录于本节供交接。
+
+### 轻量运行状态：PASS
+
+现有“任务”页调用GET /v1/admin/runtime，沿用管理员鉴权，只读既有Task/Attempt/Device/Snapshot，不调用reap、Scheduler或其他写入。业务日为Asia/Shanghai 00:00～次日00:00半开区间，以Task.window_start归属；统计当前enabled=1的Plan已生成任务，含未来待执行窗口，排除独立手动Task与停用验收Plan。今日“计划任务数”是已生成记录数，不是全天理论排期数；计划启用当日为25，完整业务日14天计划理论39。
+
+COMPLETED / (COMPLETED + PARTIAL + FAILED)为终态成功率；PARTIAL不算成功，无终态返回null显示—。Attempt次数为该任务集合所有Attempt累计次数；Task与Attempt错误分别聚合展示，不能把两来源相加当独立故障总数。在线设备仅approved且心跳距服务器统计时间不足120秒，列出运行中Attempt状态、最近心跳及设备最近错误，无凭证字段。最近成功采集时间为当前启用Plan的COMPLETED快照received_at（所有业务日，不局限今日），无成功返回null。页面刷新更新，无新监控服务或自动唤醒。
+
+14:57:57生产OTA显示并于14:58生产D1对照：25个今日已生成Task，COMPLETED=4、PARTIAL=5、FAILED=1、PENDING=15、RUNNING=0；终态成功率40.0%（4/10），19次Attempt。错误代码：Attempt SEARCH_CONTROL_TIMEOUT=7、ATTEMPT_TIMEOUT=2、DEVICE_OFFLINE=1；Task PARTIAL_COLLECTION=5、EXECUTION_WINDOW_EXPIRED=1。最近成功上传14:45:07.923。唯一设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9 approved/Helper 1.0.0，当时在线空闲，心跳14:58:23.232、last_error=null；历史Attempt错误仍原样保存，设备最新心跳清除最近错误并不删除历史。
+
+5个正式Plan历史PARTIAL分别完成于12:51、12:55、13:05、13:12、13:21，早于已通过的13:45/13:48详情复验；四项Vienna DETAIL_CARD_NOT_FOUND、一次全部DETAIL_INCOMPLETE均保留。14:00自然终止的FAILED/EXECUTION_WINDOW_EXPIRED亦保留。此统计包含旧版失败，不能据40%把修复后的成功复验改写为失败，亦不能剔除旧失败美化成功率。ATTEMPT_TIMEOUT只有2次，继续观察，不据此调整状态机。
+
+新增2项自动测试：鉴权拒绝/空数据；209条任务不受任务列表200条上限影响，业务日左右边界、手动/停用计划排除、PARTIAL分母、失败重试错误、在线/离线/未批准设备、无凭证输出、成功时间与只读不回收。全套32项自动测试通过，scripts/check.mjs语法/Schema边界/MV3检查通过；生产真实任务页和布局已核验。测试Fixture仅内存，无生产Fixture。
+
+正式Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c仍enabled=1/horizon=14，created_at/updated_at保持2026-10-01T04:41:45.228Z，每分钟Cron不变。唯一短窗口验收Plan仍enabled=0且活动Task=0，所有独立历史Task均终态。只读统计/健康证据：.local/proofs/v11-runtime-d1.json、v11-health.json。此次部署API及OTA成功，API / OTA / LIVVCC健康200（API database=ok），版本见部署文档。完成此范围后停止新增开发，保持当前已批准Helper电脑Chrome在线，由正式Plan自然积累真实数据。
