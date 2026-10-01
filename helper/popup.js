@@ -18,9 +18,10 @@ async function load() {
     `${s.cloud?.name ?? "未命名设备"} · ${s.cloud?.status ?? "注册中"}${s.active ? " · " + s.active.phase + " · " + s.active.count + "家" : ""}`;
   $("#device").textContent = "Device ID：" + s.device_id;
   $("#auto").checked = s.auto;
-  $("#error").textContent = s.error ?? "";
+  $("#error").textContent = s.last_error ?? "";
   $("#logs").textContent = (s.logs ?? [])
     .slice(-15)
+    .reverse()
     .map((x) => `${x.at} ${x.event} ${x.message}`)
     .join("\n");
 }
@@ -58,6 +59,15 @@ $("#task").onsubmit = (e) => {
 };
 action(load);
 
+$("#input-permission").onclick = () =>
+  action(async () => {
+    const granted = await chrome.permissions.request({
+      permissions: ["debugger"],
+    });
+    if (!granted) throw new Error("INPUT_PERMISSION_REQUIRED");
+    $("#error").textContent = "自动操作权限已启用；可开启自动接单。";
+  });
+
 $("#probe").onclick = () =>
   action(async () => {
     await send({ type: "PROBE_DISABLED" });
@@ -66,9 +76,18 @@ $("#probe").onclick = () =>
 
 $("#debug").onclick = () =>
   action(async () => {
-    $("#dom").textContent = JSON.stringify(
-      await send({ type: "DEBUG_DOM" }),
-      null,
-      2,
+    const result = await send({ type: "DEBUG_DOM" });
+    $("#dom").replaceChildren(
+      ...Object.entries(result).flatMap(([key, value]) => {
+        const text = key + ": " + JSON.stringify(value);
+        return Array.from(
+          { length: Math.ceil(text.length / 450) },
+          (_, index) => {
+            const entry = document.createElement("p");
+            entry.textContent = text.slice(index * 450, (index + 1) * 450);
+            return entry;
+          },
+        );
+      }),
     );
   });

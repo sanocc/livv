@@ -58,3 +58,9 @@ Plan -> Task -> Attempt分离。部分索引保证每设备/任务只有一个RU
 - [Builds Monorepo](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/) / [watch paths](https://developers.cloudflare.com/workers/ci-cd/builds/build-watch-paths/)
 
 携程房型适配按当前真实DOM的基础房型卡片采集；展开房型如果展示多个销售方案，仅保存当前DOM可见方案中的最低展示价及该价格对应的划线价/活动标签，不保存早餐、取消、渠道等Rate Plan字段。房型已订完必须有该卡片明确文字证据。详情DOM公开业务属性再次核对Hotel ID、入住/退房日期及原始酒店名。
+
+## Helper 浏览器输入
+
+普通合成DOM事件在真实携程候选项上不能稳定触发导航。Helper从公开DOM读取控件坐标，使用Chrome官方`chrome.debugger`的Input命令发送点击和搜索文本；`debugger`声明为可选权限，由用户在Helper明确启用。此权限在Chrome层面能力较广，业务代码每条命令前核验自有active/managed_tab及HTTPS携程酒店路径，只发送Input命令，每次操作finally断开；不使用Runtime、Network或Storage协议命令。原有设备凭证仍仅在后台存储/API请求使用，不传入页面脚本。
+
+参考：[Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger)、[Input协议](https://chromedevtools.github.io/devtools-protocol/tot/Input/)。

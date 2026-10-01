@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "领取云端任务并自动采集携程移动端真实酒店市场数据",
   "permissions": ["storage", "alarms", "tabs", "scripting"],
+  "optional_permissions": ["debugger"],
   "host_permissions": ["https://api.livv.cc/*", "https://m.ctrip.com/*"],
   "background": { "service_worker": "background.js", "type": "module" },
   "action": { "default_popup": "popup.html" },

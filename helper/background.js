@@ -5,6 +5,7 @@ import {
   inspectDetail,
   detailLink,
 } from "./mobile.js";
+import { performInput } from "./input.js";
 const API = "https://api.livv.cc",
   VERSION = "1.0.0";
 let busy = false,
@@ -89,10 +90,23 @@ async function initialize() {
 }
 async function execute(a, func, args = []) {
   const tab = await chrome.tabs.get(a.tab_id);
-  if (!tab.url?.startsWith("https://m.ctrip.com/webapp/hotels/"))
-    throw Object.assign(new Error("采集标签页离开携程酒店页面"), {
-      code: "MANAGED_TAB_NAVIGATED",
-    });
+  if (!tab.url && tab.status === "loading") return null;
+  const url = tab.url ? new URL(tab.url) : null;
+  if (
+    url?.origin !== "https://m.ctrip.com" ||
+    !(
+      url.pathname === "/webapp/hotels" ||
+      url.pathname.startsWith("/webapp/hotels/")
+    )
+  )
+    throw Object.assign(
+      new Error(
+        `采集标签页离开携程酒店页面：${url?.origin ?? "unknown"}${url?.pathname ?? ""}`,
+      ),
+      {
+        code: "MANAGED_TAB_NAVIGATED",
+      },
+    );
   const result = await chrome.scripting.executeScript({
     target: { tabId: a.tab_id },
     func,
@@ -268,6 +282,7 @@ async function run(a) {
       return;
     }
     const r = await execute(a, detailLink, [h.hotel_id]);
+    if (r?.action) await performInput(chrome, a.tab_id, r.action);
     if (r?.error) {
       a.detail_results.push({
         hotel_id: h.hotel_id,
@@ -314,11 +329,18 @@ async function run(a) {
     return;
   }
   const r = await execute(a, pageStep, [a.task, a.phase]);
+  if (r?.action) await performInput(chrome, a.tab_id, r.action);
+  if (r?.diagnostic && r.diagnostic !== a.diagnostic) {
+    a.diagnostic = r.diagnostic;
+    await log("PAGE_STEP", r.diagnostic);
+    await save(a);
+  }
   if (r?.error) {
     await fail(a, r.error, "携程自动搜索未完成：" + r.error);
     return;
   }
   if (r?.phase) {
+    await log("PHASE", `${a.phase} → ${r.phase}`);
     a.phase = r.phase;
     a.phase_at = Date.now();
     await save(a);
@@ -356,7 +378,8 @@ async function tick(heartbeat = false) {
   busy = true;
   try {
     await initialize();
-    let state = await read();
+    let state = await read(),
+      heartbeatFetched = false;
     if (
       heartbeat ||
       !state.cloud ||
@@ -367,6 +390,7 @@ async function tick(heartbeat = false) {
         error_code: state.error ?? null,
       });
       await chrome.storage.local.set({ cloud, cloud_at: Date.now() });
+      heartbeatFetched = true;
       state = { ...state, cloud };
     }
     if (state.cloud.status !== "approved") {
@@ -374,6 +398,11 @@ async function tick(heartbeat = false) {
       return;
     }
     if (state.active) {
+      if (heartbeatFetched && !state.cloud.active_attempt) {
+        await log("SERVER_ATTEMPT_FINISHED", state.active.attempt.id);
+        await chrome.storage.local.set({ active: null, error: null });
+        return;
+      }
       if (
         state.cloud.active_attempt &&
         state.cloud.active_attempt.id !== state.active.attempt.id
@@ -386,6 +415,13 @@ async function tick(heartbeat = false) {
       }
       await run(state.active);
     } else if (state.auto) {
+      if (!(await chrome.permissions.contains({ permissions: ["debugger"] }))) {
+        await chrome.storage.local.set({
+          auto: false,
+          error: "INPUT_PERMISSION_REQUIRED",
+        });
+        return;
+      }
       const c = await request("/v1/device/claim");
       if (c) {
         let old = (await chrome.storage.local.get("managed_tab")).managed_tab,
@@ -393,6 +429,8 @@ async function tick(heartbeat = false) {
         try {
           if (old) tab = await chrome.tabs.get(old);
         } catch {}
+        if (tab && !tab.url?.startsWith("https://m.ctrip.com/webapp/hotels/"))
+          tab = null;
         if (!tab)
           tab = await chrome.tabs.create({
             url: "https://m.ctrip.com/webapp/hotels/",
@@ -421,8 +459,29 @@ async function tick(heartbeat = false) {
       }
     }
   } catch (e) {
-    await chrome.storage.local.set({ error: e.code ?? "HELPER_ERROR" });
-    await log(e.code ?? "HELPER_ERROR", e.message);
+    const code =
+      typeof e.code === "string"
+        ? e.code
+        : e.name === "TimeoutError"
+          ? "API_TIMEOUT"
+          : "HELPER_ERROR";
+    const state = await read();
+    if (
+      state.active &&
+      [
+        "MANAGED_TAB_NAVIGATED",
+        "INPUT_PERMISSION_REQUIRED",
+        "INPUT_TAB_NOT_OWNED",
+        "INPUT_ATTACH_FAILED",
+      ].includes(code)
+    ) {
+      if (["INPUT_PERMISSION_REQUIRED", "INPUT_ATTACH_FAILED"].includes(code))
+        await chrome.storage.local.set({ auto: false });
+      await fail(state.active, code, e.message);
+      return;
+    }
+    await chrome.storage.local.set({ error: code });
+    await log(code, e.message);
   } finally {
     busy = false;
     clearTimeout(timer);
@@ -469,7 +528,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
               count: s.active.market?.length,
             }
           : null,
-        error: s.error,
+        last_error: s.error,
         logs: s.logs,
       };
     }
@@ -481,31 +540,42 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
     if (m.type === "DEBUG_DOM") {
       const state = await read();
       if (!state.active) return { error: "NO_ACTIVE_ATTEMPT" };
-      return execute(state.active, () => ({
-        path: location.pathname,
-        inputs: Array.from(document.querySelectorAll("input")).map((e) => ({
-          type: e.type,
-          value: e.value,
-        })),
-        city: document.querySelector('[class*="dest-keyword-column"]')
-          ?.textContent,
-        candidates: Array.from(
-          document.querySelectorAll('[class*="keywordItemMainContainer"]'),
-        )
-          .slice(0, 3)
-          .map((e) => ({
-            text: e.textContent,
-            html: e.outerHTML.slice(0, 2000),
+      return execute(
+        state.active,
+        (taskCity) => ({
+          path: location.pathname,
+          inputs: Array.from(document.querySelectorAll("input")).map((e) => ({
+            type: e.type,
+            value: e.value,
           })),
-        query: Array.from(document.querySelectorAll("span,div"))
-          .filter(
-            (e) =>
-              e.children.length === 0 &&
-              e.textContent.replace(/\s/g, "") === "查询",
+          city: document.querySelector('[class*="dest-keyword-column"]')
+            ?.textContent,
+          city_candidates: Array.from(document.querySelectorAll("span,div"))
+            .filter(
+              (e) =>
+                e.children.length === 0 && e.textContent.trim() === taskCity,
+            )
+            .slice(0, 3)
+            .map((e) => e.parentElement.parentElement.outerHTML.slice(0, 3000)),
+          candidates: Array.from(
+            document.querySelectorAll('[class*="keywordItemMainContainer"]'),
           )
-          .map((e) => e.outerHTML),
-        body: document.body.innerText.slice(0, 1800),
-      }));
+            .slice(0, 3)
+            .map((e) => ({
+              text: e.textContent,
+              html: e.outerHTML.slice(0, 2000),
+            })),
+          query: Array.from(document.querySelectorAll("span,div"))
+            .filter(
+              (e) =>
+                e.children.length === 0 &&
+                e.textContent.replace(/\s/g, "") === "查询",
+            )
+            .map((e) => e.outerHTML),
+          body: document.body.innerText.slice(0, 1800),
+        }),
+        [state.active.task.city],
+      );
     }
     if (m.type === "PROBE_DISABLED") {
       const cloud = await request("/v1/device/heartbeat", { version: VERSION });

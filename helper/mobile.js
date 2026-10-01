@@ -1,4 +1,5 @@
-// Runs only in the extension's isolated world on its own managed Ctrip tab.
+// DOM readers return public element coordinates; background sends browser input.
+// Both are restricted to the extension's own managed Ctrip hotel tab.
 export function pageStep(task, phase) {
   const norm = (s) =>
       String(s ?? "")
@@ -20,20 +21,20 @@ export function pageStep(task, phase) {
     return { error: "LOGIN_REQUIRED" };
   const pick = (selector) =>
     Array.from(document.querySelectorAll(selector)).find(visible);
-  const fill = (input, value) => {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value",
-    ).set;
-    setter.call(input, value);
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+  const tap = (element, text) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      type: text === undefined ? "click" : "text",
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+      ...(text === undefined ? {} : { text }),
+    };
   };
   if (phase === "CITY_OPEN") {
+    if (u.pathname.includes("citySearch")) return { phase: "CITY_INPUT" };
     const e = pick('[class*="dest-keyword-column"]');
     if (!e) return { wait: true };
-    e.click();
-    return { phase: "CITY_INPUT" };
+    return { action: tap(e), phase: "CITY_INPUT" };
   }
   if (phase === "CITY_INPUT") {
     if (u.pathname.endsWith("/search")) return { phase: "SEARCH" };
@@ -41,8 +42,7 @@ export function pageStep(task, phase) {
     const e = pick('input[type="text"]');
     if (!e) return { wait: true };
     if (e.value !== task.city) {
-      fill(e, task.city);
-      return { wait: true };
+      return { action: tap(e, task.city), wait: true };
     }
     const candidate = Array.from(
       document.querySelectorAll('[class*="keywordItemMainContainer"]'),
@@ -50,11 +50,13 @@ export function pageStep(task, phase) {
       (e) =>
         visible(e) && txt(e).includes(task.city) && txt(e).includes("城市"),
     );
-    if (!candidate) return { wait: true };
-    const title = candidate.querySelector('[class*="keywordTitleContainer"]');
-    const target = title?.querySelector("span span") ?? title ?? candidate;
-    target.click();
-    return { wait: true };
+    if (!candidate)
+      return { wait: true, diagnostic: "CITY_CANDIDATE_NOT_VISIBLE" };
+    return {
+      action: tap(candidate),
+      wait: true,
+      diagnostic: "CITY_CANDIDATE_TAPPED: " + txt(candidate),
+    };
   }
   if (phase === "KEYWORD_OPEN") {
     if (!u.pathname.endsWith("/search")) return { wait: true };
@@ -62,16 +64,16 @@ export function pageStep(task, phase) {
     if (!txt(city).includes(task.city)) return { error: "CITY_NOT_CONFIRMED" };
     const e = pick('[class*="keyword-hint-container"],[class*="keyword-row"]');
     if (!e) return { wait: true };
-    e.click();
-    return { phase: "KEYWORD_INPUT" };
+    return { action: tap(e), phase: "KEYWORD_INPUT" };
   }
   if (phase === "KEYWORD_INPUT" || phase === "LIST_KEYWORD_INPUT") {
+    if (phase === "LIST_KEYWORD_INPUT" && u.pathname.includes("listPage"))
+      return { phase: "LIST" };
     if (!u.pathname.includes("citySearch")) return { wait: true };
     const input = pick('input[type="text"]');
     if (!input) return { wait: true };
     if (input.value !== task.keyword) {
-      fill(input, task.keyword);
-      return { wait: true };
+      return { action: tap(input, task.keyword), wait: true };
     }
     const candidates = Array.from(
       document.querySelectorAll('[class*="keywordItemMainContainer"]'),
@@ -84,10 +86,13 @@ export function pageStep(task, phase) {
     );
     if (exact.length !== 1) return { error: "KEYWORD_AMBIGUOUS" };
     const title = exact[0].querySelector('[class*="keywordTitleContainer"]');
-    (title?.querySelector("span span") ?? title ?? exact[0]).click();
-    return { phase: phase === "LIST_KEYWORD_INPUT" ? "LIST" : "SEARCH" };
+    return {
+      action: tap(title?.querySelector("span span") ?? title ?? exact[0]),
+      phase: phase === "LIST_KEYWORD_INPUT" ? "LIST" : "SEARCH",
+    };
   }
   if (phase === "SEARCH") {
+    if (u.pathname.includes("listPage")) return { phase: "SET_DATES" };
     if (u.pathname.includes("citySearch")) return { phase: "CITY_INPUT" };
     if (!u.pathname.endsWith("/search")) return { wait: true };
     const city = pick('[class*="dest-keyword-column"]');
@@ -101,8 +106,7 @@ export function pageStep(task, phase) {
           e.childElementCount === 0,
       );
     if (!e) return { wait: true };
-    e.click();
-    return { phase: "SET_DATES" };
+    return { action: tap(e), phase: "SET_DATES" };
   }
   if (phase === "LIST_KEYWORD_OPEN") {
     if (!u.pathname.includes("listPage")) return { wait: true };
@@ -111,11 +115,10 @@ export function pageStep(task, phase) {
         visible(e) &&
         e.children.length === 0 &&
         !e.closest(".hotel-card") &&
-        txt(e) === "位置/品牌/酒店",
+        (txt(e) === "位置/品牌/酒店" || txt(e) === task.keyword),
     );
     if (!entry) return { wait: true };
-    entry.click();
-    return { phase: "LIST_KEYWORD_INPUT" };
+    return { action: tap(entry), phase: "LIST_KEYWORD_INPUT" };
   }
   if (phase === "SET_DATES") {
     if (!u.pathname.includes("listPage")) return { wait: true };
@@ -124,8 +127,7 @@ export function pageStep(task, phase) {
       (e) => visible(e) && !e.closest(".hotel-card") && txt(e) === current,
     );
     if (!entry) return { wait: true };
-    entry.click();
-    return { phase: "DATE_CHECKIN" };
+    return { action: tap(entry), phase: "DATE_CHECKIN" };
   }
   if (phase === "DATE_CHECKIN" || phase === "DATE_CHECKOUT") {
     const date = phase === "DATE_CHECKIN" ? task.checkin : task.checkout;
@@ -143,8 +145,10 @@ export function pageStep(task, phase) {
     );
     if (!cell) return { error: "DATE_UNAVAILABLE" };
     cell.scrollIntoView({ block: "center" });
-    cell.click();
-    return { phase: phase === "DATE_CHECKIN" ? "DATE_CHECKOUT" : "LIST" };
+    return {
+      action: tap(cell),
+      phase: phase === "DATE_CHECKIN" ? "DATE_CHECKOUT" : "LIST_KEYWORD_OPEN",
+    };
   }
   return { wait: true };
 }
@@ -441,11 +445,19 @@ export function detailLink(hotelId) {
       )
         return true;
     } catch {}
-    return;
-    (e.getAttribute("data-hotelid") ?? e.getAttribute("data-hotel-id")) ===
-      hotelId || e.querySelector(`img[src*="_ubt_hotelId=${hotelId}&"]`);
+    return (
+      (e.getAttribute("data-hotelid") ?? e.getAttribute("data-hotel-id")) ===
+        hotelId || e.querySelector(`img[src*="_ubt_hotelId=${hotelId}&"]`)
+    );
   });
   if (!card) return { error: "DETAIL_CARD_NOT_FOUND" };
-  card.click();
-  return { ok: true };
+  card.scrollIntoView({ block: "center" });
+  const rect = card.getBoundingClientRect();
+  return {
+    action: {
+      type: "click",
+      x: rect.x + rect.width / 2,
+      y: rect.y + rect.height / 2,
+    },
+  };
 }
