@@ -193,11 +193,11 @@ const nextDay = (d) =>
 async function tasks() {
   const [tasks, plans] = await Promise.all([api("tasks"), api("plans")]);
   $("#view").innerHTML =
-    `<h2>立即采集</h2><form id="task-form" class="form">${targetFields}<label>入住<input type="date" name="checkin" value="${nextDay(today())}" min="${today()}" required></label><label>退房<input type="date" name="checkout" value="${nextDay(nextDay(today()))}" required></label>${scopeFields}<button class="primary">发布任务</button></form><h2>自动计划 · 滚动日期窗口</h2><p class="muted">业务时区 Asia/Shanghai；D0每日10次，频率和错峰由API集中配置。06:00–08:00无默认窗口。</p><form id="plan-form" class="form">${targetFields}${scopeFields}<label>未来日期<select name="horizon"><option value="14">14天</option><option value="30">30天</option></select></label><button>建立启用计划</button></form>${table(
+    `<h2>立即采集</h2><form id="task-form" class="form">${targetFields}<label>入住<input type="date" name="checkin" value="${nextDay(today())}" min="${today()}" required></label><label>退房<input type="date" name="checkout" value="${nextDay(nextDay(today()))}" required></label>${scopeFields}<button class="primary">发布任务</button></form><h2>自动计划 · 滚动日期窗口</h2><p class="muted">业务时区 Asia/Shanghai；D0 10次；D+1 6次；D+2～3 4次；D+4～7 2次；D+8～14 1次；D+15～30 隔日1次。窗口内按设备负载错峰，最多5次Attempt，窗口过期不补采。06:00–08:00无默认窗口。</p><form id="plan-form" class="form">${targetFields}${scopeFields}<label>今日及未来日期<select name="horizon"><option value="14">14天</option><option value="30">30天</option></select></label><button>建立启用计划</button></form>${table(
       ["计划", "城市 / 关键词", "范围", "启用状态"],
       plans.map(
         (p) =>
-          `<tr><td>${esc(p.id)}<small>未来${p.horizon}天</small></td><td>${esc(p.city)} / ${esc(p.keyword)}</td><td>${p.scope === "all" ? "全市场" : p.collection_limit + "家"}</td><td><button data-plan="${p.id}" data-enabled="${p.enabled}">${p.enabled ? "停用" : "启用"}</button></td></tr>`,
+          `<tr><td>${esc(p.id)}<small>今日及未来${p.horizon}天</small></td><td>${esc(p.city)} / ${esc(p.keyword)}</td><td>${p.scope === "all" ? "全市场" : p.collection_limit + "家"}</td><td><button data-plan="${p.id}" data-enabled="${p.enabled}">${p.enabled ? "停用" : "启用"}</button></td></tr>`,
       ),
     )}<h2>任务记录</h2>${table(
       ["创建时间", "任务 / 状态", "目标", "阶段结果", "Attempt", "窗口截止"],

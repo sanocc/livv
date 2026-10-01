@@ -35,3 +35,5 @@ CF-Access-Jwt-Assertion签名验证+ADMIN_EMAILS。OTA的/api/v1/admin/*经Servi
 GET /health执行D1 SELECT 1，只返回数据库依赖状态；成功200，数据库不可用503，不披露业务记录或内部错误。
 
 市场curve.myPrice按当前人工映射读取该日期快照原始观察；snapshot.facts与strategy_history仍保留采集时不可变策略事实。缺失快照/未映射/缺失价格返回null，不插值。
+
+Plan.horizon=14/30含今日D0和D+1～14/30；market.horizon为从今日起14/30个展示点。POST plans保存后立即物化当前业务日剩余窗口；Cron持续滚动。schedule_key=Plan ID/业务日/入住日期/窗口编号，重复生成不新建Task、不移动已有due_at。capacity_warning表示预估设备容量不足；领取/重试均不越过window_end。

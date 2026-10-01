@@ -21,3 +21,5 @@
 索引：待执行due/window、活跃Attempt租约、酒店时间序列、市场参数。部分唯一索引与上传trigger构成并发和禁用的最终边界。所有价格缺失写NULL，tags未出现写NULL。30家与all/custom查询同时匹配scope/limit。
 
 Gate I展示只读关联当前hotel_mappings与原始market_observations，支持采集后的人工映射；不重写market_analyses.my_price或facts。无需Schema迁移。
+
+Gate J沿用现有Plan/Task/Attempt表和schedule_key唯一约束，无Schema迁移；滚动按业务日物化D0～D+horizon。jitter与负载只决定新Task.due_at/capacity_warning，已有Task排期和Attempt历史不重写。

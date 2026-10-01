@@ -421,12 +421,12 @@ test("rolling 14/30 date window, tier frequencies, jitter, no 06-08, idempotent 
   assert.equal(new Set(a.map((x) => x.due_at)).size, a.length);
   assert.ok(
     schedule([plan], now + 86400000).every(
-      (x) => x.checkin >= "2026-10-02" && x.checkin <= "2026-10-15",
+      (x) => x.checkin >= "2026-10-02" && x.checkin <= "2026-10-16",
     ),
   );
   assert.ok(
     schedule([{ ...plan, horizon: 30 }], now).every(
-      (x) => x.checkin <= "2026-10-30",
+      (x) => x.checkin <= "2026-10-31",
     ),
   );
   const h = harness(),
