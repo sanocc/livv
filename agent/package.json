@@ -5,5 +5,5 @@
   "scripts": {
     "build": "node ../scripts/build-helper.mjs"
   },
-  "version": "1.3.3"
+  "version": "1.3.4"
 }

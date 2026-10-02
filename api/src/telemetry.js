@@ -1,3 +1,4 @@
+import { parseInfo, deviceHealth } from "./device-environment.js";
 import { errorSummary } from "../../agent/diagnostics.js";
 import { requireThat } from "./domain.js";
 import { rows, first, stmt } from "./db.js";
@@ -298,7 +299,7 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
 export async function deviceDiagnostics(env, id, now = Date.now()) {
   const device = await first(
     env.DB,
-    "SELECT id,name,status,version,last_seen_at,last_error FROM devices WHERE id=?",
+    "SELECT id,name,status,version,last_seen_at,last_error,created_at,approved_at,environment,runtime,version_changed_at FROM devices WHERE id=?",
     id,
   );
   requireThat(device, "DEVICE_NOT_FOUND", 404);
@@ -315,12 +316,7 @@ export async function deviceDiagnostics(env, id, now = Date.now()) {
     id,
     since,
   );
-  const tasks = await rows(
-    env.DB,
-    `SELECT t.status,count(*) count FROM tasks t WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.task_id=t.id AND a.device_id=? AND a.claimed_at>=?) GROUP BY t.status`,
-    id,
-    since,
-  );
+  const health = await deviceHealth(env.DB, id, now);
   const timing = await first(
     env.DB,
     `SELECT avg((julianday(a.finished_at)-julianday(a.claimed_at))*86400000) average_ms,count(*) samples FROM attempts a JOIN tasks t ON t.id=a.task_id WHERE a.device_id=? AND a.claimed_at>=? AND t.task_type='MARKET_LIST' AND a.status='COMPLETED' AND a.finished_at IS NOT NULL`,
@@ -336,14 +332,17 @@ export async function deviceDiagnostics(env, id, now = Date.now()) {
   return {
     at,
     since,
+    health,
     device: {
       ...device,
+      environment: parseInfo(device.environment),
+      runtime: parseInfo(device.runtime),
       online:
         device.status === "approved" &&
         device.last_seen_at > nowIso(now - CONFIG.offlineSeconds * 1000),
     },
     recent,
-    task_results: tasks,
+    task_results: health.task_results,
     attempt_results: results,
     timing,
     errors,

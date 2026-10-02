@@ -1,3 +1,9 @@
+import {
+  saveEnvironment,
+  cleanRuntime,
+  parseInfo,
+  deviceHealth,
+} from "./device-environment.js";
 import { ingestTelemetry, deviceDiagnostics } from "./telemetry.js";
 import { CONFIG, nowIso, businessDate, addDays } from "./config.js";
 import {
@@ -265,15 +271,26 @@ export async function handle(req, env) {
     return json({ device_id: id, status: "pending", name: null }, 201);
   }
   if (p.startsWith("/v1/device/")) {
-    const d = await deviceAuth(req, db, p !== "/v1/device/heartbeat");
+    const d = await deviceAuth(
+      req,
+      db,
+      !["/v1/device/heartbeat", "/v1/device/environment"].includes(p),
+    );
     const b = method === "POST" ? await body(req) : {};
+    if (p === "/v1/device/environment" && method === "POST") {
+      requireThat(d.status !== "disabled", "DEVICE_DISABLED", 403);
+      return json(await saveEnvironment(db, d.id, b));
+    }
     if (p === "/v1/device/heartbeat" && method === "POST") {
       await stmt(
         db,
-        "UPDATE devices SET last_seen_at=?,version=?,last_error=? WHERE id=?",
+        "UPDATE devices SET last_seen_at=?,version_changed_at=CASE WHEN version IS NOT NULL AND version!=? THEN ? ELSE version_changed_at END,version=?,last_error=?,runtime=coalesce(?,runtime) WHERE id=?",
+        nowIso(),
+        text(b.version ?? "1.0.0", 40),
         nowIso(),
         text(b.version ?? "1.0.0", 40),
         b.error_code ? text(b.error_code, 80) : null,
+        b.runtime ? JSON.stringify(cleanRuntime(b.runtime)) : null,
         d.id,
       ).run();
       if (d.status === "approved")
@@ -455,10 +472,18 @@ export async function handle(req, env) {
       await reap(db);
       const list = await rows(
         db,
-        `SELECT d.id,d.name,d.status,d.created_at,d.approved_at,d.last_seen_at,d.last_error,d.version,EXISTS(SELECT 1 FROM attempts a WHERE a.device_id=d.id AND a.status='RUNNING') running FROM devices d ORDER BY created_at DESC`,
+        `SELECT d.id,d.name,d.status,d.created_at,d.approved_at,d.last_seen_at,d.last_error,d.version,d.environment,d.runtime,d.version_changed_at,EXISTS(SELECT 1 FROM attempts a WHERE a.device_id=d.id AND a.status='RUNNING') running FROM devices d ORDER BY created_at DESC`,
       );
       return json(
-        list.map((d) => ({ ...d, display_status: deviceStatus(d, d.running) })),
+        await Promise.all(
+          list.map(async (d) => ({
+            ...d,
+            environment: parseInfo(d.environment),
+            runtime: parseInfo(d.runtime),
+            health: await deviceHealth(db, d.id),
+            display_status: deviceStatus(d, d.running),
+          })),
+        ),
       );
     }
     const diagnostics = p.match(/^\/v1\/admin\/devices\/([^/]+)\/diagnostics$/);

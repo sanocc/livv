@@ -1,5 +1,6 @@
 import {
   diagnosticsView,
+  deviceSummary,
   errorLabel,
   statusLabel,
 } from "./device-diagnostics.js";
@@ -572,11 +573,8 @@ async function devices() {
   const data = await api("devices");
   $("#view").innerHTML =
     `<p class="muted">首次安装待批准。设备凭证独立于设备 ID，禁用立即阻止正式工作。</p>${table(
-      ["设备", "永久设备 ID", "状态", "最近心跳", "操作"],
-      data.map(
-        (d) =>
-          `<tr><td>${esc(d.name ?? "未命名")}<small>${esc(d.version)}</small></td><td>${esc(d.id)}</td><td>${esc(d.display_status)}<small>${esc(errorLabel(d.last_error))}</small></td><td>${datetime(d.last_seen_at)}</td><td><button data-diagnostics="${d.id}">运行概况</button> <button data-name="${d.id}">改名</button> <button data-device="${d.id}" data-status="${d.status === "approved" ? "disabled" : "approved"}">${d.status === "pending" ? "批准" : d.status === "approved" ? "禁用" : "恢复"}</button></td></tr>`,
-      ),
+      ["设备与环境", "状态", "最近成功 / 心跳", "近24小时运行情况", "操作"],
+      data.map(deviceSummary),
     )}`;
   $("#view").insertAdjacentHTML(
     "beforeend",

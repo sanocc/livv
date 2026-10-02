@@ -1063,3 +1063,8 @@ h2 {
 .chart-hit {
   outline: none;
 }
+
+.device-environment { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 8px 24px; margin: 12px 0 18px; }
+.device-environment > div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; border-bottom: 1px solid #e8edf3; padding: 8px 0; }
+.device-environment span { color: #64748b; }
+.device-environment strong { font-size: 13px; text-align: right; overflow-wrap: anywhere; }

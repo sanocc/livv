@@ -1,3 +1,23 @@
+## 2026-10-02 POAI Agent 1.3.4 设备运行环境验收
+
+- 自动测试82/82 PASS；npm run check PASS；API / OTA Worker 构建与 Agent MV3/语法检查通过。API、OTA、主站已部署，下载包为1.3.4。
+- 增量迁移0004_device_environment只在devices新增可空environment、runtime、version_changed_at。历史缺失值不补造。迁移前后只读比较设备ID、credential_hash、名称、批准状态、注册/批准时间全部相同；正式Plan整行完全相同。证明文件仅私有本地保存，不提交凭证或哈希。
+- 静态平台信息使用runtime.getPlatformInfo及限定字段的Client Hints；探测限时、独立于任务，五分钟内不重复探测，失败低频重试，同会话未变化不重复上报。动态状态复用已有心跳；上报失败不改变采集结果。注册/批准/采集状态机均未修改。
+- Mac实际：macOS27.0.1、arm64、Chrome154.0.8037.58、zh-CN、Agent1.3.4、manifest3。Windows实际：Windows10（Client Hints platform_version=10.0.0）、x64、同版Chrome、zh-CN、Agent1.3.4。两台均为生产环境/api.poai.cc、原批准设备身份；debugger权限、Side Panel支持、自动接单均true。携程页面normal，登录状态unknown，不从页面猜测账号登录。
+- 两台8项能力均true：fast_navigation、market_list、detail_collection、debugger_input、side_panel、cloud_telemetry、mobile_view、ctrip。能力只表示实现支持，不保证所有城市有快速导航模板。旧离线1.2.0设备未上报环境，保持未知。
+- OTA真实登录界面已核验：设备列表显示系统/浏览器/Agent/在线及批准/最近成功/心跳/24h结果；设备详情展示环境、权限、能力、生命周期、运行健康及原始技术详情。历史失败和PARTIAL照常可见，成功率未把PARTIAL计作成功。24h任务归属最后一次执行设备；导航按执行去重，没有记录保持缺失。
+
+| 设备 | Task | Attempt | Snapshot | 领取到ready | ready到30家锁定 | 总耗时 |
+|---|---|---|---|---|---|---|
+| Mac | 6c7bcb54-d076-42d4-b523-5ec79778a66d | b3baa47e-9727-404a-9938-66aa67d043f2 | 2a50c71a-a437-4c03-9134-efd22f5dea20 | 5.324秒 | 26.328秒 | 32.683秒 |
+| Mac | 9252887c-3f62-49f2-8e4d-14d70c911414 | f3a1339e-ce3e-45db-a1ce-69ca0fbf2ad3 | 308409c9-5faf-4141-9dfc-7ff0d3272eb1 | 4.849秒 | 24.836秒 | 30.789秒 |
+| Windows | 23818521-2098-4584-8312-aacb2f97a025 | 62d810d7-5c7b-4b01-a074-c18a03df38c0 | 0418e500-36b0-4b71-ac52-3b78aa66dd6a | 7.944秒 | 20.667秒 | 32.587秒 |
+
+- 三次均为咸宁/中心花坛、2026-10-03→10-04、COMPLETED，快照各30行、30唯一Hotel ID、rank1～30、30项价格。FAST_NAV_VERIFIED确认URL/关键词/酒店卡片城市日期一致；无fallback、SEARCH_CONTROL_TIMEOUT或HELPER_ERROR。三条云端TASK_COMPLETED日志均记录app_version1.3.4；MARKET_LIST详情数量0，未进入详情采集。
+- 性能如实比较：Mac既有约29.8秒→本轮2次平均31.736秒（+1.936秒，约6.5%）；Windows既有1.3.3的29.957秒→本轮1次32.587秒（+2.630秒，约8.8%）。仍约30秒，小样本不能证明零回归或确定差异因果；异步隔离与去重测试通过，未发现环境报告阻塞主链路证据。不得把此次设备信息工作宣传为提速。
+- 隐私验收：限定系统/浏览器/版本/运行能力字段，未新增账号、cookie、token、credential、序列号、用户名或精确位置上报；未知/额外键不持久化。原设备认证仍沿用，日志脱敏不变。
+- 保留已知兼容问题：武汉/武汉站缺少已验证快速导航模板，其UI fallback曾出现SEARCH_CONTROL_TIMEOUT/INPUT_TARGET_CHANGED，历史FAILED/PARTIAL不改写；本轮不修采集逻辑。旧1.2.0离线设备环境保持未知。Windows11+无法可靠细分新版本时按客户端提示映射为“Windows11或更新”，不足证据显示未知。
+
 # Windows 网络错误诊断与低频注册重试（2026-10-02）
 
 - Windows 1.3.2 / poai_ed7149fb-ab99-4db8-af1e-4f8143001cd6 的唯一已查到 HELPER_ERROR：2026-10-02T04:57:14.741Z（新加坡时间 12:57:14.741），D1 agent_logs e667a704-e09b-4d0f-b0e8-5906b0e4d56a；用户提供本地原文 Failed to fetch，云端诊断 NETWORK_FETCH_FAILED，Task/Attempt 均空，发生在首次批准与任务领取之前。

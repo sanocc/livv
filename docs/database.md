@@ -1,3 +1,9 @@
+# 设备运行环境元数据（2026-10-02）
+
+0004_device_environment.sql 仅在 devices 增加 environment（JSON）、runtime（JSON）、version_changed_at（可空时间）三列。旧行均为 NULL，不改身份、credential_hash、批准时间或业务历史。environment 为系统/浏览器/manifest/生产端点和可扩展 capabilities 对象；runtime 为自动接单、调试器权限、侧边栏、标签页/携程状态及本机任务阶段。已知字段白名单过滤，不保存账号、Cookie、Token、设备硬件序列或地理位置。
+
+静态内容只在变化时UPDATE，重复JSON不写入；动态内容并入原心跳同一个UPDATE，没有额外心跳历史表。version_changed_at 仅在实际收到不同 Agent version 时更新，旧设备历史升级时间缺失保持 NULL。任务、最近成功/失败与统计均查询现有 Task/Attempt，不将本机声明当作权威业务结果。
+
 # 实际数据库
 
 ## POAI 迁移（2026-10-02）

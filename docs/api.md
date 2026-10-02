@@ -1,3 +1,11 @@
+# 设备环境补充接口（Agent 1.3.4）
+
+POST /v1/device/environment：沿用已有设备ID+凭证认证；pending/approved 可补充环境，disabled 禁止。它不注册、不批准、不更新设备名称或身份，不授权领取。只接收 environment 白名单标量与至多24个布尔能力项；未知/敏感字段丢弃；只有JSON不同才UPDATE。无D1直连或新增权限。
+
+POST /v1/device/heartbeat 增加可选 runtime 白名单对象。旧客户端不传时兼容；最近在线/错误/版本仍使用原字段和现有语义，实际版本变化时间才保存。静态信息不随每次心跳重传。
+
+GET /v1/admin/devices 与 /:id/diagnostics 增加解析后的 environment/runtime/version_changed_at 与 health。health 的24h任务按最新Attempt的device归属去重，完全成功率分母为已结束Task（COMPLETED/PARTIAL/FAILED），待执行/运行不混入；原Attempt分组/错误仍保留。最近执行耗时与MARKET_LIST平均值按真实Attempt领取→结束计算。FAST_NAV率分母为存在已记录导航事件的Attempt，成功须FAST_NAV_VERIFIED/FAST_NAV_SUCCESS；回退次数按FAILED/MISMATCH的Attempt去重。无记录时比例null，不推断为成功或失败。运行阶段只有与D1当前Attempt匹配才显示，空闲/执行中以云端Attempt为准。
+
 # API V1
 
 ## POAI 当前入口（2026-10-02）

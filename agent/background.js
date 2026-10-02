@@ -1,3 +1,4 @@
+import { environmentReporter } from "./environment.js";
 import { errorSummary, registrationRetry } from "./diagnostics.js";
 import { telemetryEvent, telemetryQueue } from "./telemetry.js";
 import {
@@ -56,6 +57,24 @@ function observe(event, active, diagnostic = "", message = "", summary = null) {
     void telemetry.enqueue(point).catch(() => {});
   } catch {}
 }
+const environment = environmentReporter({
+  chrome,
+  navigator,
+  send: async (data) => {
+    const id = await identity();
+    const r = await fetch(API + "/v1/device/environment", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device-ID": id.device_id,
+        Authorization: `Bearer ${id.credential}`,
+      },
+      body: JSON.stringify(data),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) throw Error("Environment report unavailable");
+  },
+});
 let progressKey = "",
   onlineObservedAt = 0;
 let busy = false,
@@ -671,6 +690,7 @@ async function tick(heartbeat = false) {
       const cloud = await request("/v1/device/heartbeat", {
         version: VERSION,
         error_code: state.error ?? null,
+        runtime: environment.snapshot(state),
       });
       await chrome.storage.local.set({ cloud, cloud_at: Date.now() });
       if (Date.now() - onlineObservedAt > 300000) {
@@ -680,6 +700,7 @@ async function tick(heartbeat = false) {
       void telemetry.flush();
       heartbeatFetched = true;
       state = { ...state, cloud };
+      void environment.refresh(state).catch(() => {});
     }
     if (state.cloud.status !== "approved") {
       if (state.active) await chrome.storage.local.set({ active: null });
