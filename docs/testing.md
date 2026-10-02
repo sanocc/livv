@@ -5,6 +5,7 @@
 - 同一 Windows 1.3.2 随后真实 Task 4584424a-379a-4861-b1cc-64932904b144 / Attempt e7378f69-8d99-4dee-9da9-1478316f2f28 COMPLETED。咸宁、中心花坛、2026-10-03→10-04；Snapshot 284429c0-6548-43b0-8226-63e82ac4e589，30 家、详情目标0；FAST_NAV_VERIFIED，卡片城市/日期/关键词验证通过。领取 05:04:46.810Z，完成 05:05:16.866Z，总 30.056 秒；领取→ready 4.489 秒，ready→锁定 22.396 秒。现有 Windows 采集链路 PASS，设备 last_error 自然恢复 null，没有人为改写。
 - Agent 1.3.3 仅加入诊断与低频首次注册重试：2/5/10/15/30 分钟退避，封顶每30分钟；chrome.storage 保存 next_at，MV3 alarms 恢复，重复检查不能绕过退避；成功后移除重试状态并恢复原心跳。原 device_id/credential 不变，注册校验与协议不变。
 - HELPER_ERROR 及现有 catch 异常记录脱敏 error_name/error_message/error_code、phase、pathname、request_path、浏览器 UA 和最多4行 stack；Task/Attempt 仍为已有日志关联字段。开发日志显示/复制摘要；D1 使用既有 agent_logs.metadata，Analytics 使用追加 blob14；没有 Schema migration。日志上传和诊断失败独立隔离，不改变任务结果。
+- 13:14 再查发现独立场景：Task 99c8cc63-6374-4aeb-83d6-2fe0db17770a 实际为武汉/武汉站（不是上述咸宁验收），没有已验证导航 profile，按原规则 UI_FALLBACK。Attempt 4ca23512-0ca0-4fce-b4f9-c149c1db3359 于05:12:29.236Z记录 INPUT_TARGET_CHANGED，05:14:38.186Z真实 FAILED / SEARCH_CONTROL_TIMEOUT 后 RETURNED_TO_QUEUE；保留失败，不修改新城市导航模板或历史状态。设备当前完全无错误不能标PASS；此前咸宁30家成功证据仍有效。
 - 自动测试77/77 PASS，覆盖背景真实初始化失败/唤醒限频/重试成功/身份保留、退避上限、脱敏摘要、D1/Analytics存证及原全部回归。版本由1.3.2递增至1.3.3；1.3.3 新包 Windows 真机重载验收 PENDING，不能将上面的1.3.2结果当作新包PASS。
 
 # 新设备注册兼容修复（2026-10-02）
