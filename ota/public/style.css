@@ -1729,3 +1729,22 @@ h2 {
   .platform-table .platform-limit { display: block; border-bottom: 1px solid #e4eaf2; }
   .platform-table .platform-limit td { padding-bottom: 16px; }
 }
+
+.acceptance { margin-top: 28px; border-top: 1px solid #e4eaf2; padding-top: 16px; }
+.acceptance-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.acceptance-filters label { display: grid; gap: 5px; font-size: 12px; color: var(--muted, #64748b); }
+.acceptance-filters input, .acceptance-filters select { width: 100%; min-width: 0; box-sizing: border-box; }
+.acceptance-filters button { grid-column: 1 / -1; justify-self: start; }
+#acceptance-error, .acceptance-blocker { color: #9b3b2e; overflow-wrap: anywhere; }
+.acceptance-result { border-top: 1px solid #e4eaf2; padding: 16px 0; font-size: 13px; overflow-wrap: anywhere; }
+.acceptance-result .section-heading { gap: 8px; flex-wrap: wrap; }
+.acceptance-result h3 { margin: 0; }
+.acceptance-result small { display: block; color: var(--muted, #64748b); }
+.acceptance-result summary { cursor: pointer; padding: 8px 0; }
+.acceptance-result table { min-width: 0; white-space: normal; }
+@media (max-width: 640px) {
+  .acceptance-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acceptance-filters label:has(input[type="date"]) { grid-column: 1 / -1; }
+  .acceptance-filters button { width: 100%; }
+  .acceptance-result td { padding: 8px 5px; overflow-wrap: anywhere; }
+}

@@ -26,6 +26,13 @@ export function statusLabel(value) {
   return statusLabels[String(value).toUpperCase()] ?? "状态待确认";
 }
 export const errorLabels = {
+  AGENT_HOST_PERMISSION_REVIEW_REQUIRED: "新平台需要先批准 Agent 访问权限",
+  INVALID_ACCEPTANCE_INPUT: "平台验收参数无效",
+  INVALID_ACCEPTANCE_OS: "平台验收需要 Mac 或 Windows",
+  INVALID_ACCEPTANCE_REQUEST_ID: "平台验收请求标识无效",
+  ACCEPTANCE_IDEMPOTENCY_CONFLICT: "相同验收请求的采集条件不一致",
+  ACCEPTANCE_TASK_NOT_FOUND: "未找到平台验收任务",
+  NO_READY_APPROVED_CHROME_AGENT: "没有符合条件的在线已批准 Chrome 设备",
   TASK_CANCELLED: "任务已由管理员取消",
   ADMIN_CANCELLED: "管理员已取消任务",
   TASK_ALREADY_FINISHED: "任务已结束，不能取消",

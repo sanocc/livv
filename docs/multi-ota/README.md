@@ -119,3 +119,5 @@ POAI_PLAYWRIGHT_MODULE=/path/to/playwright node scripts/probe-platforms.mjs
 - 网络可用后先验证 FlyAI 发布者官方零配置路径；是否需要自有 Key、渠道签名/额度，以真实官方响应为准，不预先要求账号。
 - 携程使用已批准设备/现有登录态的 Mac/Windows 真机验收，需要实际设备环境。其他平台若真实出现登录/验证码或合作准入，再分别记录并请求必要介入。
 - 当前开放平台合作资格、接口条款、采集许可和持续商业使用边界尚未核实。官方授权接口一般更稳；私人网络 endpoint、旧 DOM、混淆签名等维护成本高，不能仅因技术可调用就启用生产。
+
+后续闭环见 [已批准 Agent 远程验收](remote-acceptance.md)：复用现有 Task/Attempt/上传，为携程建立远程验收入口；当前没有本轮生产真机证据，其他平台停在访问权限审查边界。

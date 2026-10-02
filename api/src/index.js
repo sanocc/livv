@@ -1,3 +1,12 @@
+import {
+  createAcceptance,
+  acceptanceReadiness,
+  acceptanceReport,
+} from "./acceptance.js";
+import {
+  isAcceptanceTask,
+  acceptanceStartEvidence,
+} from "./acceptance-policy.js";
 import { platformCatalog } from "../../platforms/catalog.js";
 import {
   saveEnvironment,
@@ -69,7 +78,13 @@ async function body(req) {
     throw new HttpError(400, "INVALID_JSON");
   }
 }
-async function newTask(db, b, device = null, now = Date.now()) {
+async function newTask(
+  db,
+  b,
+  device = null,
+  now = Date.now(),
+  scheduleKey = null,
+) {
   const t = target(b, { now }),
     id = crypto.randomUUID(),
     at = nowIso(now);
@@ -80,7 +95,7 @@ async function newTask(db, b, device = null, now = Date.now()) {
   );
   await stmt(
     db,
-    `INSERT INTO tasks(id,platform,city,keyword,scope,collection_limit,checkin,checkout,preferred_device_id,created_at,due_at,window_start,window_end,task_type) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO tasks(id,platform,city,keyword,scope,collection_limit,checkin,checkout,preferred_device_id,created_at,due_at,window_start,window_end,task_type,schedule_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     id,
     t.platform,
     t.city,
@@ -95,6 +110,7 @@ async function newTask(db, b, device = null, now = Date.now()) {
     at,
     nowIso(now + CONFIG.immediateWindowMinutes * 60000),
     taskType,
+    scheduleKey,
   ).run();
   return first(db, "SELECT * FROM tasks WHERE id=?", id);
 }
@@ -371,7 +387,14 @@ export async function handle(req, env) {
               "STARTED",
               nowIso(),
               null,
-              JSON.stringify({ app_version: d.version ?? null }),
+              JSON.stringify({
+                app_version: d.version ?? null,
+                ...(isAcceptanceTask(
+                  await first(db, "SELECT * FROM tasks WHERE id=?", a.task_id),
+                )
+                  ? { acceptance_device: acceptanceStartEvidence(d) }
+                  : {}),
+              }),
             ),
           ]);
         return json({ ok: true });
@@ -427,6 +450,22 @@ export async function handle(req, env) {
         415,
       );
     }
+    if (p === "/v1/admin/acceptance/readiness" && method === "GET")
+      return json(acceptanceReadiness());
+    if (p === "/v1/admin/acceptance-tasks" && method === "POST") {
+      const result = await createAcceptance(db, b, newTask);
+      return json(result, result.idempotent ? 200 : 201);
+    }
+    if (p === "/v1/admin/acceptance-tasks" && method === "GET") {
+      const tasks = await rows(
+        db,
+        "SELECT id,status,platform,preferred_device_id,created_at,schedule_key,plan_id,task_type FROM tasks WHERE plan_id IS NULL AND task_type='MARKET_LIST' AND schedule_key LIKE 'acceptance:v1:%' ORDER BY created_at DESC,id LIMIT 50",
+      );
+      return json({ tasks: tasks.filter(isAcceptanceTask) });
+    }
+    const acceptance = p.match(/^\/v1\/admin\/acceptance-tasks\/([^/]+)$/);
+    if (acceptance && method === "GET")
+      return json(await acceptanceReport(db, acceptance[1], env.ENVIRONMENT));
     if (p === "/v1/admin/platforms" && method === "GET")
       return json({ contract_version: 1, platforms: platformCatalog() });
     if (p === "/v1/admin/session" && method === "GET")

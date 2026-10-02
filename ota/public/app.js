@@ -39,6 +39,7 @@ let page = "market",
   },
   marketMode = "future",
   historyModule = null,
+  acceptanceModule = null,
   marketData = null,
   marketCategory = "",
   marketHotelQuery = "",
@@ -843,12 +844,21 @@ async function hotels() {
   );
 }
 async function platforms() {
-  const [{ platformCapabilitiesView }, result] = await Promise.all([
+  const [
+    { platformCapabilitiesView },
+    { acceptanceView, mountAcceptance },
+    result,
+  ] = await Promise.all([
     import("./platforms.js"),
+    import("./acceptance.js"),
     api("platforms"),
   ]);
-  if (page === "platforms")
-    $("#view").innerHTML = platformCapabilitiesView(result);
+  if (page === "platforms") {
+    acceptanceModule?.dispose();
+    $("#view").innerHTML =
+      platformCapabilitiesView(result) + acceptanceView(filter);
+    acceptanceModule = mountAcceptance($("#view"), api);
+  }
 }
 async function action(fn) {
   const tooltip = $("#market-tooltip");
@@ -882,6 +892,7 @@ document.querySelectorAll("[data-page]").forEach(
       ++marketRequest;
       ++chartRequest;
       historyModule?.dispose();
+      acceptanceModule?.dispose();
       load();
     }),
 );

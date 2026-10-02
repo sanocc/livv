@@ -26,6 +26,13 @@ export function statusLabel(value) {
   return statusLabels[String(value).toUpperCase()] ?? "状态待确认";
 }
 export const errorLabels = {
+  AGENT_HOST_PERMISSION_REVIEW_REQUIRED: "新平台需要先批准 Agent 访问权限",
+  INVALID_ACCEPTANCE_INPUT: "平台验收参数无效",
+  INVALID_ACCEPTANCE_OS: "平台验收需要 Mac 或 Windows",
+  INVALID_ACCEPTANCE_REQUEST_ID: "平台验收请求标识无效",
+  ACCEPTANCE_IDEMPOTENCY_CONFLICT: "相同验收请求的采集条件不一致",
+  ACCEPTANCE_TASK_NOT_FOUND: "未找到平台验收任务",
+  NO_READY_APPROVED_CHROME_AGENT: "没有符合条件的在线已批准 Chrome 设备",
   TELEMETRY_STATE_MISMATCH: "运行事件与真实执行状态不一致",
   INVALID_DEVICE: "采集设备标识无效",
   INVALID_TELEMETRY: "运行事件格式无效",
