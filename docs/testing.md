@@ -6,7 +6,11 @@
 - Agent 1.3.3 仅加入诊断与低频首次注册重试：2/5/10/15/30 分钟退避，封顶每30分钟；chrome.storage 保存 next_at，MV3 alarms 恢复，重复检查不能绕过退避；成功后移除重试状态并恢复原心跳。原 device_id/credential 不变，注册校验与协议不变。
 - HELPER_ERROR 及现有 catch 异常记录脱敏 error_name/error_message/error_code、phase、pathname、request_path、浏览器 UA 和最多4行 stack；Task/Attempt 仍为已有日志关联字段。开发日志显示/复制摘要；D1 使用既有 agent_logs.metadata，Analytics 使用追加 blob14；没有 Schema migration。日志上传和诊断失败独立隔离，不改变任务结果。
 - 13:14 再查发现独立场景：Task 99c8cc63-6374-4aeb-83d6-2fe0db17770a 实际为武汉/武汉站（不是上述咸宁验收），没有已验证导航 profile，按原规则 UI_FALLBACK。Attempt 4ca23512-0ca0-4fce-b4f9-c149c1db3359 于05:12:29.236Z记录 INPUT_TARGET_CHANGED，05:14:38.186Z真实 FAILED / SEARCH_CONTROL_TIMEOUT 后 RETURNED_TO_QUEUE；保留失败，不修改新城市导航模板或历史状态。设备当前完全无错误不能标PASS；此前咸宁30家成功证据仍有效。
-- 自动测试77/77 PASS，覆盖背景真实初始化失败/唤醒限频/重试成功/身份保留、退避上限、脱敏摘要、D1/Analytics存证及原全部回归。版本由1.3.2递增至1.3.3；1.3.3 新包 Windows 真机重载验收 PENDING，不能将上面的1.3.2结果当作新包PASS。
+- 自动测试77/77 PASS，覆盖背景真实初始化失败/唤醒限频/重试成功/身份保留、退避上限、脱敏摘要、D1/Analytics存证及原全部回归。版本由1.3.2递增至1.3.3；1.3.3 新包 Windows 已以同一设备身份重载、心跳成功，下述新版证据独立于此前1.3.2结果。
+
+- 新版 Windows 1.3.3 真机咸宁验收 PASS：Task 0af5d06f-5d13-407a-af22-78dfb6711c19，Attempt 9195a4d0-23fb-4330-9d92-615a4cb18f25，Snapshot f4acee15-da53-42cf-970c-e880e7365177；咸宁/中心花坛、2026-10-03→10-04，COMPLETED / market_status=SUCCESS。D1共30行、30个唯一Hotel ID、rank 1～30、30项真实价格、详情0。FAST_NAV_VERIFIED确认URL/关键词/卡片城市日期，没有fallback或HELPER_ERROR；STARTED与云端TASK_COMPLETED均版本1.3.3。
+- 领取05:18:57.648Z，完成05:19:27.605Z，总29.957秒；现有阶段计时领取→ready 6.550秒，ready→锁定20.154秒（事件写入本身有网络耗时，日志at不等于阶段采样时刻）。13:19:56心跳显示approved/version1.3.3/last_error=null；身份未变。
+- 新诊断真实云端存证已验证：Windows 1.3.3在武汉第三次执行09f3b915-e7ea-4503-958b-4b3e6450794f于05:17:42.592Z记录Error / INPUT_TARGET_CHANGED，phase=DATE_CHECKOUT，pathname=/webapp/hotels/hotelsearch/listPage；stack保留input.js:2:23、performInput input.js:72:9、run background.js:611:18，扩展ID脱敏；浏览器Windows NT10.0/Chrome154.0.0.0。武汉最终真实PARTIAL，之前两次FAILED保留。武汉UI fallback问题仍存在，不能把咸宁PASS扩大为所有城市PASS。
 
 # 新设备注册兼容修复（2026-10-02）
 
