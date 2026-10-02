@@ -7,21 +7,24 @@
 ## 代码与 Git
 
 - 开始任务先检查 `git status --short`，保护已有修改；读取最新远端 `main`，记录远端 SHA 与当前基线 commit。通常使用 `git fetch origin main`、`git rev-parse origin/main`、`git rev-parse HEAD` 核对，不能把旧 checkout 当作最新 main。
-- Codex Cloud 默认从已确认的基线创建独立工作分支，使用当前隔离环境的现有 checkout；除非用户明确要求，不另建 Git worktree。不重置、覆盖或删除他人的修改，不 force-push main。
+- 默认采用全自动发布模式：同步最新 `main` 后读取本文件，在当前隔离环境的现有 checkout 自主完成开发、测试、修复和必要浏览器检查。不默认创建工作分支或 PR；任务明确要求审批或分支/PR 时遵守该要求。不重置、覆盖或删除他人的修改，不 force-push main。
 - 只修改任务相关模块。先查相关 README、文档、manifest、脚本、配置及测试；协议或共享资产影响其他模块时说明具体依赖。
 - 完成修改后运行适用的定向测试、必要构建/页面检查，以及根目录完整 `npm test`、`npm run check`。检查 Git diff、生成产物和未跟踪文件，排除无关改动和秘密。
-- 测试通过后 commit、push 工作分支，优先创建 PR 到 main，不默认直接推送或合并 main。PR API 不可用时报告具体错误，提供已推送分支和 PR 创建链接；Git 推送认证和 API 权限必须分别验证。
+- 普通 UI、只读 API、查询接口、测试、文档、样式、前端交互及向后兼容的常规修改，在完整 `npm test`、`npm run check` 和必要页面检查全部通过后，直接 commit 并 push 到 GitHub `main`。推送前核对远端基线；远端已更新时先安全同步并重新完成完整检查，不以强推覆盖更新。GitHub `main` 是唯一生产代码源。
+- 如果 GitHub 拒绝直接 push `main`，保留可审查的本地提交，报告具体权限或保护规则及需要调整的设置；不得绕过分支保护、使用管理员绕过或强推。Git 推送权限与 PR/API 权限分别验证，不把 API Forbidden 当作 Git 推送权限结论。
 - 不得为了 CI 通过删除测试、降低断言、隐藏真实错误、跳过应执行的测试，或反复碰运气重试 flaky test。先复现并定位根因，使用确定性测试数据；重复运行用于验证修复，保留实际失败证据。
 
 ## 生产发布与权限
 
-唯一正式发布链路：`Codex Cloud → GitHub → PR/main → Cloudflare Git Integration → Production`。
+唯一正式发布链路：`Codex Cloud → GitHub main → Cloudflare Git Integration → Production`；任务明确要求 PR 时，先经 PR 进入 `main`。
 
+- 以下变更必须在进入 `main`、触发生产发布前停止并获得针对具体方案的人工确认，不能按默认流程自动发布：D1 Schema/migration；删除、清空或不可逆修改生产数据；Cloudflare Access、Secrets、API Token、域名或 Worker 绑定变更；身份认证或权限模型的重大变化；Agent 设备身份或生产采集安全边界的重大变化；任何不可逆生产操作。先完成可安全进行的方案、兼容性/回滚评估及隔离验证，提供可审查结果，不把一般自动发布授权解释为这些高风险事项的授权。
 - Codex Cloud 禁止直接运行 `wrangler deploy`、`npm run deploy:*`、模块 deploy 脚本，或通过 REST、Dashboard、其他工具直接发布 Cloudflare Production、绕过 GitHub。
 - Cloudflare 自己在 Git 构建环境执行已配置的 Wrangler 部署命令属于正式链路，不属于 Codex 直接部署。仓库存在 deploy/build 脚本不代表 Codex 获得直接部署授权。
 - 模块 `npm run build` 当前含 `wrangler deploy --dry-run`。它不发布，但为避免误执行 deploy，本规则下不要在 Codex Cloud 调用；用源码测试、检查、主站 Vite 构建和明确的本地开发验证。需要 Worker 打包检查时先选择不调用 deploy 的支持方式。
 - 不得擅自修改 Cloudflare Access、Secrets、API Token、生产 D1、域名、路由、Cron、生产 Worker 配置或 Git Integration 设置。相关变更必须在明确授权范围内单独评估；直接生产部署禁令保持有效。
 - 不输出、提交或复制秘密值、设备凭证、Cookie、私密备份到代码、PR、日志或文档。先核对现有绑定和可用权限，不因 GitHub CLI 未登录就要求新的 token。
+- 推送后通过可用的只读渠道检查对应 commit 的 Cloudflare Git 构建触发和部署结果；没有权限或状态证据时如实报告未知。仅文档变更可能被 Build Watch Paths 排除，不通过无关代码改动或 Dashboard 调整强行触发部署。
 - Watch Paths 建议见 `docs/cloudflare-build-watch-paths.md`。建议不是 Dashboard 当前配置或已生效变更的证明。
 
 ## 当前模块边界
@@ -74,6 +77,6 @@ Agent 是浏览器扩展，通过主站下载 ZIP 分发，没有独立 Cloudfla
 ## 自主工作与交接
 
 - 普通技术选择自主完成，不频繁请求确认。必须登录、生产权限/Secrets、真实设备操作、不可逆生产变更或重大需求歧义阻塞时才请求具体人工介入；继续完成不受影响的工作，不在聊天索取秘密值。
-- 每次结束报告：修改内容、测试命令与结果、未验证事项、branch、commit、PR 或创建链接、生产部署是否触发及证据。
+- 每次结束报告：修改内容、测试命令与结果、未验证事项、branch、commit（推送成功时为 main SHA）、GitHub push 结果、PR（默认不创建；任务要求时提供链接或创建链接）、哪些 Cloudflare 服务触发构建、部署状态及证据，以及需要人工处理的权限问题。
 - 分开报告本地通过、Codex Cloud 环境通过、Cloudflare 构建通过、生产部署通过、真机通过；commit/push 不证明已部署，保存配置不证明已生效，历史 PASS 不证明当前状态。
 - 保留未解决失败和外部阻塞的真实说明；PR/部署状态不可读取时报告未知，不假称成功。
