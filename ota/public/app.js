@@ -63,6 +63,43 @@ const money = (x) =>
   x == null
     ? "—"
     : `¥${Number(x).toLocaleString("zh-CN", { maximumFractionDigits: 2 })}`;
+// Descriptive statistics use only the selected snapshot's observed prices.
+function marketOverview(data) {
+  const hotels = data.hotels ?? [];
+  const prices = hotels
+    .map((h) => h.display_price)
+    .filter((p) => typeof p === "number" && Number.isFinite(p) && p >= 0);
+  return {
+    count: data.snapshot ? hotels.length : null,
+    priced: data.snapshot ? prices.length : null,
+    coverage:
+      data.snapshot && hotels.length ? prices.length / hotels.length : null,
+    mean:
+      data.snapshot && prices.length
+        ? prices.reduce((sum, p) => sum + p, 0) / prices.length
+        : null,
+  };
+}
+function marketChanges(snapshot) {
+  const f = snapshot?.facts;
+  if (!f || !(f.comparable > 0))
+    return '<p class="muted">历史可比样本不足，暂无可用涨跌统计。</p>';
+  return `<div class="change-facts"><span>可比 <b>${esc(f.comparable)}</b> 家</span><span>涨价 <b>${esc(f.up)}</b> 家</span><span>降价 <b>${esc(f.down)}</b> 家</span><span>中位价变化 <b>${f.medianChange == null ? "—" : `${(f.medianChange * 100).toFixed(1)}%`}</b></span></div><p class="muted">同市场、同入住日期的历史比较；涨跌按既有规则阈值统计，未匹配与缺价不计入。不是不同入住日期之间的变化。</p>`;
+}
+function hotelDetails(h, rooms = []) {
+  const observed = rooms.filter(
+    (r) => r.platform === h.platform && r.hotel_id === h.hotel_id,
+  );
+  const roomHTML = observed.length
+    ? observed
+        .map(
+          (r) =>
+            `<li><span>${esc(r.room_name)}</span><b>${money(r.display_price)}</b><small>原价 ${money(r.original_price)} · ${esc({ available: "有可售记录", sold_out: "已采集售罄证据" }[r.availability_status] ?? r.availability_status)}</small>${r.activity_tags?.length ? `<small>${r.activity_tags.map(esc).join(" · ")}</small>` : ""}${r.sold_out_evidence ? `<small>证据：${esc(r.sold_out_evidence)}</small>` : ""}</li>`,
+        )
+        .join("")
+    : '<li class="muted">暂无已采集房型；不代表售罄</li>';
+  return `<details class="hotel-details"><summary>房型与采集详情${observed.length ? ` · ${observed.length}` : ""}</summary><div><p>${esc(platformName(h.platform))} · ${esc(h.hotel_name)}<br>Hotel ID: ${esc(h.hotel_id)}</p><p>评分 ${esc(h.score)} · 动态 ${esc(h.dynamic)}<br>划线价: ${money(h.original_price)}<br>活动: ${esc((h.activity_tags ?? []).join(" / ") || "—")}</p><ul>${roomHTML}</ul></div></details>`;
+}
 const datetime = (x) =>
   x ? new Date(x).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—";
 const platformName = (id) => ({ ctrip: "携程" })[id] ?? id;
@@ -174,7 +211,7 @@ function chart(curve) {
   }
   curve.forEach((v, i) => {
     const meta = dateLabel(v.checkin, curve[0].checkin);
-    svg += `<text class="date-text" x="${x(i)}" y="244" text-anchor="middle">${esc(v.checkin.slice(5).replace("-", "/"))}</text>`;
+    svg += `<text class="date-text" x="${x(i)}" y="237" text-anchor="middle">${esc(v.checkin.slice(5).replace("-", "/"))}</text><text class="date-week" x="${x(i)}" y="252" text-anchor="middle">${esc(meta.week)}${meta.holiday === "调休上班" ? "·班" : meta.color === "holiday-date" ? "·休" : ""}</text>`;
     const heading = [
       v.checkin.slice(5).replace("-", "/"),
       meta.week,
@@ -189,10 +226,16 @@ function chart(curve) {
         ([k, , name]) =>
           `${name === "我的酒店起售价" ? "我的酒店" : name}：${money(v[k])}`,
       ),
+      `有价样本：${v.priced ?? "—"}`,
+      `采集状态：${v.market_status === "SUCCESS" ? "成功" : v.market_status === "PARTIAL" ? "部分采集" : (v.market_status ?? "暂无快照")}`,
+      `采集时间：${datetime(v.observed_at)}`,
     ].join("\n");
     svg += `<g class="chart-day"><rect class="column-highlight" x="${60 + i * 64}" y="20" width="64" height="235"/><line class="crosshair" x1="${x(i)}" x2="${x(i)}" y1="20" y2="215"/><rect class="chart-hit tip" data-day="${i}" x="${60 + i * 64}" y="20" width="64" height="235" fill="transparent" tabindex="0" data-tip="${esc(tip)}" data-date="${esc(v.checkin)}" aria-label="${esc(tip)}"/></g>`;
   });
-  return `<div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap"><div class="chart-scroll">${svg}</svg></div>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
+  const available = curve.filter((v) =>
+    priceSeries.some(([k]) => v[k] != null),
+  ).length;
+  return `<div class="trend-coverage">${curve.length} 个入住日期 · ${available} 个有价格数据 · ${curve.length - available} 个缺失<span>浅金：节假日 · 浅灰：周五/周六 · 横向滚动查看完整日期</span></div><div class="legend">${priceSeries.map(([, c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join("")}</div><div class="chart-wrap"><div class="chart-scroll">${svg}</svg></div>${values.length ? "" : '<p class="chart-empty">暂无真实价格数据</p>'}</div>`;
 }
 async function setChartHorizon(horizon) {
   if (![14, 30].includes(horizon)) return;
@@ -385,6 +428,7 @@ async function market() {
       ? `${hotels[0].standard_name}${hotels.length > 1 ? ` 等${hotels.length}家` : ""}`
       : "—";
   };
+  const overview = marketOverview(m);
   const status = s
     ? s.market_status === "SUCCESS"
       ? "列表采集成功"
@@ -396,6 +440,7 @@ async function market() {
       <div class="filters"><label>入住日期<select id="checkin">${m.curve.map((v) => `<option value="${v.checkin}">${v.checkin}${v.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label></div>
     </div>
     <div class="market-status"><span class="status-dot ${s?.market_status === "SUCCESS" ? "ok" : "pending"}"></span><span>${status}${s ? ` · 详情 ${s.detail_success}/${s.detail_total} · 当前快照 ${datetime(s.observed_at)}` : ""}</span><span class="status-divider"></span><span>生产最近成功 ${datetime(runtime.last_success_at)}</span><span class="device-status"><span class="status-dot ${runtime.online_devices.length ? "ok" : "pending"}"></span>在线设备 ${runtime.online_devices.length}</span></div>
+    <section class="market-overview" aria-label="市场总览"><div><span>已采集酒店</span><strong>${overview.count ?? "—"}</strong><small>${s ? "当前快照列表记录" : "暂无快照"}</small></div><div><span>有效价格覆盖</span><strong>${overview.coverage == null ? "—" : `${(overview.coverage * 100).toFixed(1)}%`}</strong><small>${overview.priced == null ? "暂无真实数据" : `${overview.priced} / ${overview.count} 家有价格`}</small></div><div><span>起售价区间</span><strong>${money(f.minimum)} <em>–</em> ${money(f.maximum)}</strong><small>仅已采集有价样本</small></div><div><span>平均起售价</span><strong>${money(overview.mean)}</strong><small>当前快照有效价格算术均值</small></div></section>
     <div class="metrics market-metrics">
       <article class="card mine-card"><div class="metric-label">我的酒店起售价 <span class="card-caption">${esc(platformName(m.platform))}</span></div><div class="metric">${money(mine?.display_price)}</div><div class="metric-subtitle" title="${esc(mine?.standard_name)}">${esc(mine?.standard_name ?? "当前列表暂无我的酒店")}</div><small class="muted">${mine ? `${platformName(mine.platform)} · 当前排名 ${mine.rank}` : "—"}</small></article>
       <article class="card"><div class="metric-label">市场起售价中位数</div><div class="metric">${money(f.median)}</div><div class="metric-subtitle">${s ? `${f.priced ?? m.hotels.filter((h) => h.display_price != null).length}家有价样本` : "暂无真实数据"}</div><small class="muted">${s ? `${s.market_count}家真实酒店` : "等待自然采集"}</small></article>
@@ -403,7 +448,8 @@ async function market() {
       <article class="card"><div class="metric-label">市场最低价</div><div class="metric">${money(f.minimum)}</div><div class="metric-subtitle" title="${esc(extremeName(f.minimum))}">${esc(extremeName(f.minimum))}</div><small class="muted">当前入住日期 · ${m.scope === "all" ? "全市场" : "30家市场"}</small></article>
       <article class="card strategy-card"><div class="metric-label">市场策略建议</div><div class="strategy-value ${esc(s?.recommendation ?? "observe")}">${s ? esc(advice[s.recommendation] ?? "暂无建议") : "— 暂无建议"}</div><div class="metric-subtitle">${esc(s?.reason ?? "等待真实采集数据")}</div><details class="strategy-reason"><summary>查看判断依据</summary><p>${esc(s?.reason ?? "暂无判断依据")}</p>${s ? `<p>有价样本 ${f.priced ?? "—"} · 可比样本 ${f.comparable ?? "—"}<br>上涨 ${f.up ?? "—"} / 下跌 ${f.down ?? "—"}<br>策略时间 ${datetime(s.observed_at)}</p>` : ""}</details></article>
     </div>
-    <section class="card trend-card"><div class="section-heading"><div><div class="trend-title"><h2>未来价格走势</h2><div class="period-control" role="group" aria-label="走势观察周期">${[14, 30].map((n) => `<button data-horizon="${n}" aria-pressed="${chartHorizon === n}">未来${n}天</button>`).join("")}</div></div><p class="muted">按入住日期观察</p></div><span class="quiet-label">人民币 / 元</span></div><div id="trend-chart">${chart(m.curve.slice(0, chartHorizon + 1))}</div><p class="chart-note">缺失日期留空，不插值。每个日期使用独立真实快照，30家市场与全市场分别统计。</p></section>
+    <section class="market-changes" aria-label="市场变化"><h2>市场变化</h2>${marketChanges(s)}</section>
+    <section class="card trend-card"><div class="section-heading"><div><div class="trend-title"><h2>未来价格走势</h2><div class="period-control" role="group" aria-label="走势观察周期">${[14, 30].map((n) => `<button data-horizon="${n}" aria-pressed="${chartHorizon === n}">${n + 1}天 · 含今日</button>`).join("")}</div></div><p class="muted">按入住日期观察</p></div><span class="quiet-label">人民币 / 元</span></div><div id="trend-chart">${chart(m.curve.slice(0, chartHorizon + 1))}</div><p class="chart-note">缺失日期留空，不插值。每个日期使用独立真实快照，30家市场与全市场分别统计。</p></section>
     <section class="hotel-section"><div class="section-heading"><div><h2>酒店市场</h2><p class="muted">${esc(m.checkin)} 入住 · ${m.hotels.length}家真实酒店</p></div><span class="quiet-label">平台排名与起售价</span></div><div class="category-tabs" role="group" aria-label="酒店分类"><button data-category="" aria-pressed="true" class="active">全部 <span>${m.hotels.length}</span></button>${Object.entries(
       categories,
     )
@@ -413,7 +459,7 @@ async function market() {
       )
       .join(
         "",
-      )}</div><div class="hotel-list-tools"><label class="hotel-search">搜索当前列表<input id="hotel-search" type="search" placeholder="酒店名称或 Hotel ID" autocomplete="off" aria-controls="hotel-table"></label><button id="hotel-search-clear" type="button" hidden>清除搜索</button><span id="hotel-result-count" role="status" aria-live="polite"></span></div><div id="hotel-table"></div></section>
+      )}</div><div class="hotel-list-tools"><label class="hotel-search">搜索当前列表<input id="hotel-search" type="search" placeholder="酒店名称或 Hotel ID" autocomplete="off" aria-controls="hotel-table"></label><button id="hotel-search-clear" type="button" hidden>清除搜索</button><span id="hotel-filter-context"></span><span id="hotel-result-count" role="status" aria-live="polite"></span></div><p class="hotel-scroll-note">横向滚动查看平台排名、价格与房型详情</p><div id="hotel-table"></div></section>
     <details class="strategy-history"><summary>策略历史 <span>${m.strategy_history.length}条真实记录</span></summary>${table(
       ["产生时间", "建议", "依据", "当时我的酒店价格"],
       m.strategy_history.map(
@@ -511,6 +557,8 @@ function renderMarketHotels(category = marketCategory) {
   $("#hotel-result-count").textContent =
     `显示 ${rows.length} / ${groups.size} 家酒店`;
   $("#hotel-search-clear").hidden = !marketHotelQuery;
+  $("#hotel-filter-context").textContent =
+    `${categories[marketCategory] ?? "全部分类"}${query ? ` · 搜索：${marketHotelQuery.trim()}` : ""}`;
   const tip = (h) =>
     esc(
       `${platformName(h.platform)}\n${h.hotel_name}\nHotel ID: ${h.hotel_id}\n划线价: ${money(h.original_price)}\n活动: ${(h.activity_tags ?? []).join(" / ") || "—"}\n起售价: ${money(h.display_price)}`,
@@ -520,11 +568,11 @@ function renderMarketHotels(category = marketCategory) {
       rows
         .map(
           (row) =>
-            `<tr class="${row.category === "mine" ? "mine-row" : ""}"><td><div class="hotel-name">${esc(row.name)}</div><span class="category-label ${esc(row.category)}">${categories[row.category] ?? categories.other}</span></td>${platforms
+            `<tr class="${row.category === "mine" ? "mine-row" : ""}"><td><div class="hotel-name">${esc(row.name)}</div><span class="category-label ${esc(row.category)}">${categories[row.category] ?? categories.other}</span><div class="hotel-mobile-price">${[...row.cells.values()].map((h) => `${esc(platformName(h.platform))} ${money(h.display_price)}`).join(" · ")}</div></td>${platforms
               .map((p) => {
                 const h = row.cells.get(p);
                 return h
-                  ? `<td><span tabindex="0" class="tip rank" data-tip="${tip(h)}">${h.rank}<small class="ad-label">${h.is_ad ? "广告" : ""}</small></span></td><td><span tabindex="0" class="tip price" data-tip="${tip(h)}">${money(h.display_price)}</span></td>`
+                  ? `<td><span tabindex="0" class="tip rank" data-tip="${tip(h)}">${esc(h.rank)}<small class="ad-label">${h.is_ad ? "广告" : ""}</small></span></td><td><span tabindex="0" class="tip price" data-tip="${tip(h)}">${money(h.display_price)}</span><small class="hotel-original">原价 ${money(h.original_price)}</small><div class="hotel-signals">评分 ${esc(h.score)} · ${esc(h.dynamic)}</div>${h.activity_tags?.length ? `<div class="hotel-activities">${h.activity_tags.map(esc).join(" · ")}</div>` : ""}${hotelDetails(h, marketData.rooms ?? [])}</td>`
                   : "<td>—</td><td>—</td>";
               })
               .join("")}</tr>`,
