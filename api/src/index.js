@@ -128,7 +128,7 @@ async function market(db, u) {
   const hotels = selected
     ? await rows(
         db,
-        `SELECT o.*,coalesce(h.name,o.hotel_name) standard_name,coalesce(h.category,'other') category,h.id livv_hotel_id FROM market_observations o LEFT JOIN hotel_mappings m ON m.platform=o.platform AND m.hotel_id=o.hotel_id LEFT JOIN livv_hotels h ON h.id=m.livv_hotel_id WHERE o.snapshot_id=? ORDER BY o.rank`,
+        `SELECT o.*,coalesce(h.name,o.hotel_name) standard_name,coalesce(h.category,'other') category,h.id standard_hotel_id FROM market_observations o LEFT JOIN hotel_mappings m ON m.platform=o.platform AND m.hotel_id=o.hotel_id LEFT JOIN standard_hotels h ON h.id=m.standard_hotel_id WHERE o.snapshot_id=? ORDER BY o.rank`,
         selected.id,
       )
     : [];
@@ -138,7 +138,7 @@ async function market(db, u) {
         db,
         `SELECT o.snapshot_id,o.display_price FROM market_observations o
      JOIN hotel_mappings m ON m.platform=o.platform AND m.hotel_id=o.hotel_id
-     JOIN livv_hotels h ON h.id=m.livv_hotel_id AND h.category='mine'
+     JOIN standard_hotels h ON h.id=m.standard_hotel_id AND h.category='mine'
      WHERE o.snapshot_id IN (SELECT value FROM json_each(?))`,
         JSON.stringify(snapshots.map((s) => s.id)),
       )
@@ -574,11 +574,11 @@ export async function handle(req, env) {
       return json({
         platform_hotels: await rows(
           db,
-          `SELECT p.*,m.livv_hotel_id,h.name standard_name,h.category FROM platform_hotels p LEFT JOIN hotel_mappings m ON m.platform=p.platform AND m.hotel_id=p.hotel_id LEFT JOIN livv_hotels h ON h.id=m.livv_hotel_id ORDER BY p.original_name`,
+          `SELECT p.*,m.standard_hotel_id,h.name standard_name,h.category FROM platform_hotels p LEFT JOIN hotel_mappings m ON m.platform=p.platform AND m.hotel_id=p.hotel_id LEFT JOIN standard_hotels h ON h.id=m.standard_hotel_id ORDER BY p.original_name`,
         ),
-        livv_hotels: await rows(db, "SELECT * FROM livv_hotels"),
+        standard_hotels: await rows(db, "SELECT * FROM standard_hotels"),
       });
-    if (p === "/v1/admin/livv-hotels" && method === "POST") {
+    if (p === "/v1/admin/standard-hotels" && method === "POST") {
       const id = crypto.randomUUID(),
         at = nowIso(),
         category = b.category ?? "other";
@@ -588,7 +588,7 @@ export async function handle(req, env) {
       );
       await stmt(
         db,
-        "INSERT INTO livv_hotels VALUES(?,?,?,?,?)",
+        "INSERT INTO standard_hotels VALUES(?,?,?,?,?)",
         id,
         text(b.name),
         category,
@@ -597,9 +597,9 @@ export async function handle(req, env) {
       ).run();
       return json({ id }, 201);
     }
-    const hm = p.match(/^\/v1\/admin\/livv-hotels\/([^/]+)$/);
+    const hm = p.match(/^\/v1\/admin\/standard-hotels\/([^/]+)$/);
     if (hm && method === "PATCH") {
-      const h = await first(db, "SELECT * FROM livv_hotels WHERE id=?", hm[1]);
+      const h = await first(db, "SELECT * FROM standard_hotels WHERE id=?", hm[1]);
       requireThat(h, "HOTEL_NOT_FOUND", 404);
       const category = b.category ?? h.category;
       requireThat(
@@ -608,7 +608,7 @@ export async function handle(req, env) {
       );
       await stmt(
         db,
-        "UPDATE livv_hotels SET name=?,category=?,updated_at=? WHERE id=?",
+        "UPDATE standard_hotels SET name=?,category=?,updated_at=? WHERE id=?",
         b.name === undefined ? h.name : text(b.name),
         category,
         nowIso(),
@@ -621,8 +621,8 @@ export async function handle(req, env) {
       requireThat(
         await first(
           db,
-          "SELECT id FROM livv_hotels WHERE id=?",
-          b.livv_hotel_id,
+          "SELECT id FROM standard_hotels WHERE id=?",
+          b.standard_hotel_id,
         ),
         "HOTEL_NOT_FOUND",
         404,
@@ -643,16 +643,16 @@ export async function handle(req, env) {
           "INSERT INTO hotel_mappings VALUES(?,?,?,?,?)",
           b.platform,
           b.hotel_id,
-          b.livv_hotel_id,
+          b.standard_hotel_id,
           nowIso(),
           actor,
         ),
         stmt(
           db,
-          "INSERT INTO mapping_history(platform,hotel_id,livv_hotel_id,action,at,actor) VALUES(?,?,?,'link',?,?)",
+          "INSERT INTO mapping_history(platform,hotel_id,standard_hotel_id,action,at,actor) VALUES(?,?,?,'link',?,?)",
           b.platform,
           b.hotel_id,
-          b.livv_hotel_id,
+          b.standard_hotel_id,
           nowIso(),
           actor,
         ),
@@ -672,10 +672,10 @@ export async function handle(req, env) {
       await db.batch([
         stmt(
           db,
-          "INSERT INTO mapping_history(platform,hotel_id,livv_hotel_id,action,at,actor) VALUES(?,?,?,'unlink',?,?)",
+          "INSERT INTO mapping_history(platform,hotel_id,standard_hotel_id,action,at,actor) VALUES(?,?,?,'unlink',?,?)",
           platform,
           id,
-          m.livv_hotel_id,
+          m.standard_hotel_id,
           nowIso(),
           actor,
         ),

@@ -13,13 +13,13 @@ for (const d of [
   "ota/src",
   "ota/public",
   "ops/public",
-  "helper",
+  "agent",
   "scripts",
 ])
   for (const file of walk(path.join(root, d)))
     if (/\.(js|mjs)$/.test(file))
       execFileSync(process.execPath, ["--check", file]);
-for (const d of ["ota", "livvcc", "ops", "ai"]) {
+for (const d of ["ota", "site", "ops", "ai"]) {
   const c = JSON.parse(
     fs.readFileSync(path.join(root, d, "wrangler.jsonc"), "utf8"),
   );

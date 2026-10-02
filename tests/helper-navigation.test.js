@@ -6,9 +6,9 @@ import {
   fastNavigation,
   marketNavigation,
   rememberNavigation,
-} from "../helper/navigation.js";
-import { inspectList } from "../helper/mobile.js";
-import { completeDetailResults } from "../helper/detail-state.js";
+} from "../agent/navigation.js";
+import { inspectList } from "../agent/mobile.js";
+import { completeDetailResults } from "../agent/detail-state.js";
 const task = {
   platform: "ctrip",
   city: "咸宁",

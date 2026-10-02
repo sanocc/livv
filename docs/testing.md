@@ -1,3 +1,19 @@
+# 全量命名迁移验收（2026-10-02）
+
+本节为当前状态；下文保留历史验收，历史品牌称谓统一使用当前产品名，原始资源命名以相应 Git 历史为准。Task/Attempt ID、结果和失败证据不改写。
+
+- 自动测试 70/70 PASS；MV3 / JavaScript 语法与数据库边界检查 PASS。
+- 源码、配置、文件名、发布 ZIP 内容扫描旧品牌字样：0 条。此结果针对工作树，尚未代表 GitHub 当前 HEAD。
+- 新 D1 切换前 16 张业务表逐行哈希一致；外键错误 0；schema 命名残留 0。正式 Plan 整行不变，enabled=1/horizon=14。
+- 新 Mac Agent 1.3.2 保留原 UUID、批准状态和凭证；新路径扩展心跳成功，自动接单恢复。
+- 正式 Plan Task 7f8320d59ce9126883395bccddfb4412：COMPLETED，Attempt 561587cd-ada1-434b-bca9-b2270759b688，Snapshot 213632a6-5ca4-4bda-8e0b-ce70a83c8eb0，30 家，执行约 28 秒，入住 10/09→10/10。
+- 正式 Plan Task ca89bf1f0acfef764d7155f89dae88af：COMPLETED，Attempt 94add621-f6d4-4964-a613-7723a375aed1，Snapshot ea1f1537-a264-4d4f-a48e-848ca9af1739，30 家，执行约 29 秒，入住 10/02→10/03。
+- 人工迁移验收 Task 3799692f-e58d-455c-84ab-95127f749323：COMPLETED，成功 Attempt 06794f00-7954-4511-bd0b-6b0cad83dc4c，Snapshot de1970a9-60ac-46b1-acd6-99850892ed7e，30 家，成功执行约 29 秒，入住 10/03→10/04。首次 Attempt 70f76ef7-105b-4937-82cd-326c8a903f99 因操作人员在自动焦点切换时误导航采集页而 FAILED，保留真实历史；不将重试成功解释为首次执行成功。
+- 三次 TASK_COMPLETED 与一次 ATTEMPT_FAILED 日志已上传新 D1，app_version=1.3.2。设备仍只有原 Mac 与办公室 Windows 两台，没有重新注册替代设备。
+- API /health 已验证 poai-api/database=ok；OTA 新代码和 POAI Service Binding 已部署。Access 团队域已实际切换到 poai-cc.cloudflareaccess.com，API 验证域同步更新；本轮新的浏览器登录/市场读取验收尚待进行。
+- Windows FAST_NAV / 新版本真实验收：PENDING。
+- Git Builds 配置、Access 策略和令牌命名、旧 Analytics 历史保全及云端残留清理尚在进行，完整全量迁移不得标记 PASS。
+
 # 验收记录（持续更新）
 
 ## POAI 品牌切换（2026-10-02）
@@ -38,7 +54,7 @@ Windows FAST_NAV real-browser acceptance: PENDING
 
 Task/Attempt/Snapshot关联证据：.local/proofs/v13-final-d1.json、v13-performance.json；第一轮v13-compare-first.json，最终v13-compare-final.json与v13-dom-final.txt。最终Attempt592f26c4-6458-481f-b4aa-8824be755d59、Snapshotf05ee8a1-4bb8-484c-bbda-f84712a4414e。正式Plan整行与v13-before.json一致，enabled=1/horizon=14；旧临时Plan停用。本轮无Schema迁移/调度/统计口径修改。
 
-Analytics Engine真实数据livv_helper_events可云端SQL查询，阶段/进度/上传事件与真实Task关联，最终TASK_CLAIMED occurred_at精确等于D1 claimed_at；本地待上传队列最终为空。实际_sample_interval=1～2，部分终态事件未保留，故不标“完整事件审计PASS”。上传/终态以D1为准；字段与失败退避/隐私边界见helper-observability.md，证据v13-events-final.json、v13-sampling.json。新增遥测没有写入D1，四轮原业务attempt_events各8条，未出现LIST_PROGRESS/DEVICE_ONLINE。Workers Logs持久化配置已启用；live tail真实health/heartbeat/claim返回200/outcome=ok，无异常；敏感Header未保留于证据，见v13-workers-log-proof.json。
+Analytics Engine真实数据agent_events可云端SQL查询，阶段/进度/上传事件与真实Task关联，最终TASK_CLAIMED occurred_at精确等于D1 claimed_at；本地待上传队列最终为空。实际_sample_interval=1～2，部分终态事件未保留，故不标“完整事件审计PASS”。上传/终态以D1为准；字段与失败退避/隐私边界见helper-observability.md，证据v13-events-final.json、v13-sampling.json。新增遥测没有写入D1，四轮原业务attempt_events各8条，未出现LIST_PROGRESS/DEVICE_ONLINE。Workers Logs持久化配置已启用；live tail真实health/heartbeat/claim返回200/outcome=ok，无异常；敏感Header未保留于证据，见v13-workers-log-proof.json。
 
 Windows设备酒店办公室3cad8b8e-0a99-410d-9fb3-8e1bf88004c7仍待真实更新和操作：不点击城市/日期/关键词、直接目标listPage、严格Context、30唯一酒店/正确排名价格、上传、性能与搜索超时检查。在线心跳不等于FAST_NAV验收，不宣称跨平台PASS。
 
@@ -54,7 +70,7 @@ Side Panel抖动原因：STATE每3秒及storage变化重复innerHTML重建，加
 
 | Gate | 状态 | 实际证据 |
 |---|---|---|
-| A 工程基础 | PASS | api/ota/livvcc Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；当前30项Node测试通过；架构/Schema/API文档已核对 |
+| A 工程基础 | PASS | api/ota/site Wrangler独立dry-run成功；Helper MV3文件与JS语法通过；当前30项Node测试通过；架构/Schema/API文档已核对 |
 | B 云端基础 | PASS | 新main已推送；D1远程迁移通过；三个Worker部署、域名与Git连接保存；OTA Access应用与API验证配置完成；提交2d905d8三个Workers Builds均成功；Chrome真实Access登录后OTA市场页加载成功；后续已保存真实市场与房型数据 |
 | C 设备 | PASS | Chrome加载当前Helper；真实UUID注册待批准；用户人工批准；在线空闲；禁用后生产API拒绝claim；停止心跳后离线；恢复在线，同一Device ID保留 |
 | D 任务闭环 | PASS | OTA正式发布Task 52c34384-0d3c-40da-bd44-866a68e370e4；生产D1只读核验两次自动领取、开始、SEARCH_CONTROL_TIMEOUT失败、返回同一任务池的完整时间线；该任务窗口到期后FAILED / EXECUTION_WINDOW_EXPIRED；新Task 4765e749-a69c-45ed-974a-e811e467c712真实5/5后FAILED / MAX_ATTEMPTS_REACHED；相关自动测试通过 |
@@ -75,7 +91,7 @@ Side Panel抖动原因：STATE每3秒及storage变化重复innerHTML重建，加
 
 设备56d208e8-90cd-49bf-ae84-b17a43d9f1b9 approved、Helper 1.0.0；14:02:53.259有心跳，按120秒在线标准online=1，当时无RUNNING Attempt。last_error=ATTEMPT_TIMEOUT，作为最近执行错误如实保留，不代表设备被禁用。新完成的两个3/3快照及历史PARTIAL/FAILED仍存在；封板未修改或删除任何生产记录。
 
-生产表仅为既有业务表、迁移及D1系统表，无临时Debug表；测试Fixture仅在内存，本地.local/proofs与历史诊断文件被Git忽略，不被生产Worker加载。Helper只读“当前页面结构”诊断不会生成任务或写观察。14:03单次验收跟进status=PAUSED，无遗留验收自动唤醒。API / OTA / LIVVCC健康检查见部署文档；封板前main与origin/main均为208a300，工作区干净，封板修改仅涉及文档。
+生产表仅为既有业务表、迁移及D1系统表，无临时Debug表；测试Fixture仅在内存，本地.local/proofs与历史诊断文件被Git忽略，不被生产Worker加载。Helper只读“当前页面结构”诊断不会生成任务或写观察。14:03单次验收跟进status=PAUSED，无遗留验收自动唤醒。API / OTA / POAI Site健康检查见部署文档；封板前main与origin/main均为208a300，工作区干净，封板修改仅涉及文档。
 
 封板结论为第一阶段真实主闭环PASS；Gate G线上修改/解除映射仍缺追加证据。维也纳已修复并通过真实复验，但页面变化、电脑休眠/后台页面、验证码及网络仍可能造成真实PARTIAL/FAILED；不保证未来任务全部成功，不伪造缺失趋势或售罄。封板检查证据位于.local/proofs/seal-production.json、seal-final-device.json、seal-health.json。
 
@@ -127,7 +143,7 @@ Side Panel抖动原因：STATE每3秒及storage变化重复innerHTML重建，加
 
 ## Gate I/J线上继续验收（2026-10-01）
 
-代码提交a4d1ca2（I）、72f36ca（J）已推送main；该J提交的Workers Builds: livv-api、livv-ota均completed/success。API健康200、database=ok。Helper与fd802d1基线完全一致。
+代码提交a4d1ca2（I）、72f36ca（J）已推送main；该J提交的Workers Builds: poai-api、poai-ota均completed/success。API健康200、database=ok。Helper与fd802d1基线完全一致。
 
 已登录Chrome OTA使用Gate H真实快照：入住10月2日，30家酒店；我的酒店¥176，市场中位价¥166.5；14/30天切换成功，四价格序列仅有真实日期点、缺失不连线。携程横向列组包含排名和起售价，原始酒店ID保持不变；我的酒店/两家核心竞品及市场其他实际展示正常。我的酒店价格提示实际显示携程、平台原名、2114264、划线价¥272、活动“3项优惠96 / 早鸟优惠”、起售价¥176，Escape关闭有效。竞品/观察分类和映射修改在内存API测试验证，未为验收修改生产映射。
 
@@ -209,16 +225,16 @@ Side Panel抖动原因：STATE每3秒及storage变化重复innerHTML重建，加
 
 ### Gate G生产操作证据：PASS
 
-通过已有登录态的真实Chrome OTA酒店页面操作，选择非核心酒店ctrip/1286886，平台原始名称“7天优品酒店(咸宁温泉购物公园店)”。建立标准酒店“7天优品酒店·咸宁温泉购物公园店”，分类other，永久LIVV Hotel ID为9376a9c7-87c3-4f71-b9a5-82d7ab8210ba；不加入核心详情目标。
+通过已有登录态的真实Chrome OTA酒店页面操作，选择非核心酒店ctrip/1286886，平台原始名称“7天优品酒店(咸宁温泉购物公园店)”。建立标准酒店“7天优品酒店·咸宁温泉购物公园店”，分类other，永久POAI Hotel ID为9376a9c7-87c3-4f71-b9a5-82d7ab8210ba；不加入核心详情目标。
 
 | 时间（UTC+8） | 真实操作与核验 |
 |---|---|
-| 14:52:14 | 创建标准酒店，分类市场其他；固定永久LIVV ID |
+| 14:52:14 | 创建标准酒店，分类市场其他；固定永久POAI ID |
 | 14:52:54 | 确认正确映射；mapping_history id=4，action=link |
 | 14:54:11 | 标准名修改为“7天优品酒店·咸宁温泉购物公园店（Gate G 名称验收）”；OTA和D1均确认永久ID不变，平台Hotel ID/原始名称不变 |
 | 14:55:05 | 解除该测试映射；history id=5，action=unlink；真实市场页面仍展示原始名称、市场其他、排名3、起售价¥127 |
 | 14:56:29 | 恢复正式标准名称，原永久ID与other分类不变 |
-| 14:57:04 | 重新关联同一LIVV ID；history id=6，action=link；刷新真实市场页恢复标准名称、市场其他、排名3、¥127 |
+| 14:57:04 | 重新关联同一POAI ID；history id=6，action=link；刷新真实市场页恢复标准名称、市场其他、排名3、¥127 |
 
 改名/解除/重连三个阶段只读D1导出与操作前逐记录比较：全部Plan整行一致；我的酒店2114264及核心竞品6422421/6955433映射整行一致；1286886平台原始Hotel ID/原始名称一致；操作前15条market_observations按snapshot_id逐字段一致。目标历史room_observations为0，不冒充房型历史比较通过。本轮没有观察记录写入/删除。期间正式Plan自然采集追加1条目标Observation，最终16条；追加数据不算历史改写。
 
@@ -236,7 +252,7 @@ COMPLETED / (COMPLETED + PARTIAL + FAILED)为终态成功率；PARTIAL不算成�
 
 新增2项自动测试：鉴权拒绝/空数据；209条任务不受任务列表200条上限影响，业务日左右边界、手动/停用计划排除、PARTIAL分母、失败重试错误、在线/离线/未批准设备、无凭证输出、成功时间与只读不回收。全套32项自动测试通过，scripts/check.mjs语法/Schema边界/MV3检查通过；生产真实任务页和布局已核验。测试Fixture仅内存，无生产Fixture。
 
-正式Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c仍enabled=1/horizon=14，created_at/updated_at保持2026-10-01T04:41:45.228Z，每分钟Cron不变。唯一短窗口验收Plan仍enabled=0且活动Task=0，所有独立历史Task均终态。只读统计/健康证据：.local/proofs/v11-runtime-d1.json、v11-health.json。此次部署API及OTA成功，API / OTA / LIVVCC健康200（API database=ok），版本见部署文档。完成此范围后停止新增开发，保持当前已批准Helper电脑Chrome在线，由正式Plan自然积累真实数据。
+正式Plan3963a563-7687-45dc-9b2a-d33cbdd0cd7c仍enabled=1/horizon=14，created_at/updated_at保持2026-10-01T04:41:45.228Z，每分钟Cron不变。唯一短窗口验收Plan仍enabled=0且活动Task=0，所有独立历史Task均终态。只读统计/健康证据：.local/proofs/v11-runtime-d1.json、v11-health.json。此次部署API及OTA成功，API / OTA / POAI Site健康200（API database=ok），版本见部署文档。完成此范围后停止新增开发，保持当前已批准Helper电脑Chrome在线，由正式Plan自然积累真实数据。
 
 ## V1.2市场UI第一版（2026-10-01）
 
@@ -246,7 +262,7 @@ COMPLETED / (COMPLETED + PARTIAL + FAILED)为终态成功率；PARTIAL不算成�
 
 桌面五卡一行、固定204px深色侧栏、白色卡片/克制阴影/蓝色主强调。一张SVG图展示我的酒店/最高/中位/最低四线，默认14天支持30天，日期与价格轴、每日期四价格Hover及键盘焦点Tooltip；缺失日期断线，单点独立保留，无插值。
 
-酒店分类按钮对应我的/核心/竞品/观察/其他，另有全部；酒店表第一列标准名或原始名（分类小字置于名称下），后续按API实际平台分组，当前仅携程排名/起售价。按永久LIVV ID归组，未映射按platform/Hotel ID区分，缺平台单元格留—；不显示无真实数据的美团/飞猪列，不新增类型/趋势/导出/操作。排名及价格Hover保留平台名、原始酒店名、平台Hotel ID、划线价、活动、起售价。历史策略以可展开区域保留。
+酒店分类按钮对应我的/核心/竞品/观察/其他，另有全部；酒店表第一列标准名或原始名（分类小字置于名称下），后续按API实际平台分组，当前仅携程排名/起售价。按永久POAI ID归组，未映射按platform/Hotel ID区分，缺平台单元格留—；不显示无真实数据的美团/飞猪列，不新增类型/趋势/导出/操作。排名及价格Hover保留平台名、原始酒店名、平台Hotel ID、划线价、活动、起售价。历史策略以可展开区域保留。
 
 本地UI用原有API handle和生产D1只读SELECT响应预览，临时服务器绑定127.0.0.1，拒绝非GET/SELECT，仅开放market/runtime；无Mock生产数据、凭证转存或生产写入。1440px桌面检查后修正长策略文字撑宽卡片，五卡一行无溢出。真实30家快照核验：我的酒店¥190/排名2，中位¥192、最高¥636/全季、最低¥86/乘悦；图表10月1日四值悬浮一致；核心分类两家，Vienna价格Hover原始ID6955433/划线¥241/活动优惠23/起售价¥218。上述仅为验收快照示例。30天显示30个日期悬浮区域；10月3日无快照、全市场无数据查询正确显示空卡片/空表，保留其他日期真实走势。390px手机检查document宽度=viewport=390，卡片换行、表与图局部横向滚动，桌面密度保持。
 
@@ -291,7 +307,7 @@ V1.2线上验收：f3363f7自动Git构建成功，真实已登录OTA市场14/30�
 
 生产Plan前后整行完全一致，唯一临时验收Plan仍停用；18:06:50设备approved/1.1.0/last_error=null，无RUNNING Attempt；18:08最终展示修正重载后auto=true、在线空闲。最后小修仅保留本地多Attempt摘要、避免提交期间刷新重新启用按钮，不改采集执行。证据位于本地忽略目录.local/proofs/sidepanel-before.json、sidepanel-final.json、sidepanel-tests.txt及真实Chrome截图。未使用生产Mock、修改终态或新建验收Plan。
 
-18:13最终已登录OTA真实刷新，仍正常读取新生产快照：当日最新17:53:54，详情3/3、30家有价样本、中位¥189.5，生产最近COMPLETED为17:54:44（只统计正式启用Plan，18:01手动任务不纳入该运行指标）。Side Panel在切换到OTA后仍在线、空闲、auto=true；重载后任务页仍保留c00da60e的真实COMPLETED、13房型及Snapshot ID。API health=200/database=ok，LIVVCC=200，未登录OTA仍正常302至Access；不把302代替已登录应用核验。日志/开发工具实际打开检查通过；不清空本机历史作为演示。
+18:13最终已登录OTA真实刷新，仍正常读取新生产快照：当日最新17:53:54，详情3/3、30家有价样本、中位¥189.5，生产最近COMPLETED为17:54:44（只统计正式启用Plan，18:01手动任务不纳入该运行指标）。Side Panel在切换到OTA后仍在线、空闲、auto=true；重载后任务页仍保留c00da60e的真实COMPLETED、13房型及Snapshot ID。API health=200/database=ok，POAI Site=200，未登录OTA仍正常302至Access；不把302代替已登录应用核验。日志/开发工具实际打开检查通过；不清空本机历史作为演示。
 
 ## MARKET_LIST快速导航真实验证（2026-10-01，Helper1.2.0）
 

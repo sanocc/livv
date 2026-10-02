@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hotelTab, performInput } from "../helper/input.js";
+import { hotelTab, performInput } from "../agent/input.js";
 function fixture() {
   const calls = [],
     state = {

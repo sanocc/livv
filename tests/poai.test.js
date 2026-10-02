@@ -11,11 +11,11 @@ import {
 } from "../ops/public/model.js";
 import { ingestTelemetry, deviceDiagnostics } from "../api/src/telemetry.js";
 import { database } from "./db-adapter.js";
-test("POAI domains, Agent identity path and version preserve existing backend bindings", () => {
+test("POAI domains and Agent version use canonical bindings with unchanged production schedule", () => {
   const manifest = JSON.parse(
-    fs.readFileSync(new URL("../helper/manifest.json", import.meta.url)),
+    fs.readFileSync(new URL("../agent/manifest.json", import.meta.url)),
   );
-  assert.equal(manifest.version, "1.3.1");
+  assert.equal(manifest.version, "1.3.2");
   assert.equal(manifest.name, "POAI 酒店助手");
   assert.deepEqual(manifest.host_permissions, [
     "https://api.poai.cc/*",
@@ -24,16 +24,16 @@ test("POAI domains, Agent identity path and version preserve existing backend bi
   const api = JSON.parse(
     fs.readFileSync(new URL("../api/wrangler.jsonc", import.meta.url)),
   );
-  assert.equal(api.name, "livv-api");
+  assert.equal(api.name, "poai-api");
   assert.equal(
     api.d1_databases[0].database_id,
-    "68cfcb1e-913a-4013-aa9d-5ae27f2a1150",
+    "75a2bb2d-ca57-4be9-9eb4-6b389d504c5f",
   );
   assert.deepEqual(api.triggers.crons, ["* * * * *"]);
   for (const [directory, domain] of [
     ["api", "api.poai.cc"],
     ["ota", "ota.poai.cc"],
-    ["livvcc", "poai.cc"],
+    ["site", "poai.cc"],
     ["ops", "ops.poai.cc"],
     ["ai", "ai.poai.cc"],
   ]) {

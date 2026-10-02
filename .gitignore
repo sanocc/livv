@@ -8,5 +8,5 @@ node_modules/
 .dev.vars
 .dev.vars.*
 *.log
-helper/debug/
+agent/debug/
 coverage/

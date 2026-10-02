@@ -93,7 +93,7 @@ test("market cards and horizontal platform table use supplied facts and original
         hotel_id: "111",
         hotel_name: "平台原名",
         standard_name: "POAI标准名",
-        livv_hotel_id: "permanent-id",
+        standard_hotel_id: "permanent-id",
         category: "mine",
         rank: 1,
         display_price: 0,

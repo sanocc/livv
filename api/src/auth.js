@@ -30,7 +30,7 @@ export async function human(request, env) {
   return permitted.email;
 }
 export async function deviceAuth(request, db, approved = true) {
-  const id = request.headers.get("X-LIVV-Device-ID"),
+  const id = request.headers.get("X-Device-ID"),
     token = request.headers
       .get("authorization")
       ?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];

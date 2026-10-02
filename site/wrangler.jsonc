@@ -1,5 +1,5 @@
 {
-  "name": "livv-livvcc",
+  "name": "poai-site",
   "compatibility_date": "2026-09-30",
   "routes": [{ "pattern": "poai.cc", "custom_domain": true }],
   "assets": { "directory": "public" },

@@ -26,7 +26,7 @@ const telemetry = telemetryQueue({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-LIVV-Device-ID": id.device_id,
+        "X-Device-ID": id.device_id,
         Authorization: `Bearer ${id.credential}`,
       },
       body: JSON.stringify(body),
@@ -97,7 +97,7 @@ async function identity() {
   let { identity } = await read();
   if (!identity) {
     identity = {
-      device_id: crypto.randomUUID(),
+      device_id: `poai_${crypto.randomUUID()}`,
       credential: Array.from(crypto.getRandomValues(new Uint8Array(32)))
         .map((x) => x.toString(16).padStart(2, "0"))
         .join(""),
@@ -114,7 +114,7 @@ async function request(path, body = {}, method = "POST", authenticated = true) {
       "Content-Type": "application/json",
       ...(authenticated
         ? {
-            "X-LIVV-Device-ID": id.device_id,
+            "X-Device-ID": id.device_id,
             Authorization: `Bearer ${id.credential}`,
           }
         : {}),
@@ -148,7 +148,8 @@ async function initialize() {
     );
     await chrome.storage.local.set({ identity: { ...i, registered: true } });
   }
-  await chrome.alarms.create("livv-heartbeat", { periodInMinutes: 0.5 });
+  await chrome.alarms.clearAll();
+  await chrome.alarms.create("agent-heartbeat", { periodInMinutes: 0.5 });
   const state = await read();
   if (state.auto === undefined) await chrome.storage.local.set({ auto: true });
   initialized = true;
@@ -780,7 +781,7 @@ async function tick(heartbeat = false) {
 chrome.runtime.onInstalled.addListener(() => tick(true));
 chrome.runtime.onStartup.addListener(() => tick(true));
 chrome.alarms.onAlarm.addListener((a) => {
-  if (a.name === "livv-heartbeat") tick(true);
+  if (a.name === "agent-heartbeat") tick(true);
 });
 chrome.tabs.onUpdated.addListener((id, change) => {
   if (change.status === "complete")

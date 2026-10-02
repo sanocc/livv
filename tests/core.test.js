@@ -38,7 +38,7 @@ function harness() {
 async function device(h) {
   const id = crypto.randomUUID(),
     secret = "a".repeat(64),
-    headers = { "X-LIVV-Device-ID": id, Authorization: `Bearer ${secret}` };
+    headers = { "X-Device-ID": id, Authorization: `Bearer ${secret}` };
   assert.equal(
     (
       await h.call(
@@ -294,8 +294,8 @@ test("deadline and offline reaper do not cross windows or accept late upload", a
 });
 test("partial details save full market; manual mapping and unlink preserve originals", async () => {
   const h = harness();
-  const livv = (
-    await h.call("/v1/admin/livv-hotels", "POST", {
+  const poai = (
+    await h.call("/v1/admin/standard-hotels", "POST", {
       name: "我的标准名",
       category: "mine",
     })
@@ -309,7 +309,7 @@ test("partial details save full market; manual mapping and unlink preserve origi
       await h.call("/v1/admin/mappings", "POST", {
         platform: "ctrip",
         hotel_id: "1",
-        livv_hotel_id: livv,
+        standard_hotel_id: poai,
       })
     ).status,
     400,
@@ -317,7 +317,7 @@ test("partial details save full market; manual mapping and unlink preserve origi
   await h.call("/v1/admin/mappings", "POST", {
     platform: "ctrip",
     hotel_id: "1",
-    livv_hotel_id: livv,
+    standard_hotel_id: poai,
     confirm: true,
   });
   const d = await ready(h),
@@ -334,7 +334,7 @@ test("partial details save full market; manual mapping and unlink preserve origi
   assert.equal(r.status, 200, JSON.stringify(r));
   assert.equal(r.data.status, "PARTIAL");
   assert.equal(r.data.market_count, 30);
-  await h.call("/v1/admin/livv-hotels/" + livv, "PATCH", { name: "新标准名" });
+  await h.call("/v1/admin/standard-hotels/" + poai, "PATCH", { name: "新标准名" });
   const before = h.DB.raw
     .prepare("SELECT hotel_name FROM market_observations WHERE hotel_id=?")
     .get("1").hotel_name;
@@ -518,8 +518,8 @@ test("market display follows later manual mappings while strategy history stays 
   assert.equal(before.curve.length, 30);
   assert.equal(before.hotels[0].category, "other");
   assert.equal(before.hotels[0].standard_name, p.hotels[0].hotel_name);
-  const livv = (
-    await h.call("/v1/admin/livv-hotels", "POST", {
+  const poai = (
+    await h.call("/v1/admin/standard-hotels", "POST", {
       name: "我的标准名",
       category: "mine",
     })
@@ -527,7 +527,7 @@ test("market display follows later manual mappings while strategy history stays 
   await h.call("/v1/admin/mappings", "POST", {
     platform: "ctrip",
     hotel_id: "1",
-    livv_hotel_id: livv,
+    standard_hotel_id: poai,
     confirm: true,
   });
   const mapped = (await h.call(path)).data;
@@ -547,7 +547,7 @@ test("market display follows later manual mappings while strategy history stays 
       ),
   );
   for (const category of ["core", "competitor", "watch", "other"]) {
-    await h.call("/v1/admin/livv-hotels/" + livv, "PATCH", { category });
+    await h.call("/v1/admin/standard-hotels/" + poai, "PATCH", { category });
     const recategorized = (await h.call(path)).data;
     assert.equal(recategorized.hotels[0].category, category);
     assert.equal(
@@ -756,7 +756,7 @@ test("MARKET_LIST freezes no detail targets, completes a genuine list and reject
     at = new Date().toISOString();
   h.DB.raw
     .prepare(
-      "INSERT INTO livv_hotels(id,name,category,created_at,updated_at) VALUES('mine','标准名','mine',?,?)",
+      "INSERT INTO standard_hotels(id,name,category,created_at,updated_at) VALUES('mine','标准名','mine',?,?)",
     )
     .run(at, at);
   h.DB.raw

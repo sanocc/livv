@@ -8,8 +8,8 @@ import {
   analyticsEvents,
   deviceDiagnostics,
 } from "../api/src/telemetry.js";
-import { telemetryQueue, telemetryEvent } from "../helper/telemetry.js";
-import { updateHTML, updateText } from "../helper/sidepanel-view.js";
+import { telemetryQueue, telemetryEvent } from "../agent/telemetry.js";
+import { updateHTML, updateText } from "../agent/sidepanel-view.js";
 import { diagnosticsView } from "../ota/public/device-diagnostics.js";
 async function fixture() {
   const DB = database(),
@@ -54,7 +54,7 @@ test("authenticated analytics ingestion never writes high frequency events to D1
     message: "secret",
   };
   const headers = {
-    "X-LIVV-Device-ID": f.id,
+    "X-Device-ID": f.id,
     Authorization: `Bearer ${f.credential}`,
   };
   const req = () =>
@@ -282,4 +282,19 @@ test("an acknowledged failed Attempt does not fabricate a FAILED Task analytics 
   f.DB.raw.prepare("UPDATE tasks SET status='FAILED' WHERE id=?").run(task);
   await ingestTelemetry(env, { id: f.id }, { events: [e] });
   assert.equal(points[1].blobs[4], "TASK_FAILED");
+});
+
+test("prefixed Agent IDs remain queryable without accepting SQL control characters", async () => {
+  const env = { CF_ANALYTICS_READ_TOKEN: "fixture", CF_ACCOUNT_ID: "fixture" };
+  let requests = 0;
+  const fetcher = async (_, options) => {
+    requests++;
+    assert.match(options.body, /FROM agent_events WHERE index1 = 'poai_[a-z0-9-]+'/);
+    return Response.json({ data: [] });
+  };
+  const result = await analyticsEvents(env, "poai_" + crypto.randomUUID(), fetcher);
+  assert.equal(result.available, true);
+  const denied = await analyticsEvents(env, "poai_' OR 1=1 --", fetcher);
+  assert.equal(denied.reason, "INVALID_DEVICE");
+  assert.equal(requests, 1);
 });

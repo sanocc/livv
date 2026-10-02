@@ -2,7 +2,7 @@
 
 ## POAI 当前入口（2026-10-02）
 
-统一入口 https://api.poai.cc，OTA同源/api/继续通过原Service Binding转发。管理员生产写来源只允许ota.poai.cc；OPS/AI首版不调用跨源API，不放宽鉴权。X-LIVV-Device-ID、livv_hotels/livv_hotel_id等协议字段保持原值，普通界面改为POAI/标准酒店。
+统一入口 https://api.poai.cc，OTA同源/api/继续通过原Service Binding转发。管理员生产写来源只允许ota.poai.cc；OPS/AI首版不调用跨源API，不放宽鉴权。当前设备鉴权头为 X-Device-ID；标准酒店接口与映射字段为 standard_hotels / standard_hotel_id。此命名切换客户端和 API 同步部署，实际永久 ID 保留。
 
 原telemetry增加可选白名单error_code/diagnostic；诊断仅API_RESPONSE_NOT_JSON/NETWORK_FETCH_FAILED，不接收自由日志正文、HTML、Cookie或Token。关键错误/终态写agent_logs，其他事件维持Analytics。终态须匹配D1，不通过事件修改任务。
 
@@ -26,7 +26,7 @@ JSON。除GET /health和注册外，全部鉴权；错误为{error:{code,message
 
 ## 设备
 
-请求头X-LIVV-Device-ID + Authorization: Bearer <本机随机64位hex凭证>。凭证不进入Git；生产只走HTTPS。
+请求头X-Device-ID + Authorization: Bearer <本机随机64位hex凭证>。凭证不进入Git；生产只走HTTPS。
 
 - POST /v1/devices/register：device_id、credential、version。重复同凭证可重试。
 - POST /v1/device/heartbeat：version、可选error_code；返回云端名称、审批状态、当前Attempt、服务器时间。
@@ -44,11 +44,11 @@ API规范化且只保存允许字段。结果必须属于领取设备、有效At
 CF-Access-Jwt-Assertion签名验证+ADMIN_EMAILS。OTA的/api/v1/admin/*经Service Binding调用API；代理不授予管理员资格。
 
 - GET session / devices / tasks / tasks/:id / plans / hotels / market
-- POST tasks / plans / livv-hotels
+- POST tasks / plans / standard-hotels
 - PATCH devices/:id：name、status=approved/disabled（恢复也使用approved）。
 - PATCH plans/:id：enabled，停用取消尚未领取的计划任务。
-- PATCH livv-hotels/:id：name、category=mine/core/competitor/watch/other。
-- POST mappings：platform、hotel_id、livv_hotel_id、confirm=true，禁止自动确认。
+- PATCH standard-hotels/:id：name、category=mine/core/competitor/watch/other。
+- POST mappings：platform、hotel_id、standard_hotel_id、confirm=true，禁止自动确认。
 - DELETE mappings?platform=ctrip&hotel_id=...：仅解除关系，保留全部历史。
 - GET market?platform=ctrip&city=咸宁&keyword=中心花坛&scope=top30&horizon=14&checkin=YYYY-MM-DD：各入住日期最新独立快照、无插值曲线、选中日期酒店、房型、不可变策略历史。
 

@@ -117,7 +117,7 @@ export async function claim(db, device, now = Date.now()) {
   const core = JSON.stringify(
     await rows(
       db,
-      `SELECT m.hotel_id FROM hotel_mappings m JOIN livv_hotels h ON h.id=m.livv_hotel_id WHERE m.platform='ctrip' AND h.category IN('mine','core')`,
+      `SELECT m.hotel_id FROM hotel_mappings m JOIN standard_hotels h ON h.id=m.standard_hotel_id WHERE m.platform='ctrip' AND h.category IN('mine','core')`,
     ),
   );
   try {

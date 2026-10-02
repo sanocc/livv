@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "POAI 酒店助手",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "POAI 本地数据采集与任务执行端；当前支持携程移动端酒店市场采集",
   "permissions": [
     "storage",

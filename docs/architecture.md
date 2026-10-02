@@ -2,7 +2,7 @@
 
 ## POAI 当前主线（2026-10-02）
 
-唯一品牌POAI。原api/ota/livvcc/helper分别对应API/OTA/site/agent，保留路径与三个Worker标识；新增ops/ai。不重建D1、不改采集/调度/酒店映射/市场口径。下方旧品牌与不开发OPS的表述为历史阶段范围，已由本次用户请求替代。
+唯一品牌POAI。原api/ota/site/helper分别对应API/OTA/site/agent，保留路径与三个Worker标识；新增ops/ai。不重建D1、不改采集/调度/酒店映射/市场口径。下方旧品牌与不开发OPS的表述为历史阶段范围，已由本次用户请求替代。
 
 OPS首版为浏览器内CSV/XLSX分析。ADR=营收/售卖房量，OCC=售卖房量/可售房量。同日同房型可售房量跨渠道只计一次；缺失不推算。重复营业日/房型/渠道拒绝导入。无经营文件上传、无OPS数据库表；AI只提供产品框架，未接模型。
 
@@ -24,7 +24,7 @@ Helper1.2.1（FAST_NAV Mac: PASS；Windows: PENDING）在24小时本机缓存之
 
 冷启动仍需原生UI搜索；本轮确认咸宁中心花坛/咸宁北站参数，不推断全国城市或任意POI。单设备单Task、自然结果优先去重、采集字段和sold_out要求不降低，未优化tick或滚动。逆向证据与限制见helper-fast-navigation.md。
 
-评估日期：2026-10-01。V1单店、携程移动端、30家唯一酒店、滚动14/30天。api/ota/livvcc/helper为独立工程，不建立ops。
+评估日期：2026-10-01。V1单店、携程移动端、30家唯一酒店、滚动14/30天。api/ota/site/helper为独立工程，不建立ops。
 
 ## 数据库比较与决定
 

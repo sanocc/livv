@@ -1,5 +1,5 @@
 {
-  "name": "livv-api",
+  "name": "poai-api",
   "main": "src/index.js",
   "compatibility_date": "2026-09-30",
   "workers_dev": true,
@@ -12,13 +12,15 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "livv-v1",
-      "database_id": "68cfcb1e-913a-4013-aa9d-5ae27f2a1150",
+      "database_name": "poai-data",
+      "database_id": "75a2bb2d-ca57-4be9-9eb4-6b389d504c5f",
       "migrations_dir": "migrations"
     }
   ],
   "triggers": {
-    "crons": ["* * * * *"]
+    "crons": [
+      "* * * * *"
+    ]
   },
   "observability": {
     "enabled": true,
@@ -45,7 +47,7 @@
   "analytics_engine_datasets": [
     {
       "binding": "HELPER_EVENTS",
-      "dataset": "livv_helper_events"
+      "dataset": "agent_events"
     }
   ]
 }

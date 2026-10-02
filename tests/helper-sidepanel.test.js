@@ -10,20 +10,20 @@ import {
   statusLabels,
   errorLabels,
   eventLabels,
-} from "../helper/i18n.js";
+} from "../agent/i18n.js";
 import {
   taskView,
   publicState,
   remember,
   trustedView,
-} from "../helper/view-state.js";
+} from "../agent/view-state.js";
 import {
   taskCard,
   historyCards,
   stageLabel,
   updateHTML,
   updateText,
-} from "../helper/sidepanel-view.js";
+} from "../agent/sidepanel-view.js";
 const active = () => ({
   task: {
     id: "task",
@@ -148,7 +148,7 @@ test("only exact extension popup and sidepanel may send privileged commands", ()
 
 test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and background retains ownership of execution", () => {
   const m = JSON.parse(
-    fs.readFileSync(new URL("../helper/manifest.json", import.meta.url)),
+    fs.readFileSync(new URL("../agent/manifest.json", import.meta.url)),
   );
   assert.equal(m.manifest_version, 3);
   assert.equal(m.side_panel.default_path, "sidepanel.html");
@@ -159,7 +159,7 @@ test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and backg
     "https://m.ctrip.com/*",
   ]);
   const script = fs.readFileSync(
-    new URL("../helper/sidepanel.js", import.meta.url),
+    new URL("../agent/sidepanel.js", import.meta.url),
     "utf8",
   );
   assert.doesNotMatch(script, /\/v1\//);
@@ -168,7 +168,7 @@ test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and backg
     /executeScript|debugger\.attach|active:\s*null|cancel|set\(\{.*active/,
   );
   const bg = fs.readFileSync(
-    new URL("../helper/background.js", import.meta.url),
+    new URL("../agent/background.js", import.meta.url),
     "utf8",
   );
   assert.match(bg, /openPanelOnActionClick: true/);
@@ -178,7 +178,7 @@ test("sidepanel manifest is MV3, hosts unchanged, no dangerous cancel, and backg
 
 test("sidepanel submit goes through existing background TASK message; closing view clears only presentation timer", async () => {
   const source = fs
-    .readFileSync(new URL("../helper/sidepanel.js", import.meta.url), "utf8")
+    .readFileSync(new URL("../agent/sidepanel.js", import.meta.url), "utf8")
     .replace(/import[\s\S]*?;\n/g, "");
   const nodes = new Map();
   const node = (s) => {
@@ -374,9 +374,9 @@ test("all emitted API/helper error codes have Chinese display mapping; business 
   assert.equal(statusLabel("UNKNOWN_STATUS"), "状态待确认");
   const sources = [
     ...fs
-      .readdirSync("helper")
+      .readdirSync("agent")
       .filter((x) => x.endsWith(".js") && !/i18n|view|sidepanel|popup/.test(x))
-      .map((x) => "helper/" + x),
+      .map((x) => "agent/" + x),
     ...fs
       .readdirSync("api/src")
       .filter((x) => x.endsWith(".js"))

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 const root = path.resolve(import.meta.dirname, ".."),
-  dir = path.join(root, "helper"),
+  dir = path.join(root, "agent"),
   manifest = JSON.parse(
     fs.readFileSync(path.join(dir, "manifest.json"), "utf8"),
   );

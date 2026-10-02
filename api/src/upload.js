@@ -95,7 +95,7 @@ export async function upload(db, device, a, input, now = Date.now()) {
   const id = crypto.randomUUID();
   const labels = await rows(
     db,
-    "SELECT m.hotel_id,h.category FROM hotel_mappings m JOIN livv_hotels h ON h.id=m.livv_hotel_id WHERE m.platform=?",
+    "SELECT m.hotel_id,h.category FROM hotel_mappings m JOIN standard_hotels h ON h.id=m.standard_hotel_id WHERE m.platform=?",
     t.platform,
   );
   const categories = new Map(labels.map((x) => [x.hotel_id, x.category]));

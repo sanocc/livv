@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { detailLink } from "../helper/mobile.js";
+import { detailLink } from "../agent/mobile.js";
 
 function fixture(ids, mode = "exposure", nested = false) {
   const clicks = [];

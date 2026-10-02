@@ -1,7 +1,7 @@
 import { requireThat } from "./domain.js";
 import { rows, first, stmt } from "./db.js";
 import { CONFIG, nowIso } from "./config.js";
-import { businessLog, errorLabels } from "../../helper/i18n.js";
+import { businessLog, errorLabels } from "../../agent/i18n.js";
 const EVENTS = new Set([
   "DEVICE_ONLINE",
   "TASK_CLAIMED",
@@ -209,10 +209,10 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
   if (!env.CF_ANALYTICS_READ_TOKEN || !env.CF_ACCOUNT_ID)
     return { available: false, reason: "NOT_CONFIGURED", events: [] };
   // Fixed query, identifier validated independently; no caller SQL or URL is accepted.
-  if (!/^[a-zA-Z0-9-]{1,80}$/.test(deviceId))
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(deviceId))
     return { available: false, reason: "INVALID_DEVICE", events: [] };
   try {
-    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, blob12 AS error_code, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM livv_helper_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
+    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, blob12 AS error_code, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM agent_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
     const r = await fetcher(
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
       {

@@ -4,7 +4,7 @@ D1保存业务权威记录；Workers Logs保存API调用/异常；Analytics Engi
 
 ## 实际事件Schema
 
-Dataset：livv_helper_events；绑定：HELPER_EVENTS；index1=device_id。
+Dataset：agent_events；绑定：HELPER_EVENTS；index1=device_id。
 
 | Analytics字段 | 内容 |
 |---|---|

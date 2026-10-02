@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { failRemainingDetails } from "../helper/detail-state.js";
+import { failRemainingDetails } from "../agent/detail-state.js";
 
 test("detail browser failure retains locked market and completed rooms", () => {
   const market = [{ hotel_id: "1" }, { hotel_id: "2" }, { hotel_id: "3" }];
@@ -55,7 +55,7 @@ test("only locked stage-two results qualify for preservation", () => {
 });
 
 test("partial list accounts for observed core hotels before details and on persisted upload retry", async () => {
-  const { completeDetailResults } = await import("../helper/detail-state.js");
+  const { completeDetailResults } = await import("../agent/detail-state.js");
   const active = {
     market: [{ hotel_id: "mine" }, { hotel_id: "core" }],
     core_hotels: [

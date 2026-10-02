@@ -461,7 +461,7 @@ function renderMarketHotels(category = "") {
   ];
   const groups = new Map();
   list.forEach((h) => {
-    const key = h.livv_hotel_id ?? `${h.platform}/${h.hotel_id}`;
+    const key = h.standard_hotel_id ?? `${h.platform}/${h.hotel_id}`;
     if (!groups.has(key))
       groups.set(key, {
         name: h.standard_name ?? h.hotel_name,
@@ -625,7 +625,7 @@ async function hotels() {
       .map(([k, v]) => `<option value="${k}">${v}</option>`)
       .join("")}</select></label><button>创建酒店</button></form>${table(
       ["永久 标准酒店 ID", "标准名称", "分类", "操作"],
-      d.livv_hotels.map(
+      d.standard_hotels.map(
         (h) =>
           `<tr><td>${esc(h.id)}</td><td>${esc(h.name)}</td><td>${categories[h.category]}</td><td><button data-edit="${h.id}">修改</button></td></tr>`,
       ),
@@ -633,14 +633,14 @@ async function hotels() {
       ["平台原始名称", "平台 / Hotel ID", "映射 / 分类", "操作"],
       d.platform_hotels.map(
         (h) =>
-          `<tr><td>${esc(h.original_name)}</td><td>${esc(h.platform)} / ${esc(h.hotel_id)}</td><td>${esc(h.standard_name)}<small>${categories[h.category] ?? "市场其他"}</small></td><td>${h.livv_hotel_id ? `<button data-unlink="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">解除映射</button>` : `<select data-choice="${esc(h.hotel_id)}"><option value="">选择 标准酒店</option>${d.livv_hotels.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select> <button data-link="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">确认关联</button>`}</td></tr>`,
+          `<tr><td>${esc(h.original_name)}</td><td>${esc(h.platform)} / ${esc(h.hotel_id)}</td><td>${esc(h.standard_name)}<small>${categories[h.category] ?? "市场其他"}</small></td><td>${h.standard_hotel_id ? `<button data-unlink="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">解除映射</button>` : `<select data-choice="${esc(h.hotel_id)}"><option value="">选择 标准酒店</option>${d.standard_hotels.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select> <button data-link="${esc(h.hotel_id)}" data-platform="${esc(h.platform)}">确认关联</button>`}</td></tr>`,
       ),
     )}`;
   $("#hotel-form").onsubmit = (e) => {
     e.preventDefault();
     action(async () => {
       await api(
-        "livv-hotels",
+        "standard-hotels",
         "POST",
         Object.fromEntries(new FormData(e.target)),
       );
@@ -650,7 +650,7 @@ async function hotels() {
   document.querySelectorAll("[data-edit]").forEach(
     (b) =>
       (b.onclick = () => {
-        const h = d.livv_hotels.find((x) => x.id === b.dataset.edit),
+        const h = d.standard_hotels.find((x) => x.id === b.dataset.edit),
           name = prompt("标准名称", h.name),
           category = prompt(
             "分类：mine我的酒店 / core核心竞品 / competitor竞品 / watch观察 / other其他",
@@ -658,7 +658,7 @@ async function hotels() {
           );
         if (name && category)
           action(async () => {
-            await api("livv-hotels/" + h.id, "PATCH", { name, category });
+            await api("standard-hotels/" + h.id, "PATCH", { name, category });
             await load();
           });
       }),
@@ -674,7 +674,7 @@ async function hotels() {
           await api("mappings", "POST", {
             platform: b.dataset.platform,
             hotel_id: b.dataset.link,
-            livv_hotel_id: select.value,
+            standard_hotel_id: select.value,
             confirm: true,
           });
           await load();
