@@ -129,7 +129,7 @@ test("anonymous API denied and local bypass impossible in production", async () 
 for (const prefix of ["", "poai_"]) {
   test(`registration accepts ${prefix || "bare "}UUID and preserves approval lifecycle`, async () => {
     const h = harness(),
-      id = prefix + crypto.randomUUID(),
+      id = prefix + "157317c4-4734-4abe-a778-9c3e1bac1e24",
       secret = "a".repeat(64),
       registration = { device_id: id, credential: secret, version: "1.3.2" },
       headers = { "X-Device-ID": id, Authorization: `Bearer ${secret}` };
@@ -217,11 +217,13 @@ for (const prefix of ["", "poai_"]) {
 }
 test("registration rejects invalid prefixed UUIDs, excessive length and empty values", async () => {
   const h = harness(),
-    uuid = crypto.randomUUID();
+    uuid = "157317c4-4734-4abe-a778-9c3e1bac1e24";
   const invalid = [
     "poai_not-a-uuid",
     "poai_" + uuid.slice(0, -1) + "g",
-    "poai_" + uuid.replace(/-4/, "-5"),
+    // Literal invalid version/variant groups cannot mutate an earlier group.
+    "poai_157317c4-4734-5abe-a778-9c3e1bac1e24",
+    "poai_157317c4-4734-4abe-7778-9c3e1bac1e24",
     "poai_poai_" + uuid,
     "other_" + uuid,
     "x".repeat(100),
