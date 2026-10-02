@@ -363,10 +363,13 @@ select:focus-visible {
   margin-top: 14px;
 }
 .reverse {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: clamp(96px, 10vw, 160px);
+  grid-template-columns: 58% 42%;
+  gap: 4%;
 }
 .reverse .chapter-copy {
+  width: max-content;
+  max-width: 100%;
+  justify-self: end;
   grid-column: 2;
   grid-row: 1;
 }
@@ -678,8 +681,8 @@ select:focus-visible {
     gap: 4%;
   }
   .reverse {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: clamp(64px, 8vw, 88px);
+    grid-template-columns: 60% 40%;
+    gap: 4%;
   }
   .chapter-copy h2 {
     font-size: 80px;
@@ -740,6 +743,9 @@ select:focus-visible {
     gap: 35px;
     padding: 120px 8% 80px;
     min-height: max(760px, 100svh);
+  }
+  .reverse .chapter-copy {
+    width: auto;
   }
   .hero {
     height: 100svh;
