@@ -1,3 +1,4 @@
+import { acceptanceControl } from "./acceptance-control.js";
 import {
   createAcceptance,
   acceptanceReadiness,
@@ -254,6 +255,10 @@ export async function handle(req, env) {
     }
   }
   requireThat(p.startsWith("/v1/"), "NOT_FOUND", 404);
+  if (p.startsWith("/v1/acceptance-control/")) {
+    const result = await acceptanceControl(req, env, newTask, body);
+    return json(result.body, result.status);
+  }
   if (p === "/v1/devices/register" && method === "POST") {
     if (env.REGISTRATION_LIMITER) {
       const { success } = await env.REGISTRATION_LIMITER.limit({
