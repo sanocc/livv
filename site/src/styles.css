@@ -363,8 +363,8 @@ select:focus-visible {
   margin-top: 14px;
 }
 .reverse {
-  grid-template-columns: 58% 42%;
-  gap: 7%;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: clamp(96px, 10vw, 160px);
 }
 .reverse .chapter-copy {
   grid-column: 2;
@@ -678,8 +678,8 @@ select:focus-visible {
     gap: 4%;
   }
   .reverse {
-    grid-template-columns: 57% 43%;
-    gap: 5%;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(64px, 8vw, 88px);
   }
   .chapter-copy h2 {
     font-size: 80px;

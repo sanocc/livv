@@ -36,3 +36,9 @@ Desktop chapter buttons align all six scenes; price filter leaves selected hotel
 ## Follow-up polish
 
 P3: generated illustration geometry is a fresh matching asset rather than identical pixels. No automatic backend integration or AI analysis is implied by example previews.
+
+## OPS spacing follow-up
+
+final result: passed
+
+The 1440px OPS column gap increased from 87.28px to 144px; fractional grid tracks now account for the gap inside available width. Narrow-desktop gap is 81.92px at 1024px. Mobile remains stacked with the existing 35px vertical gap. Source/implementation before-and-after comparison: /private/tmp/poai-ops-comparison.png; responsive screenshots: /private/tmp/poai-ops-1024.png and /private/tmp/poai-ops-390.png. No content overflow at either responsive breakpoint. Other sections and product interactions are unchanged.
