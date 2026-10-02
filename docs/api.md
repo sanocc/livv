@@ -87,3 +87,7 @@ TASK_CANCELLED运行事件必须对应真实已取消Task，保存在既有agent
 ## OTA 日内价格轨迹
 
 新增管理员只读 `GET /v1/admin/market/price-history`，按上海观察日期、入住/退房日期、平台/城市/关键词/范围和原始酒店集合读取全部快照历史。返回真实价格、缺失原因、前一个有效观察和涨跌；基准可跨观察日。计划未形成快照的任务单独返回，不虚构观察时间。原 `/market` 契约不变，无 Schema 或 Agent 修改。参数、响应与验证见 [日内价格轨迹](intraday-price-history.md)。
+
+## 多 OTA 平台能力（只读）
+
+`GET /v1/admin/platforms` 沿用现有管理员鉴权，返回 `{contract_version:1, platforms:[...]}`。生产采集开关、研发能力、本轮按日期记录的真实验证与未知健康状态分别列出；不启用新平台任务、不写数据库。字段与研究证据见 [多 OTA 研发记录](multi-ota/README.md)。

@@ -31,7 +31,8 @@ const nextDay = (date) =>
     .toISOString()
     .slice(0, 10);
 const name = (h) => h.standard_name ?? h.hotel_name;
-const platformName = (p) => (p === "ctrip" ? "携程" : p);
+const platformName = (p) =>
+  ({ ctrip: "携程", meituan: "美团酒店", fliggy: "飞猪", tongcheng: "同程旅行", elong: "艺龙" })[p] ?? p;
 const colors = [
   "#3169df",
   "#39958a",

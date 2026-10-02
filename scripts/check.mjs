@@ -9,6 +9,7 @@ const walk = (dir) =>
       e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
     );
 for (const d of [
+  "platforms",
   "api/src",
   "ota/src",
   "ota/public",

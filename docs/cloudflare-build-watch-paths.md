@@ -63,3 +63,7 @@ ai/wrangler.jsonc
 5. 合并影响对应路径的真实变更后，核对实际触发的服务、构建 SHA、检查结果及部署结果。不能用本地通过代替 Cloudflare Build PASS，也不能据 Watch Paths 建议声称配置已经生效。
 
 如果未来将验证拆成真正独立的 GitHub CI，可以另行评估更窄的服务监视集；本次不修改任何构建命令、不删减检查、不调整生产资源。
+
+## 多 OTA 研发共享目录（2026-10-02）
+
+新增 `platforms/**`：API 从 `platforms/catalog.js` 打包只读能力目录，完整 `npm test` 与 `npm run check` 也检查此目录及其 Adapter。建议所有执行根目录完整测试/检查的 Worker 将 `platforms/**` 加入共享监视路径；`poai-api` 尤其需要它作为直接构建输入。`ota/**` 仍包含平台能力页。这里只更新审计建议，未读取或修改 Dashboard 的实际 Watch Paths，不代表配置已经生效。

@@ -104,7 +104,8 @@ function hotelDetails(h, rooms = []) {
 }
 const datetime = (x) =>
   x ? new Date(x).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—";
-const platformName = (id) => ({ ctrip: "携程" })[id] ?? id;
+const platformName = (id) =>
+  ({ ctrip: "携程", meituan: "美团酒店", fliggy: "飞猪", tongcheng: "同程旅行", elong: "艺龙" })[id] ?? id;
 const priceSeries = [
   ["myPrice", "#3169df", "我的酒店起售价"],
   ["maximum", "#c79554", "市场最高价"],
@@ -841,6 +842,14 @@ async function hotels() {
         })),
   );
 }
+async function platforms() {
+  const [{ platformCapabilitiesView }, result] = await Promise.all([
+    import("./platforms.js"),
+    api("platforms"),
+  ]);
+  if (page === "platforms")
+    $("#view").innerHTML = platformCapabilitiesView(result);
+}
 async function action(fn) {
   const tooltip = $("#market-tooltip");
   if (tooltip) tooltip.hidden = true;
@@ -858,11 +867,12 @@ async function load() {
       tasks: "任务",
       hotels: "酒店",
       devices: "设备",
+      platforms: "平台能力",
     }[page];
     document
       .querySelectorAll("[data-page]")
       .forEach((b) => b.classList.toggle("active", b.dataset.page === page));
-    await { market: marketPage, tasks, hotels, devices }[page]();
+    await { market: marketPage, tasks, hotels, devices, platforms }[page]();
   });
 }
 document.querySelectorAll("[data-page]").forEach(

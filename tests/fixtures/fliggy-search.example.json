@@ -1,0 +1,18 @@
+{
+  "fixture_kind": "publisher_documentation_example_not_live_observation",
+  "source": "https://github.com/alibaba-flyai/flyai-skill/blob/86fe2cc3e25464d0e0bd6a769b27b5f9f3b04128/skills/flyai/references/search-hotel.md",
+  "response": {
+    "status": 0,
+    "message": "success",
+    "data": {
+      "itemList": [
+        {
+          "name": "杭州望湖宾馆",
+          "price": "¥618",
+          "score": "5.0",
+          "shId": "10021423"
+        }
+      ]
+    }
+  }
+}

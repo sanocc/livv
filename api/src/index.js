@@ -1,3 +1,4 @@
+import { platformCatalog } from "../../platforms/catalog.js";
 import {
   saveEnvironment,
   cleanRuntime,
@@ -426,6 +427,8 @@ export async function handle(req, env) {
         415,
       );
     }
+    if (p === "/v1/admin/platforms" && method === "GET")
+      return json({ contract_version: 1, platforms: platformCatalog() });
     if (p === "/v1/admin/session" && method === "GET")
       return json({ email: actor });
     if (p === "/v1/admin/runtime" && method === "GET") {

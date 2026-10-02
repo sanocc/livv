@@ -1,0 +1,174 @@
+{
+  "research_date": "2026-10-02",
+  "baseline_commit": "93476ea08e85349ed8673bd64f877d929f8a191b",
+  "scope": "anonymous public requests and publisher documents; not live observation verification",
+  "public_http": [
+    {
+      "name": "ctrip_open",
+      "url": "https://open.ctrip.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "meituan_open",
+      "url": "https://open.meituan.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "fliggy_open",
+      "url": "https://open.fliggy.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "taobao_api",
+      "url": "https://open.taobao.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "tongcheng_open",
+      "url": "https://open.ly.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "elong_open",
+      "url": "https://open.elong.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "ctrip_web",
+      "url": "https://hotels.ctrip.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "ctrip_mobile",
+      "url": "https://m.ctrip.com/webapp/hotels/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "meituan_web",
+      "url": "https://hotel.meituan.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "meituan_mobile",
+      "url": "https://i.meituan.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "fliggy_web",
+      "url": "https://hotel.fliggy.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "tongcheng_web",
+      "url": "https://www.ly.com/hotel/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "elong_web",
+      "url": "https://hotel.elong.com/",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    },
+    {
+      "name": "github_search",
+      "url": "https://github.com/search?q=ctrip+hotel&type=repositories",
+      "final_url": "https://github.com/search?q=ctrip+hotel&type=repositories",
+      "status": 200,
+      "bytes": 269252,
+      "title": "Repository search results · GitHub"
+    },
+    {
+      "name": "search",
+      "url": "https://www.google.com/search?q=meituan+hotel+open+API+%E9%85%92%E5%BA%97",
+      "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+    }
+  ],
+  "chromium": [
+    {
+      "platform": "ctrip",
+      "requested_url": "https://m.ctrip.com/webapp/hotels/",
+      "attempted_at": "2026-10-02T17:35:24.675Z",
+      "status": "NETWORK_BLOCKED",
+      "authenticated": false,
+      "observed_hotels": null,
+      "error_code": "net::ERR_TUNNEL_CONNECTION_FAILED",
+      "request_origins": [
+        "https://m.ctrip.com"
+      ]
+    },
+    {
+      "platform": "meituan",
+      "requested_url": "https://hotel.meituan.com/",
+      "attempted_at": "2026-10-02T17:35:24.860Z",
+      "status": "NETWORK_BLOCKED",
+      "authenticated": false,
+      "observed_hotels": null,
+      "error_code": "net::ERR_TUNNEL_CONNECTION_FAILED",
+      "request_origins": [
+        "https://hotel.meituan.com"
+      ]
+    },
+    {
+      "platform": "fliggy",
+      "requested_url": "https://hotel.fliggy.com/",
+      "attempted_at": "2026-10-02T17:35:25.060Z",
+      "status": "NETWORK_BLOCKED",
+      "authenticated": false,
+      "observed_hotels": null,
+      "error_code": "net::ERR_TUNNEL_CONNECTION_FAILED",
+      "request_origins": [
+        "https://hotel.fliggy.com"
+      ]
+    },
+    {
+      "platform": "tongcheng",
+      "requested_url": "https://www.ly.com/hotel/",
+      "attempted_at": "2026-10-02T17:35:25.211Z",
+      "status": "NETWORK_BLOCKED",
+      "authenticated": false,
+      "observed_hotels": null,
+      "error_code": "net::ERR_TUNNEL_CONNECTION_FAILED",
+      "request_origins": [
+        "https://www.ly.com"
+      ]
+    }
+  ],
+  "npm": {
+    "name": "@fly-ai/flyai-cli",
+    "version": "1.0.16",
+    "integrity_verified": true,
+    "executed": false
+  },
+  "live_platforms_verified": [],
+  "public_http_additional": [
+    {
+      "url": "https://developer.meituan.com/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    },
+    {
+      "url": "https://developers.trip.com/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    },
+    {
+      "url": "https://openservice.ctrip.com/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    },
+    {
+      "url": "https://openapi.elong.com/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    },
+    {
+      "url": "https://open.taobao.com/api.htm",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    },
+    {
+      "url": "https://flyai.open.fliggy.com/",
+      "error": "Tunnel connection failed: 403 Forbidden",
+      "scope": "egress proxy denial; destination response not obtained"
+    }
+  ]
+}
