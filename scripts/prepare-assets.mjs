@@ -2,13 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { zipSync } from "fflate";
 const root = path.resolve(import.meta.dirname, "..");
-for (const directory of ["ota", "ops", "ai"]) {
-  for (const name of ["poai-logo.svg", "poai-icon.svg"])
-    fs.copyFileSync(
-      path.join(root, "site/public", name),
-      path.join(root, directory, "public", name),
-    );
+const brandFiles = ["poai-logo.png", "poai-icon.png", "favicon-16.png", "favicon-32.png", "favicon-48.png", "favicon.ico"];
+for (const directory of ["site", "ota", "ops", "ai"]) {
+  for (const name of brandFiles)
+    fs.copyFileSync(path.join(root, "brand", name), path.join(root, directory, "public", name));
 }
+for (const size of [16, 32, 48, 128])
+  fs.copyFileSync(path.join(root, "brand", `icon-${size}.png`), path.join(root, "agent", `icon-${size}.png`));
 fs.copyFileSync(
   path.join(root, "site/public/style.css"),
   path.join(root, "ai/public/style.css"),

@@ -42,7 +42,10 @@ header {
 }
 .brand img {
   width: 130px;
-  height: 46px;
+  height: auto;
+  max-height: 50px;
+  object-fit: contain;
+
   display: block;
 }
 nav {
@@ -330,7 +333,9 @@ footer {
   color: var(--muted);
 }
 footer img {
-  width: 88px;
+  width: 100px;
+  height: auto;
+
 }
 footer div {
   display: flex;

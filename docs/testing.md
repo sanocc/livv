@@ -1,3 +1,11 @@
+## 2026-10-02 正式品牌资产接入
+
+- 正式源图brand/poai-logo.png保持字节不变；无重新设计或近似矢量化。完整Logo保留PO∞/Ai及原渐变，独立图标沿透明间隙仅提取PO∞，Alpha透明、居中、等比例缩放。
+- 四站public的完整Logo、图标、16/32/48 favicon、ICO与brand逐字节一致；Agent16/32/48/128图标同源。小尺寸已实际预览；PNG四角Alpha0，背景与内部空白透明，非棋盘格/白底。
+- 网站完整Logo直接置于页面背景，不额外使用底框、圆角或内边距。Mac现有扩展在无RUNNING Attempt时原位重载1.3.5；扩展管理、工具栏、Side Panel实际展示PO∞；设备身份保留、在线/空闲、正常心跳，不创建人工验收任务。
+- 82/82自动测试PASS；npm run check/MV3/语法/数据库边界PASS；API、OTA、Site、OPS、AI五个Worker dry-run构建PASS。采集脚本、FAST_NAV、API、Schema、Task/Attempt、正式Plan、市场曲线与统计代码未修改。
+- 四个站点正式Logo与favicon部署。旧占位SVG及不再作为当前下载的旧占位图标ZIP清理，现有有效源代码品牌残留扫描0；未修改Git历史。下载版本1.3.5，正式发布仅当前ZIP。
+
 ## 2026-10-02 POAI Agent 1.3.4 设备运行环境验收
 
 - 自动测试82/82 PASS；npm run check PASS；API / OTA Worker 构建与 Agent MV3/语法检查通过。API、OTA、主站已部署，下载包为1.3.4。

@@ -15,7 +15,7 @@ test("POAI domains and Agent version use canonical bindings with unchanged produ
   const manifest = JSON.parse(
     fs.readFileSync(new URL("../agent/manifest.json", import.meta.url)),
   );
-  assert.equal(manifest.version, "1.3.4");
+  assert.equal(manifest.version, "1.3.5");
   assert.equal(manifest.name, "POAI 酒店助手");
   assert.deepEqual(manifest.host_permissions, [
     "https://api.poai.cc/*",

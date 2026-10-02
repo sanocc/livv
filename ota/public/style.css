@@ -1068,3 +1068,7 @@ h2 {
 .device-environment > div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; border-bottom: 1px solid #e8edf3; padding: 8px 0; }
 .device-environment span { color: #64748b; }
 .device-environment strong { font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+
+/* Official transparent source; preserve its proportions without a background tile. */
+.logo img { display:block; width:150px; max-width:100%; height:auto; object-fit:contain; }
+.logo small { display:block; }

@@ -393,3 +393,6 @@ footer strong {
 .history-card > details {
   margin-top: 12px;
 }
+
+.agent-brand { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+.agent-brand img { width:32px; height:32px; object-fit:contain; flex:none; }
