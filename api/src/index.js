@@ -25,6 +25,7 @@ import {
   cancelTask,
 } from "./db.js";
 import { upload } from "./upload.js";
+import { priceHistory } from "./price-history.js";
 import { generatePlans } from "./scheduler.js";
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -740,6 +741,8 @@ export async function handle(req, env) {
       ]);
       return json({ ok: true });
     }
+    if (p === "/v1/admin/market/price-history" && method === "GET")
+      return json(await priceHistory(db, u));
     if (p === "/v1/admin/market" && method === "GET")
       return json(await market(db, u));
     throw new HttpError(404, "NOT_FOUND");

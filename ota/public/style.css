@@ -1367,3 +1367,348 @@ h2 {
   .hotel-scroll-note { display: block; font-size: 10px; color: #64748b; margin: 10px 0 0; }
   .market-table th.hotel-name-head { width: 155px; }
 }
+
+/* Intraday history keeps real time spacing and raw hotel identities. */
+.market-mode-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #dfe5ee;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+}
+.market-mode-tabs button {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+}
+.market-mode-tabs button[aria-pressed="true"] {
+  background: #e8effe;
+  color: #3169df;
+  font-weight: 600;
+}
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.history-filters label {
+  font-size: 11px;
+  min-width: 0;
+  color: #64748b;
+}
+.history-filters input,
+.history-filters select {
+  width: 150px;
+  min-width: 0;
+  height: 38px;
+}
+.history-filters [name="city"],
+.history-filters [name="keyword"] {
+  width: 130px;
+}
+.history-filters [name="collection_limit"] {
+  width: 95px;
+}
+.history-selector {
+  border: 1px solid #e1e6ee;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.history-selector > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.history-selection-count {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 400;
+  margin-left: 12px;
+}
+.history-select-tools {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-top: 12px;
+}
+.history-select-tools label {
+  font-size: 11px;
+  color: #64748b;
+}
+.history-presets {
+  display: flex;
+  gap: 4px;
+}
+.history-presets button {
+  font-size: 12px;
+}
+.history-presets [aria-pressed="true"] {
+  border-color: #3169df;
+  color: #3169df;
+  background: #eef4ff;
+}
+.history-mine {
+  font-size: 11px;
+  color: #3169df;
+  padding: 10px 0;
+}
+.history-selection-note,
+.history-semantics,
+.history-schedule {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.history-hotel-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  gap: 4px 12px;
+  max-height: 170px;
+  overflow: auto;
+}
+.history-hotel-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #344359;
+  padding: 6px 0;
+  font-size: 12px;
+}
+.history-hotel-options input {
+  min-width: 0;
+  width: 15px;
+  height: 15px;
+  margin: 3px 0;
+  flex-shrink: 0;
+  accent-color: #3169df;
+}
+.history-hotel-options small {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.history-hotel-options input:disabled + span {
+  opacity: 0.6;
+}
+.history-error {
+  color: #b04444;
+  font-size: 12px;
+}
+.history-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 12px;
+  color: #344359;
+  margin: 20px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.history-latest {
+  color: #64748b;
+  font-size: 11px;
+  margin: 0 0 16px;
+}
+.history-chart-card {
+  padding: 18px 20px 12px;
+  background: #fff;
+  border: 1px solid #e1e6ee;
+  border-radius: 9px;
+}
+.intraday-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 12px;
+}
+.intraday-legend span {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11px;
+  color: #344359;
+}
+.intraday-legend i {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+.intraday-legend small {
+  font-size: 10px;
+  color: #64748b;
+}
+.intraday-plot {
+  position: relative;
+}
+.intraday-scroll {
+  overflow: auto;
+}
+.intraday-chart {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: 330px;
+}
+.intraday-chart text {
+  fill: #718098;
+  font-size: 11px;
+}
+.history-grid {
+  stroke: #edf1f6;
+}
+.history-crosshair {
+  stroke: #9aacc5;
+  stroke-dasharray: 4 4;
+  visibility: hidden;
+}
+.history-column.active .history-crosshair {
+  visibility: visible;
+}
+.history-dot {
+  pointer-events: none;
+}
+.history-dot.active {
+  r: 5px;
+  stroke: #fff;
+  stroke-width: 2;
+}
+.intraday-hit {
+  cursor: crosshair;
+  outline: none;
+}
+.intraday-hit:focus-visible {
+  stroke: #3169df;
+  stroke-width: 1;
+}
+.intraday-empty {
+  position: absolute;
+  top: 35%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: #718098;
+  font-size: 12px;
+  pointer-events: none;
+}
+.intraday-tooltip {
+  position: fixed;
+  z-index: 20;
+  width: min(510px, calc(100vw - 16px));
+  max-height: min(650px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 8px;
+  color: #f5f8ff;
+  background: #23334c;
+  border: 1px solid #354862;
+  box-shadow: 0 6px 18px #1723361a;
+  font-size: 12px;
+}
+.intraday-tooltip > p {
+  font-size: 11px;
+  margin: 6px 0 10px;
+}
+.history-tip-table {
+  overflow-x: auto;
+}
+.history-tip-table table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+}
+.history-tip-table th,
+.history-tip-table td {
+  background: transparent;
+  color: inherit;
+  border-color: #43516a;
+  padding: 6px 4px;
+  text-align: left;
+  font-size: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.history-tip-table th {
+  color: #c0cddd;
+  font-size: 10px;
+}
+.history-tip-table td small {
+  display: block;
+  color: #c0cddd;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.history-tip-table td:not(:first-child) {
+  width: 24%;
+  font-variant-numeric: tabular-nums;
+}
+.history-tip-table .history-baseline td {
+  font-size: 10px;
+  color: #c0cddd;
+  padding-top: 0;
+}
+.history-tip-summary {
+  padding-top: 8px;
+  border-top: 1px solid #43516a;
+}
+.history-schedule summary {
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .history-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .history-filters input,
+  .history-filters select,
+  .history-filters [name="city"],
+  .history-filters [name="keyword"],
+  .history-filters [name="collection_limit"] {
+    width: 100%;
+  }
+  .history-filters button {
+    min-height: 38px;
+  }
+  .history-selector {
+    padding: 12px;
+  }
+  .history-select-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-hotel-search {
+    width: 100%;
+    min-width: 0;
+  }
+  .history-hotel-options {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: 150px;
+  }
+  .history-chart-card {
+    padding: 14px 12px;
+  }
+  .history-chart-card .section-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .intraday-chart {
+    height: 280px;
+  }
+  .market-mode-tabs button {
+    padding: 9px;
+    font-size: 12px;
+  }
+}
+.history-gap-note {
+  color: #8b663a;
+  font-size: 11px;
+  line-height: 1.7;
+}
+@media (max-width: 380px) {
+  .history-filters label:has(input[type="date"]) { grid-column: 1 / -1; }
+}
