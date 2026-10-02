@@ -35,3 +35,28 @@ Gate J沿用现有Plan/Task/Attempt表和schedule_key唯一约束，无Schema迁
 Helper1.2.0的MARKET_LIST领取时Attempt.core_hotels冻结为空数组，既有上传校验拒绝额外详情/房型；LEGACY_MARKET_DETAIL仍冻结原映射。状态、窗口、租约及幂等键不变。平台导航资料存于Helper本机navigation_profiles，不写Hotel Observation或云端数据库。
 
 Helper V1.3无新增D1表、列、迁移或触发器，生产Schema维持0001/0002。device telemetry仅SELECT验证当前设备Task/Attempt归属和真实终态，然后写Analytics Engine，不INSERT高频D1日志。原attempt_events领取/开始/FAST_NAV/ready/锁定/上传/终态记录保留；新增LIST_PROGRESS、DEVICE_ONLINE等遥测不进入该表。既有失败/PARTIAL/Observation不删除或改写。
+
+## 全量复制安全校验
+
+冻结复制时原数据库 ID 68cfcb1e-913a-4013-aa9d-5ae27f2a1150 → 当前 poai-data / 75a2bb2d-ca57-4be9-9eb4-6b389d504c5f。16 表逐行哈希核对通过、外键错误 0。下列数量为切换时同一冻结截面的前后对照，后续正常生产写入会增加总量。原标准酒店表仅改名，4 个永久 ID 与内容不变。
+
+| 当前表 | 复制前 | 复制后 |
+|---|---:|---:|
+| platforms | 1 | 1 |
+| devices | 2 | 2 |
+| plans | 2 | 2 |
+| standard_hotels | 4 | 4 |
+| platform_hotels | 47 | 47 |
+| tasks | 137 | 137 |
+| attempts | 125 | 125 |
+| snapshots | 65 | 65 |
+| hotel_mappings | 4 | 4 |
+| mapping_history | 6 | 6 |
+| attempt_events | 583 | 583 |
+| market_observations | 1615 | 1615 |
+| room_observations | 389 | 389 |
+| market_analyses | 65 | 65 |
+| agent_logs | 9 | 9 |
+| d1_migrations | 3 | 3 |
+
+原 schema dump SHA256：9fe564c444be1c309ae22f17c78999a6bc6267743013cd6b422d0f8d6573b4d5。改名后规范 schema SHA256：2af11ed9ba39d757489e65995319a2dbae9d184e498a7165b290f2889597cdc6；哈希差异来自已验收的命名变更，不表示数据变更。完整副本导出 SHA256：9822b6927f8028a1197517a7002706784dfbb0c7b636a6ace57ac9a9b7a66d71。原数据库仅在新链路、Mac 真实采集与历史子集校验全部通过后删除；私密备份仍保留。
