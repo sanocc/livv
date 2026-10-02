@@ -509,7 +509,7 @@ async function tasks() {
     api("runtime"),
   ]);
   $("#view").innerHTML =
-    `<h2>今日生产运行状态</h2><p class="muted">${runtime.day} · Asia/Shanghai · 当前启用计划的今日窗口任务，含尚未到期任务；独立任务与停用验收计划不计入。${datetime(runtime.at)} 更新，使用页面刷新获取最新状态。</p>${table(["计划任务", "COMPLETED", "PARTIAL", "FAILED", "待执行 / 运行中", "成功率（终态）", "关联Attempt次数"], [`<tr><td>${runtime.total}</td><td>${runtime.statuses.COMPLETED}</td><td>${runtime.statuses.PARTIAL}</td><td>${runtime.statuses.FAILED}</td><td>${runtime.statuses.PENDING} / ${runtime.statuses.RUNNING}</td><td>${runtime.success_rate == null ? "—" : (runtime.success_rate * 100).toFixed(1) + "%"}<small>COMPLETED / ${runtime.terminal}个终态任务；PARTIAL不算成功</small></td><td>${runtime.attempts}</td></tr>`])}<p>最近成功采集：${datetime(runtime.last_success_at)}（当前启用计划，COMPLETED上传时间）</p><h3>当前在线设备（${runtime.online_devices.length}）</h3>${table(
+    `<h2>今日生产运行状态</h2><p class="muted">${runtime.day} · Asia/Shanghai · 当前启用计划的今日窗口任务，含尚未到期任务；独立任务与停用验收计划不计入。${datetime(runtime.at)} 更新，使用页面刷新获取最新状态。</p>${table(["计划任务", "COMPLETED", "PARTIAL", "FAILED", "已取消", "待执行 / 运行中", "成功率（终态）", "关联Attempt次数"], [`<tr><td>${runtime.total}</td><td>${runtime.statuses.COMPLETED}</td><td>${runtime.statuses.PARTIAL}</td><td>${runtime.statuses.FAILED}</td><td>${runtime.statuses.CANCELLED}</td><td>${runtime.statuses.PENDING} / ${runtime.statuses.RUNNING}</td><td>${runtime.success_rate == null ? "—" : (runtime.success_rate * 100).toFixed(1) + "%"}<small>COMPLETED / ${runtime.terminal}个终态任务；PARTIAL不算成功；已取消不纳入成功率</small></td><td>${runtime.attempts}</td></tr>`])}<p>最近成功采集：${datetime(runtime.last_success_at)}（当前启用计划，COMPLETED上传时间）</p><h3>当前在线设备（${runtime.online_devices.length}）</h3>${table(
       ["设备", "状态", "最近心跳", "最近错误"],
       runtime.online_devices.map(
         (d) =>
@@ -528,10 +528,18 @@ async function tasks() {
           `<tr><td>${esc(p.id)}<small>今日及未来${p.horizon}天</small></td><td>${esc(p.city)} / ${esc(p.keyword)}</td><td>${p.scope === "all" ? "全市场" : p.collection_limit + "家"}</td><td><button data-plan="${p.id}" data-enabled="${p.enabled}">${p.enabled ? "停用" : "启用"}</button></td></tr>`,
       ),
     )}<h2>任务记录</h2>${table(
-      ["创建时间", "任务 / 状态", "目标", "阶段结果", "Attempt", "窗口截止"],
+      [
+        "创建时间",
+        "任务 / 状态",
+        "目标",
+        "阶段结果",
+        "Attempt",
+        "窗口截止",
+        "操作",
+      ],
       tasks.map(
         (t) =>
-          `<tr><td>${datetime(t.created_at)}</td><td><button data-task="${t.id}">${t.status}</button><small>${esc(t.id)}</small></td><td>${esc(t.city)} / ${esc(t.keyword)}<small>${t.checkin} · ${t.scope === "all" ? "全市场" : t.collection_limit + "家"}</small></td><td>${esc(t.market_status)} / 详情${t.detail_success ?? 0}/${t.detail_total ?? 0}<small>${esc(t.error_code)}</small></td><td>${t.attempts}/5${t.capacity_warning ? " · 容量不足" : ""}</td><td>${datetime(t.window_end)}</td></tr>`,
+          `<tr><td>${datetime(t.created_at)}</td><td><button data-task="${t.id}">${statusLabel(t.status)}</button><small>${esc(t.id)}</small></td><td>${esc(t.city)} / ${esc(t.keyword)}<small>${t.checkin} · ${t.scope === "all" ? "全市场" : t.collection_limit + "家"}</small></td><td>${esc(t.market_status)} / 详情${t.detail_success ?? 0}/${t.detail_total ?? 0}<small>${esc(t.error_code)}</small></td><td>${t.attempts}/5${t.capacity_warning ? " · 容量不足" : ""}</td><td>${datetime(t.window_end)}</td><td>${["PENDING", "RUNNING"].includes(t.status) ? `<button class="danger" data-cancel-task="${t.id}">取消任务</button>` : "—"}</td></tr>`,
       ),
     )}<div id="task-detail"></div>`;
   $("#task-form [name=checkin]").onchange = (e) => {
@@ -559,6 +567,29 @@ async function tasks() {
           await load();
         })),
   );
+  document.querySelectorAll("[data-cancel-task]").forEach((button) => {
+    button.onclick = () => {
+      if (
+        !confirm(
+          "确认取消这项任务？取消后不再重试，保留已有记录与数据。执行中的设备会在下次心跳检查时停止。",
+        )
+      )
+        return;
+      action(async () => {
+        button.disabled = true;
+        try {
+          await api(
+            "tasks/" + button.dataset.cancelTask + "/cancel",
+            "POST",
+            {},
+          );
+          await load();
+        } finally {
+          button.disabled = false;
+        }
+      });
+    };
+  });
   document.querySelectorAll("[data-task]").forEach(
     (b) =>
       (b.onclick = () =>

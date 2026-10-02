@@ -19,6 +19,7 @@ const EVENTS = new Set([
   "TASK_COMPLETED",
   "TASK_PARTIAL",
   "TASK_FAILED",
+  "TASK_CANCELLED",
   "ATTEMPT_FAILED",
   "API_TIMEOUT",
   "SEARCH_CONTROL_TIMEOUT",
@@ -37,7 +38,7 @@ const dim = (x, max = 80) =>
 const number = (x, max) =>
   typeof x === "number" && Number.isFinite(x) && x >= 0 && x <= max ? x : null;
 const durable = (code) =>
-  /^TASK_(COMPLETED|PARTIAL|FAILED)$/.test(code) ||
+  /^TASK_(COMPLETED|PARTIAL|FAILED|CANCELLED)$/.test(code) ||
   code === "ATTEMPT_FAILED" ||
   Object.hasOwn(errorLabels, code);
 const level = (code) =>
@@ -157,7 +158,7 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
     );
   for (const e of parsed) {
     const attempt = owned.find((a) => a.id === e.attempt_id);
-    if (/^TASK_(COMPLETED|PARTIAL|FAILED)$/.test(e.event_code))
+    if (/^TASK_(COMPLETED|PARTIAL|FAILED|CANCELLED)$/.test(e.event_code))
       requireThat(
         attempt?.task_status === e.event_code.slice(5),
         "TELEMETRY_STATE_MISMATCH",

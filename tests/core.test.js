@@ -18,8 +18,8 @@ const hotel = (id, price = 100, rank = 1, ad = false) => ({
   dynamic: null,
   activity_tags: null,
 });
-function harness() {
-  const DB = database(),
+function harness(through) {
+  const DB = database(through),
     env = { DB, ENVIRONMENT: "local", LOCAL_ADMIN_TOKEN: "test-only" };
   const admin = { Authorization: "Bearer test-only" };
   async function call(path, method = "GET", b, headers = admin) {
@@ -453,7 +453,9 @@ test("partial details save full market; manual mapping and unlink preserve origi
   assert.equal(r.status, 200, JSON.stringify(r));
   assert.equal(r.data.status, "PARTIAL");
   assert.equal(r.data.market_count, 30);
-  await h.call("/v1/admin/standard-hotels/" + poai, "PATCH", { name: "新标准名" });
+  await h.call("/v1/admin/standard-hotels/" + poai, "PATCH", {
+    name: "新标准名",
+  });
   const before = h.DB.raw
     .prepare("SELECT hotel_name FROM market_observations WHERE hotel_id=?")
     .get("1").hotel_name;
@@ -785,6 +787,7 @@ test("runtime counts all production windows, keeps PARTIAL and retry errors, exc
     COMPLETED: 1,
     PARTIAL: 1,
     FAILED: 1,
+    CANCELLED: 0,
   });
   assert.equal(r.total, 209);
   assert.equal(r.terminal, 3);
@@ -920,4 +923,216 @@ test("MARKET_LIST freezes no detail targets, completes a genuine list and reject
     h.DB.raw.prepare("SELECT status FROM tasks WHERE id=?").get(d.t.id).status,
     "COMPLETED",
   );
+});
+
+test("cancel pending task is authenticated, terminal and idempotent, never claimed", async () => {
+  const h = harness(),
+    d = await device(h);
+  await h.call("/v1/admin/devices/" + d.id, "PATCH", { status: "approved" });
+  await h.call("/v1/device/heartbeat", "POST", {}, d.headers);
+  const t = (await h.call("/v1/admin/tasks", "POST", taskInput())).data;
+  const path = `/v1/admin/tasks/${t.id}/cancel`;
+  assert.notEqual((await h.call(path, "POST", {}, {})).status, 200);
+  assert.notEqual((await h.call(path, "POST", {}, d.headers)).status, 200);
+  const cancelled = await h.call(path, "POST", {});
+  assert.equal(cancelled.data.status, "CANCELLED");
+  assert.equal(cancelled.data.error_code, "ADMIN_CANCELLED");
+  assert.deepEqual((await h.call(path, "POST", {})).data, cancelled.data);
+  await reap(h.DB);
+  assert.equal(
+    (await h.call("/v1/device/claim", "POST", {}, d.headers)).data,
+    null,
+  );
+  assert.equal(h.DB.raw.prepare("SELECT count(*) n FROM attempts").get().n, 0);
+});
+
+test("cancel running task preserves failed history, rejects stale writes and reports cancellation to owning Agent", async () => {
+  const h = harness(),
+    d = await ready(h, "MARKET_LIST");
+  await h.call(
+    `/v1/device/attempts/${d.a.id}/fail`,
+    "POST",
+    { error_code: "HELPER_ERROR", error_message: "real prior error" },
+    d.headers,
+  );
+  const failed = h.DB.raw
+    .prepare("SELECT * FROM attempts WHERE id=?")
+    .get(d.a.id);
+  const c = (await h.call("/v1/device/claim", "POST", {}, d.headers)).data;
+  await h.call(
+    `/v1/device/attempts/${c.attempt.id}/start`,
+    "POST",
+    {},
+    d.headers,
+  );
+  const stale = h.DB.raw
+    .prepare("SELECT * FROM attempts WHERE id=?")
+    .get(c.attempt.id);
+  assert.equal(
+    (await h.call(`/v1/admin/tasks/${d.t.id}/cancel`, "POST", {})).data.status,
+    "CANCELLED",
+  );
+  const hb = (
+    await h.call(
+      "/v1/device/heartbeat",
+      "POST",
+      { active_attempt_id: c.attempt.id },
+      d.headers,
+    )
+  ).data;
+  assert.equal(hb.active_attempt, null);
+  assert.equal(hb.last_attempt.status, "CANCELLED");
+  for (const action of ["start", "events", "fail", "result"])
+    assert.equal(
+      (
+        await h.call(
+          `/v1/device/attempts/${c.attempt.id}/${action}`,
+          "POST",
+          payload(d.t),
+          d.headers,
+        )
+      ).data.error.code,
+      "TASK_CANCELLED",
+    );
+  await failAttempt(h.DB, stale, "HELPER_ERROR", "late local failure");
+  await reap(h.DB, Date.now() + 86400000);
+  assert.deepEqual(
+    h.DB.raw.prepare("SELECT * FROM attempts WHERE id=?").get(d.a.id),
+    failed,
+  );
+  assert.equal(
+    h.DB.raw.prepare("SELECT status FROM tasks WHERE id=?").get(d.t.id).status,
+    "CANCELLED",
+  );
+  assert.equal(h.DB.raw.prepare("SELECT count(*) n FROM snapshots").get().n, 0);
+  assert.equal(
+    h.DB.raw
+      .prepare("SELECT count(*) n FROM attempt_events WHERE event='CANCELLED'")
+      .get().n,
+    1,
+  );
+  await h.call(`/v1/admin/tasks/${d.t.id}/cancel`, "POST", {});
+  assert.equal(
+    h.DB.raw
+      .prepare("SELECT count(*) n FROM attempt_events WHERE event='CANCELLED'")
+      .get().n,
+    1,
+  );
+});
+
+test("upload wins cancellation race: completed data and timeline cannot be rewritten", async () => {
+  const h = harness(),
+    d = await ready(h, "MARKET_LIST");
+  assert.equal(
+    (
+      await h.call(
+        `/v1/device/attempts/${d.a.id}/result`,
+        "POST",
+        payload(d.t),
+        d.headers,
+      )
+    ).status,
+    200,
+  );
+  const before = h.DB.raw.prepare("SELECT * FROM snapshots").all();
+  assert.equal(
+    (await h.call(`/v1/admin/tasks/${d.t.id}/cancel`, "POST", {})).status,
+    409,
+  );
+  assert.deepEqual(h.DB.raw.prepare("SELECT * FROM snapshots").all(), before);
+  assert.equal(
+    h.DB.raw.prepare("SELECT status FROM tasks").get().status,
+    "COMPLETED",
+  );
+});
+
+test("cancellation migration retains populated historical tables, foreign keys, indexes and immutable guards", async () => {
+  const { readFileSync } = await import("node:fs");
+  const h = harness("0004_device_environment.sql"),
+    d = await ready(h, "MARKET_LIST");
+  await h.call(
+    `/v1/device/attempts/${d.a.id}/result`,
+    "POST",
+    payload(d.t),
+    d.headers,
+  );
+  const active = await ready(h, "MARKET_LIST");
+  const raw = h.DB.raw;
+  const tables = raw
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    .all();
+  const dump = () =>
+    Object.fromEntries(
+      tables.map(({ name }) => [
+        name,
+        raw.prepare(`SELECT * FROM ${name} ORDER BY rowid`).all(),
+      ]),
+    );
+  const before = dump();
+  const objects = raw
+    .prepare(
+      "SELECT name,sql FROM sqlite_master WHERE type IN ('index','trigger') ORDER BY name",
+    )
+    .all();
+  raw.exec(
+    "BEGIN;" +
+      readFileSync(
+        new URL(
+          "../api/migrations/0005_task_cancellation.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ) +
+      "COMMIT;",
+  );
+  assert.deepEqual(dump(), before);
+  assert.deepEqual(
+    raw
+      .prepare(
+        "SELECT name,sql FROM sqlite_master WHERE type IN ('index','trigger') ORDER BY name",
+      )
+      .all(),
+    objects,
+  );
+  assert.deepEqual(raw.prepare("PRAGMA foreign_key_check").all(), []);
+  assert.throws(
+    () => raw.prepare("UPDATE snapshots SET market_count=0").run(),
+    /IMMUTABLE_SNAPSHOT/,
+  );
+  assert.equal(
+    (await h.call(`/v1/admin/tasks/${active.t.id}/cancel`, "POST", {})).data
+      .status,
+    "CANCELLED",
+  );
+});
+
+test("cancelled Agent telemetry persists genuine terminal evidence without reporting a failure", async () => {
+  const h = harness(),
+    d = await ready(h, "MARKET_LIST");
+  await h.call(`/v1/admin/tasks/${d.t.id}/cancel`, "POST", {});
+  const response = await h.call(
+    "/v1/device/telemetry",
+    "POST",
+    {
+      events: [
+        {
+          event_id: crypto.randomUUID(),
+          event_code: "TASK_CANCELLED",
+          occurred_at: nowIso(),
+          helper_version: "1.3.6",
+          task_id: d.t.id,
+          attempt_id: d.a.id,
+        },
+      ],
+    },
+    d.headers,
+  );
+  assert.equal(response.status, 200);
+  const log = h.DB.raw
+    .prepare("SELECT event,level FROM agent_logs WHERE task_id=?")
+    .get(d.t.id);
+  assert.equal(log.event, "TASK_CANCELLED");
+  assert.equal(log.level, "info");
 });

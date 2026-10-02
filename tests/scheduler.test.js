@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { schedule, generatePlans, hash } from "../api/src/scheduler.js";
 import { CONFIG, nowIso, addDays } from "../api/src/config.js";
-import { claim, reap, failAttempt } from "../api/src/db.js";
+import { claim, reap, failAttempt, cancelTask } from "../api/src/db.js";
 import { database } from "./db-adapter.js";
 const midnight = Date.parse("2026-10-01T00:00:00+08:00");
 const plan = {
@@ -218,4 +218,24 @@ test("new schedule materializes MARKET_LIST while Plan fields and existing legac
   const n = db.raw.prepare("SELECT count(*) n FROM tasks").get().n;
   await generatePlans(db, midnight + 60000);
   assert.equal(db.raw.prepare("SELECT count(*) n FROM tasks").get().n, n);
+});
+
+test("cancelling one scheduled window leaves Plan intact and Cron cannot recreate it", async () => {
+  const db = database();
+  insertPlan(db, { ...plan, horizon: 14 });
+  const original = db.raw.prepare("SELECT * FROM plans").all();
+  await generatePlans(db, midnight);
+  const task = db.raw
+    .prepare("SELECT * FROM tasks ORDER BY due_at LIMIT 1")
+    .get();
+  const count = db.raw.prepare("SELECT count(*) n FROM tasks").get().n;
+  await cancelTask(db, task.id, "local-admin", midnight);
+  await generatePlans(db, midnight + 60000);
+  assert.deepEqual(db.raw.prepare("SELECT * FROM plans").all(), original);
+  assert.equal(db.raw.prepare("SELECT count(*) n FROM tasks").get().n, count);
+  const current = db.raw
+    .prepare("SELECT * FROM tasks WHERE schedule_key=?")
+    .get(task.schedule_key);
+  assert.equal(current.id, task.id);
+  assert.equal(current.status, "CANCELLED");
 });

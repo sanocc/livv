@@ -460,7 +460,7 @@ export function App() {
                 )}
                 {id === "agent" && (
                   <a
-                    href="https://poai.cc/downloads/poai-agent-1.3.5.zip"
+                    href="https://poai.cc/downloads/poai-agent-1.3.6.zip"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="action"

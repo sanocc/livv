@@ -66,3 +66,10 @@ Helper V1.3无新增D1表、列、迁移或触发器，生产Schema维持0001/00
 | d1_migrations | 3 | 3 |
 
 原 schema dump SHA256：9fe564c444be1c309ae22f17c78999a6bc6267743013cd6b422d0f8d6573b4d5。改名后规范 schema SHA256：2af11ed9ba39d757489e65995319a2dbae9d184e498a7165b290f2889597cdc6；哈希差异来自已验收的命名变更，不表示数据变更。完整副本导出 SHA256：9822b6927f8028a1197517a7002706784dfbb0c7b636a6ace57ac9a9b7a66d71。原数据库仅在新链路、Mac 真实采集与历史子集校验全部通过后删除；私密备份仍保留。
+
+
+## 0005_task_cancellation.sql
+
+仅扩展tasks.status与attempts.status CHECK为支持CANCELLED；不新增业务字段或表。D1原子迁移使用defer_foreign_keys临时重建两表，原ID、全部列值、外键引用、唯一索引、快照上传guard完整保留。恢复后以pragma_foreign_key_check计数约束校验，无错误才结束事务。不得分条手动执行迁移。
+
+上线前生产导出备份的本地演练：16表逐表数据摘要完全一致（153 tasks/182 attempts/106 snapshots/2812 market_observations/389 room_observations/988 attempt_events/121 agent_logs）。生产应用21条SQL成功，外键检查0。正式计划整行保持不变。备份和私有摘要仅本机临时保存，不提交设备凭证。

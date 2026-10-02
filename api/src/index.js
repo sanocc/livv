@@ -14,7 +14,16 @@ import {
   deviceStatus,
 } from "./domain.js";
 import { human, deviceAuth, credential, sha256 } from "./auth.js";
-import { stmt, first, rows, event, reap, claim, failAttempt } from "./db.js";
+import {
+  stmt,
+  first,
+  rows,
+  event,
+  reap,
+  claim,
+  failAttempt,
+  cancelTask,
+} from "./db.js";
 import { upload } from "./upload.js";
 import { generatePlans } from "./scheduler.js";
 const json = (data, status = 200) =>
@@ -312,6 +321,14 @@ export async function handle(req, env) {
         name: d.name,
         status: d.status,
         active_attempt: active,
+        last_attempt: b.active_attempt_id
+          ? await first(
+              db,
+              "SELECT id,task_id,status,finished_at,error_code FROM attempts WHERE id=? AND device_id=?",
+              text(b.active_attempt_id, 36),
+              d.id,
+            )
+          : null,
         heartbeat_seconds: CONFIG.heartbeatSeconds,
         server_time: nowIso(),
       });
@@ -328,6 +345,7 @@ export async function handle(req, env) {
     if (match && method === "POST") {
       const a = await activeAttempt(db, d, match[1]),
         action = match[2];
+      requireThat(a.status !== "CANCELLED", "TASK_CANCELLED", 409);
       if (action === "result") return json(await upload(db, d, a, b));
       requireThat(
         a.status === "RUNNING" &&
@@ -425,10 +443,14 @@ export async function handle(req, env) {
         end,
       );
       const statuses = Object.fromEntries(
-        ["PENDING", "RUNNING", "COMPLETED", "PARTIAL", "FAILED"].map((s) => [
-          s,
-          counts.find((x) => x.status === s)?.count ?? 0,
-        ]),
+        [
+          "PENDING",
+          "RUNNING",
+          "COMPLETED",
+          "PARTIAL",
+          "FAILED",
+          "CANCELLED",
+        ].map((s) => [s, counts.find((x) => x.status === s)?.count ?? 0]),
       );
       const terminal = statuses.COMPLETED + statuses.PARTIAL + statuses.FAILED;
       const attempts = await first(
@@ -530,6 +552,9 @@ export async function handle(req, env) {
         ),
       );
     }
+    const cancellation = p.match(/^\/v1\/admin\/tasks\/([^/]+)\/cancel$/);
+    if (cancellation && method === "POST")
+      return json(await cancelTask(db, cancellation[1], actor));
     const tm = p.match(/^\/v1\/admin\/tasks\/([^/]+)$/);
     if (tm && method === "GET") {
       const t = await first(db, "SELECT * FROM tasks WHERE id=?", tm[1]);

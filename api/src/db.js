@@ -1,5 +1,5 @@
 import { CONFIG, nowIso } from "./config.js";
-import { retryOutcome } from "./domain.js";
+import { HttpError, retryOutcome } from "./domain.js";
 export const stmt = (db, sql, ...args) => db.prepare(sql).bind(...args);
 export const rows = async (db, sql, ...args) =>
   (await stmt(db, sql, ...args).all()).results;
@@ -166,4 +166,41 @@ export async function claim(db, device, now = Date.now()) {
     task: await first(db, "SELECT * FROM tasks WHERE id=?", a.task_id),
     core_hotels: JSON.parse(a.core_hotels),
   };
+}
+
+// Cancellation is terminal, never a retryable collection failure. D1 batch is atomic.
+export async function cancelTask(db, id, actor, now = Date.now()) {
+  const at = nowIso(now);
+  const t = await first(db, "SELECT * FROM tasks WHERE id=?", id);
+  if (!t) throw new HttpError(404, "TASK_NOT_FOUND");
+  if (!["PENDING", "RUNNING", "CANCELLED"].includes(t.status))
+    throw new HttpError(409, "TASK_ALREADY_FINISHED");
+  await db.batch([
+    stmt(
+      db,
+      "UPDATE tasks SET status='CANCELLED',finished_at=?,error_code='ADMIN_CANCELLED',error_message=? WHERE id=? AND status IN ('PENDING','RUNNING')",
+      at,
+      `管理员取消：${actor}`,
+      id,
+    ),
+    stmt(
+      db,
+      "INSERT INTO attempt_events(task_id,attempt_id,device_id,at,event,code,message) SELECT a.task_id,a.id,a.device_id,?,'CANCELLED','ADMIN_CANCELLED',? FROM attempts a JOIN tasks t ON t.id=a.task_id WHERE t.id=? AND t.status='CANCELLED' AND a.status='RUNNING'",
+      at,
+      `管理员取消：${actor}`,
+      id,
+    ),
+    stmt(
+      db,
+      "UPDATE attempts SET status='CANCELLED',finished_at=?,error_code='ADMIN_CANCELLED',error_message=? WHERE task_id=? AND status='RUNNING' AND EXISTS(SELECT 1 FROM tasks WHERE id=? AND status='CANCELLED')",
+      at,
+      `管理员取消：${actor}`,
+      id,
+      id,
+    ),
+  ]);
+  const result = await first(db, "SELECT * FROM tasks WHERE id=?", id);
+  if (result.status !== "CANCELLED")
+    throw new HttpError(409, "TASK_ALREADY_FINISHED");
+  return result;
 }

@@ -16,6 +16,11 @@ export async function upload(db, device, a, input, now = Date.now()) {
   const t = await first(db, "SELECT * FROM tasks WHERE id=?", a.task_id),
     at = nowIso(now);
   requireThat(
+    t.status !== "CANCELLED" && a.status !== "CANCELLED",
+    "TASK_CANCELLED",
+    409,
+  );
+  requireThat(
     a.status === "RUNNING" &&
       a.started_at &&
       a.timeout_at > at &&

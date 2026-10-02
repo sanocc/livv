@@ -9,7 +9,7 @@ POAI 酒店数据平台。现有采集、任务、映射与历史观察继续保
 | OPS | https://ops.poai.cc | 浏览器本地 CSV / XLSX 经营分析 |
 | AI | https://ai.poai.cc | 产品入口；模型与授权动作尚未开放 |
 | API | https://api.poai.cc/health | 统一 API、D1、计划与设备日志 |
-| Agent | 主站下载 | POAI 酒店助手 1.3.5，Chrome MV3 / Side Panel |
+| Agent | 主站下载 | POAI 酒店助手 1.3.6，Chrome MV3 / Side Panel |
 
 目录：site/、ota/、ops/、ai/、api/、agent/、docs/、tests/、scripts/。
 Node >=24；npm ci；npm test；npm run check。

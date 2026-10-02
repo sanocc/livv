@@ -173,3 +173,103 @@ test("MV3 registration failure survives worker wakes without API hammering and r
     Date.now = oldNow;
   }
 });
+
+test("MV3 reopening after cloud cancellation stops without DOM execution, upload or retry", async () => {
+  const { readFileSync } = await import("node:fs");
+  const identity = {
+    device_id: crypto.randomUUID(),
+    credential: "a".repeat(64),
+    registered: true,
+  };
+  const active = {
+    task: { id: crypto.randomUUID(), task_type: "MARKET_LIST" },
+    attempt: { id: crypto.randomUUID(), attempt_number: 1 },
+    phase: "LIST",
+    tab_id: 123,
+  };
+  const data = { identity, active, logs: [], auto: true },
+    requests = [];
+  const previousChrome = globalThis.chrome,
+    previousFetch = globalThis.fetch;
+  globalThis.chrome = {
+    storage: {
+      local: {
+        async get(keys) {
+          return typeof keys === "string"
+            ? { [keys]: data[keys] }
+            : Object.fromEntries(keys.map((k) => [k, data[k]]));
+        },
+        async set(values) {
+          Object.assign(data, values);
+        },
+        async setAccessLevel() {},
+      },
+    },
+    runtime: {
+      getManifest: () => ({ version: "1.3.6" }),
+      onInstalled: { addListener() {} },
+      onStartup: { addListener() {} },
+      onMessage: { addListener() {} },
+    },
+    alarms: {
+      async clearAll() {},
+      async create() {},
+      onAlarm: { addListener() {} },
+    },
+    tabs: {
+      onUpdated: { addListener() {} },
+      async get() {
+        throw Error("must not read a cancelled task page");
+      },
+    },
+    sidePanel: { async setPanelBehavior() {} },
+  };
+  globalThis.fetch = async (url, options) => {
+    requests.push(url);
+    assert.ok(url.endsWith("/v1/device/heartbeat"));
+    assert.equal(JSON.parse(options.body).active_attempt_id, active.attempt.id);
+    return Response.json({
+      status: "approved",
+      active_attempt: null,
+      last_attempt: {
+        id: active.attempt.id,
+        status: "CANCELLED",
+        finished_at: "2026-10-02T12:00:00.000Z",
+      },
+    });
+  };
+  try {
+    let source = readFileSync(
+      new URL("../agent/background.js", import.meta.url),
+      "utf8",
+    );
+    source = source.replace(
+      /import \{ telemetryEvent, telemetryQueue \} from "\.\/telemetry.js";/,
+      "const telemetryEvent = () => null; const telemetryQueue = () => ({ enqueue: async () => {}, flush: async () => {} });",
+    );
+    source = source.replace(
+      /const environment = environmentReporter\(\{[\s\S]*?\n\}\);/,
+      "const environment = { snapshot: () => ({}), refresh: async () => {} };",
+    );
+    source = source.replace(
+      /from "\.\/([^"\n]+)"/g,
+      (_, file) =>
+        'from "' + new URL("../agent/" + file, import.meta.url).href + '"',
+    );
+    await import(
+      "data:text/javascript;base64," + Buffer.from(source).toString("base64")
+    );
+    for (let i = 0; i < 20; i++) await new Promise(setImmediate);
+    assert.equal(data.active, null);
+    assert.equal(data.error, null);
+    assert.equal(data.ui_history[0].status, "CANCELLED");
+    assert.equal(data.ui_history[0].attempt_status, "CANCELLED");
+    assert.equal(data.ui_history[0].finished_at, "2026-10-02T12:00:00.000Z");
+    assert.equal(data.logs.at(-1).event, "TASK_CANCELLED");
+    assert.equal(requests.length, 1);
+    assert.deepEqual(data.identity, identity);
+  } finally {
+    globalThis.chrome = previousChrome;
+    globalThis.fetch = previousFetch;
+  }
+});

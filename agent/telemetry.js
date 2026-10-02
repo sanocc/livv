@@ -21,6 +21,7 @@ const events = new Set([
   "TASK_COMPLETED",
   "TASK_PARTIAL",
   "TASK_FAILED",
+  "TASK_CANCELLED",
   "ATTEMPT_FAILED",
   "API_TIMEOUT",
   "SEARCH_CONTROL_TIMEOUT",
@@ -124,6 +125,7 @@ export function telemetryQueue({
         "INPUT_TARGET_CHANGED",
         "PAGE_CONTEXT_MISMATCH",
         "TASK_FAILED",
+        "TASK_CANCELLED",
       ].includes(event.event_code)
     )
       arm(0);

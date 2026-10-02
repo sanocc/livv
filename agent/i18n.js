@@ -26,6 +26,9 @@ export function statusLabel(value) {
   return statusLabels[String(value).toUpperCase()] ?? "状态待确认";
 }
 export const errorLabels = {
+  TASK_CANCELLED: "任务已由管理员取消",
+  ADMIN_CANCELLED: "管理员已取消任务",
+  TASK_ALREADY_FINISHED: "任务已结束，不能取消",
   TELEMETRY_STATE_MISMATCH: "运行事件与真实执行状态不一致",
   INVALID_DEVICE: "采集设备标识无效",
   INVALID_TELEMETRY: "运行事件格式无效",
@@ -142,6 +145,7 @@ export function technicalError(value) {
   return value ? `${errorLabel(value)}\n${value}` : "无错误";
 }
 export const eventLabels = {
+  TASK_CANCELLED: "任务已取消",
   DEVICE_ONLINE: "采集设备在线",
   FAST_NAV_SUCCESS: "已进入目标酒店列表，搜索条件验证通过",
   UPLOAD_SUCCESS: "数据上传成功",

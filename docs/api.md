@@ -73,3 +73,12 @@ Plan.horizon=14/30含今日D0和D+1～14/30；market.horizon默认从今日起14
 GET /v1/admin/runtime（OTA代理/api/v1/admin/runtime），沿用现有人类管理员鉴权。返回at、day、timezone、statuses（PENDING/RUNNING/COMPLETED/PARTIAL/FAILED）、total、terminal、success_rate、attempts、errors（source/code/count）、online_devices（id/name/status/last_seen_at/last_error/running）、last_success_at。
 
 统计当前enabled=1 Plan的Task.window_start落于Asia/Shanghai今日[00:00,次日00:00)的已生成Task（含未到期），排除无Plan任务和停用验收计划。success_rate=COMPLETED/terminal，PARTIAL算终态不算成功，无终态null；attempts累计上述Task全部Attempt；errors按Task/Attempt来源分别聚合不合并。在线仅approved且心跳不足120秒，不返回credential_hash。last_success_at取当前启用计划全部COMPLETED快照的最新received_at，无数据null。接口不回收任务、不改变Plan/Task/Attempt或历史，任务页刷新获取最新值。
+
+
+## 管理员取消任务（Agent 1.3.6）
+
+POST /v1/admin/tasks/:id/cancel，OTA代理为/api/v1/admin/tasks/:id/cancel，沿用现有管理员鉴权。仅PENDING/RUNNING可取消；重复取消幂等，已COMPLETED/PARTIAL/FAILED返回409 TASK_ALREADY_FINISHED，未知任务404。原子写入Task及当前RUNNING Attempt的CANCELLED/ADMIN_CANCELLED/finished_at；执行时间线保存取消操作者。先前失败执行、已保存快照与Observation均不修改，不调用失败重试逻辑。
+
+心跳可附带active_attempt_id，响应新增last_attempt（仅限当前认证设备的id/task_id/status/finished_at/error_code）。Agent在下一次成功心跳检查到CANCELLED后停止后续步骤、清除本地active并如实显示已取消；当前进行中的浏览器操作或网络请求不会被强制中断。取消后所有attempt start/events/fail/result返回409 TASK_CANCELLED，上传事务仍有快照guard防竞争。旧Agent兼容原active_attempt=null处理；升级1.3.6可显示准确取消状态。设备身份与批准状态不变。
+
+TASK_CANCELLED运行事件必须对应真实已取消Task，保存在既有agent_logs与Analytics，不增加日志Schema。runtime.statuses新增CANCELLED，total包含取消数量；成功率仍为COMPLETED/(COMPLETED+PARTIAL+FAILED)，主动取消单列且不纳入分母。

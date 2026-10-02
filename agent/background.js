@@ -254,6 +254,17 @@ async function save(a) {
   await chrome.storage.local.set({ active: a });
   await recordView(taskView(a));
 }
+async function cancelled(a, finishedAt) {
+  await recordView({
+    ...taskView(a),
+    status: "CANCELLED",
+    attempt_status: "CANCELLED",
+    error_code: "ADMIN_CANCELLED",
+    finished_at: finishedAt ?? new Date().toISOString(),
+  });
+  await log("TASK_CANCELLED", "管理员已取消任务", a);
+  await chrome.storage.local.set({ active: null, error: null });
+}
 async function fail(a, code, message) {
   await log(code, message);
   let acknowledged = false;
@@ -264,7 +275,13 @@ async function fail(a, code, message) {
     .then(() => {
       acknowledged = true;
     })
-    .catch(() => {});
+    .catch(async (e) => {
+      if (e.code === "TASK_CANCELLED") {
+        await cancelled(a);
+        acknowledged = "cancelled";
+      }
+    });
+  if (acknowledged === "cancelled") return;
   if (acknowledged) observe("ATTEMPT_FAILED", a);
   await recordView({
     ...taskView(a),
@@ -350,6 +367,10 @@ async function run(a) {
         last_result: result,
       });
     } catch (e) {
+      if (e.code === "TASK_CANCELLED") {
+        await cancelled(a);
+        return;
+      }
       if (
         [
           "ATTEMPT_EXPIRED",
@@ -691,6 +712,7 @@ async function tick(heartbeat = false) {
         version: VERSION,
         error_code: state.error ?? null,
         runtime: environment.snapshot(state),
+        active_attempt_id: state.active?.attempt.id,
       });
       await chrome.storage.local.set({ cloud, cloud_at: Date.now() });
       if (Date.now() - onlineObservedAt > 300000) {
@@ -707,6 +729,14 @@ async function tick(heartbeat = false) {
       return;
     }
     if (state.active) {
+      if (
+        heartbeatFetched &&
+        state.cloud.last_attempt?.id === state.active.attempt.id &&
+        state.cloud.last_attempt.status === "CANCELLED"
+      ) {
+        await cancelled(state.active, state.cloud.last_attempt.finished_at);
+        return;
+      }
       if (heartbeatFetched && !state.cloud.active_attempt) {
         await recordView({
           ...taskView(state.active),
@@ -808,6 +838,10 @@ async function tick(heartbeat = false) {
           ? "API_TIMEOUT"
           : "HELPER_ERROR";
     const state = await read();
+    if (e.code === "TASK_CANCELLED" && state.active) {
+      await cancelled(state.active);
+      return;
+    }
     // Diagnosis is best effort and must not alter task outcome or prevent retries.
     try {
       let tab;
