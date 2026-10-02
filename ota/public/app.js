@@ -37,6 +37,8 @@ let page = "market",
     horizon: 30,
     inclusive: 1,
   },
+  marketMode = "future",
+  historyModule = null,
   marketData = null,
   marketCategory = "",
   marketHotelQuery = "",
@@ -406,6 +408,33 @@ function bindTips(root) {
     };
   });
 }
+function marketModeTabs() {
+  return `<div class="market-mode-tabs" role="group" aria-label="市场视图"><button data-market-mode="future" aria-pressed="${marketMode === "future"}">未来市场</button><button data-market-mode="history" aria-pressed="${marketMode === "history"}">日内价格轨迹</button></div>`;
+}
+function bindMarketModes() {
+  document.querySelectorAll("[data-market-mode]").forEach(
+    (button) =>
+      (button.onclick = () => {
+        marketMode = button.dataset.marketMode;
+        ++marketRequest;
+        ++chartRequest;
+        historyModule?.dispose();
+        load();
+      }),
+  );
+}
+async function marketPage() {
+  if (marketMode === "future") {
+    historyModule?.dispose();
+    await market();
+    return;
+  }
+  historyModule = await import("./price-history.js");
+  if (page !== "market" || marketMode !== "history") return;
+  $("#view").innerHTML = marketModeTabs() + '<div id="history-view"></div>';
+  bindMarketModes();
+  await historyModule.mount($("#history-view"), { api, context: filter });
+}
 async function market() {
   const request = ++marketRequest;
   ++chartRequest;
@@ -434,7 +463,9 @@ async function market() {
       ? "列表采集成功"
       : "列表部分采集"
     : "该日期暂无快照";
-  $("#view").innerHTML = `
+  $("#view").innerHTML =
+    marketModeTabs() +
+    `
     <div class="market-toolbar">
       <div class="market-identity"><span class="eyebrow">当前市场</span><h2>${esc(m.city)} <span>·</span> ${esc(m.keyword || "全城")}</h2><details class="market-edit"><summary>切换市场</summary><div><label>城市<input id="city" value="${esc(filter.city)}"></label><label>关键词<input id="keyword" value="${esc(filter.keyword)}"></label><button id="query" class="primary">查询市场</button></div></details></div>
       <div class="filters"><label>入住日期<select id="checkin">${m.curve.map((v) => `<option value="${v.checkin}">${v.checkin}${v.snapshot_id ? " · 有数据" : ""}</option>`).join("")}</select></label><label>市场范围<select id="scope"><option value="top30">30家市场</option><option value="all">全市场</option></select></label></div>
@@ -515,6 +546,7 @@ async function market() {
     if (event.key === "Escape") clearSearch();
   };
   bindTips($("#view"));
+  bindMarketModes();
 }
 function renderMarketHotels(category = marketCategory) {
   marketCategory = category;
@@ -830,13 +862,16 @@ async function load() {
     document
       .querySelectorAll("[data-page]")
       .forEach((b) => b.classList.toggle("active", b.dataset.page === page));
-    await { market, tasks, hotels, devices }[page]();
+    await { market: marketPage, tasks, hotels, devices }[page]();
   });
 }
 document.querySelectorAll("[data-page]").forEach(
   (b) =>
     (b.onclick = () => {
       page = b.dataset.page;
+      ++marketRequest;
+      ++chartRequest;
+      historyModule?.dispose();
       load();
     }),
 );

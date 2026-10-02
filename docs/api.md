@@ -82,3 +82,8 @@ POST /v1/admin/tasks/:id/cancel，OTA代理为/api/v1/admin/tasks/:id/cancel，�
 心跳可附带active_attempt_id，响应新增last_attempt（仅限当前认证设备的id/task_id/status/finished_at/error_code）。Agent在下一次成功心跳检查到CANCELLED后停止后续步骤、清除本地active并如实显示已取消；当前进行中的浏览器操作或网络请求不会被强制中断。取消后所有attempt start/events/fail/result返回409 TASK_CANCELLED，上传事务仍有快照guard防竞争。旧Agent兼容原active_attempt=null处理；升级1.3.6可显示准确取消状态。设备身份与批准状态不变。
 
 TASK_CANCELLED运行事件必须对应真实已取消Task，保存在既有agent_logs与Analytics，不增加日志Schema。runtime.statuses新增CANCELLED，total包含取消数量；成功率仍为COMPLETED/(COMPLETED+PARTIAL+FAILED)，主动取消单列且不纳入分母。
+
+
+## OTA 日内价格轨迹
+
+新增管理员只读 `GET /v1/admin/market/price-history`，按上海观察日期、入住/退房日期、平台/城市/关键词/范围和原始酒店集合读取全部快照历史。返回真实价格、缺失原因、前一个有效观察和涨跌；基准可跨观察日。计划未形成快照的任务单独返回，不虚构观察时间。原 `/market` 契约不变，无 Schema 或 Agent 修改。参数、响应与验证见 [日内价格轨迹](intraday-price-history.md)。
