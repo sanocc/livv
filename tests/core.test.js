@@ -126,6 +126,125 @@ test("anonymous API denied and local bypass impossible in production", async () 
   h.env.ENVIRONMENT = "production";
   assert.equal((await h.call("/v1/admin/tasks")).status, 501);
 });
+for (const prefix of ["", "poai_"]) {
+  test(`registration accepts ${prefix || "bare "}UUID and preserves approval lifecycle`, async () => {
+    const h = harness(),
+      id = prefix + crypto.randomUUID(),
+      secret = "a".repeat(64),
+      registration = { device_id: id, credential: secret, version: "1.3.2" },
+      headers = { "X-Device-ID": id, Authorization: `Bearer ${secret}` };
+    const registered = await h.call(
+      "/v1/devices/register",
+      "POST",
+      registration,
+      {},
+    );
+    assert.equal(registered.status, 201);
+    assert.deepEqual(registered.data, {
+      device_id: id,
+      status: "pending",
+      name: null,
+    });
+    assert.equal(
+      (await h.call("/v1/devices/register", "POST", registration, {})).status,
+      200,
+    );
+    assert.equal(h.DB.raw.prepare("SELECT count(*) n FROM devices").get().n, 1);
+    assert.equal(
+      (
+        await h.call(
+          "/v1/device/heartbeat",
+          "POST",
+          { version: "1.3.2" },
+          headers,
+        )
+      ).data.status,
+      "pending",
+    );
+    assert.equal(
+      (await h.call("/v1/device/claim", "POST", {}, headers)).status,
+      403,
+    );
+    const list = (await h.call("/v1/admin/devices")).data;
+    assert.equal(list[0].id, id);
+    assert.equal(list[0].display_status, "待批准");
+    assert.equal(
+      (await h.call("/v1/admin/devices/" + id, "PATCH", { status: "approved" }))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await h.call(
+          "/v1/device/heartbeat",
+          "POST",
+          { version: "1.3.2" },
+          headers,
+        )
+      ).data.status,
+      "approved",
+    );
+    const created = await h.call(
+      "/v1/device/tasks",
+      "POST",
+      taskInput(),
+      headers,
+    );
+    assert.equal(created.status, 201);
+    const claimed = await h.call("/v1/device/claim", "POST", {}, headers);
+    assert.equal(claimed.status, 200);
+    assert.equal(claimed.data.task.id, created.data.id);
+    assert.equal(claimed.data.attempt.device_id, id);
+    assert.equal(
+      (await h.call("/v1/admin/devices/" + id, "PATCH", { status: "disabled" }))
+        .status,
+      200,
+    );
+    assert.equal(
+      (await h.call("/v1/device/heartbeat", "POST", {}, headers)).data.status,
+      "disabled",
+    );
+    assert.equal(
+      (await h.call("/v1/device/claim", "POST", {}, headers)).status,
+      403,
+    );
+    assert.equal(
+      (await h.call("/v1/device/tasks", "POST", taskInput(), headers)).status,
+      403,
+    );
+    assert.equal(h.DB.raw.prepare("SELECT id FROM devices").get().id, id);
+  });
+}
+test("registration rejects invalid prefixed UUIDs, excessive length and empty values", async () => {
+  const h = harness(),
+    uuid = crypto.randomUUID();
+  const invalid = [
+    "poai_not-a-uuid",
+    "poai_" + uuid.slice(0, -1) + "g",
+    "poai_" + uuid.replace(/-4/, "-5"),
+    "poai_poai_" + uuid,
+    "other_" + uuid,
+    "x".repeat(100),
+    "",
+    null,
+    undefined,
+    " " + uuid,
+    uuid + " ",
+  ];
+  for (const id of invalid) {
+    const r = await h.call(
+      "/v1/devices/register",
+      "POST",
+      { device_id: id, credential: "a".repeat(64) },
+      {},
+    );
+    assert.equal(r.status, 400, String(id));
+    assert.ok(
+      ["INVALID_TEXT", "INVALID_DEVICE_ID"].includes(r.data.error.code),
+    );
+  }
+  assert.equal(h.DB.raw.prepare("SELECT count(*) n FROM devices").get().n, 0);
+});
 test("registration retry preserves credential, pending cannot work, disable fences work", async () => {
   const h = harness(),
     d = await device(h);

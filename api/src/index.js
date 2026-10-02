@@ -229,11 +229,13 @@ export async function handle(req, env) {
       requireThat(success, "REGISTRATION_RATE_LIMITED", 429);
     }
     const b = await body(req),
-      id = text(b.device_id, 36);
+      id = text(b.device_id, 41),
+      uuid = id.startsWith("poai_") ? id.slice(5) : id;
     requireThat(
-      /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
-        id,
-      ),
+      id === b.device_id &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(
+          uuid,
+        ),
       "INVALID_DEVICE_ID",
     );
     const secret = text(b.credential, 64);
