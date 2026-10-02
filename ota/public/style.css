@@ -647,6 +647,33 @@ label select {
 .market-table {
   margin-top: 12px;
 }
+.hotel-list-tools {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+}
+.hotel-search {
+  width: min(320px, 100%);
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+.hotel-search input {
+  width: 100%;
+  margin-top: 6px;
+}
+#hotel-result-count {
+  margin-left: auto;
+  padding-bottom: 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+#hotel-search-clear[hidden] {
+  display: none;
+}
 .market-table th {
   text-align: center;
   font-size: 11px;
@@ -841,6 +868,14 @@ label select {
   }
   .market-identity h2 {
     font-size: 18px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .market-identity {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .market-edit summary {
+    white-space: nowrap;
   }
   .filters {
     flex-wrap: wrap;

@@ -38,6 +38,8 @@ let page = "market",
     inclusive: 1,
   },
   marketData = null,
+  marketCategory = "",
+  marketHotelQuery = "",
   marketRequest = 0,
   chartHorizon = 14,
   chartRequest = 0;
@@ -371,6 +373,8 @@ async function market() {
   ]);
   if (request !== marketRequest || page !== "market") return;
   marketData = m;
+  marketCategory = "";
+  marketHotelQuery = "";
   const s = m.snapshot,
     f = s?.facts ?? {},
     mine = m.hotels.find((h) => h.category === "mine");
@@ -407,7 +411,9 @@ async function market() {
         ([k, n]) =>
           `<button data-category="${k}" aria-pressed="false">${n} <span>${m.hotels.filter((h) => h.category === k).length}</span></button>`,
       )
-      .join("")}</div><div id="hotel-table"></div></section>
+      .join(
+        "",
+      )}</div><div class="hotel-list-tools"><label class="hotel-search">搜索当前列表<input id="hotel-search" type="search" placeholder="酒店名称或 Hotel ID" autocomplete="off" aria-controls="hotel-table"></label><button id="hotel-search-clear" type="button" hidden>清除搜索</button><span id="hotel-result-count" role="status" aria-live="polite"></span></div><div id="hotel-table"></div></section>
     <details class="strategy-history"><summary>策略历史 <span>${m.strategy_history.length}条真实记录</span></summary>${table(
       ["产生时间", "建议", "依据", "当时我的酒店价格"],
       m.strategy_history.map(
@@ -448,9 +454,26 @@ async function market() {
       }),
   );
   renderMarketHotels();
+  const searchHotels = () => {
+    marketHotelQuery = $("#hotel-search").value;
+    renderMarketHotels();
+  };
+  $("#hotel-search").oninput = searchHotels;
+  const clearSearch = () => {
+    $("#hotel-search").value = "";
+    searchHotels();
+    $("#hotel-search").focus();
+  };
+  $("#hotel-search-clear").onclick = clearSearch;
+  $("#hotel-search").onkeydown = (event) => {
+    if (event.key === "Escape") clearSearch();
+  };
   bindTips($("#view"));
 }
-function renderMarketHotels(category = "") {
+function renderMarketHotels(category = marketCategory) {
+  marketCategory = category;
+  const tooltip = $("#market-tooltip");
+  if (tooltip) tooltip.hidden = true;
   const list = marketData.hotels.filter(
     (h) => !category || h.category === category,
   );
@@ -471,13 +494,30 @@ function renderMarketHotels(category = "") {
       });
     groups.get(key).cells.set(h.platform, h);
   });
+  const query = marketHotelQuery.trim().toLocaleLowerCase("zh-CN");
+  // Filter whole mapped rows so matching one platform retains all its cells.
+  const rows = [...groups.values()].filter(
+    (row) =>
+      !query ||
+      [
+        row.name,
+        ...[...row.cells.values()].flatMap((h) => [h.hotel_name, h.hotel_id]),
+      ].some((value) =>
+        String(value ?? "")
+          .toLocaleLowerCase("zh-CN")
+          .includes(query),
+      ),
+  );
+  $("#hotel-result-count").textContent =
+    `显示 ${rows.length} / ${groups.size} 家酒店`;
+  $("#hotel-search-clear").hidden = !marketHotelQuery;
   const tip = (h) =>
     esc(
       `${platformName(h.platform)}\n${h.hotel_name}\nHotel ID: ${h.hotel_id}\n划线价: ${money(h.original_price)}\n活动: ${(h.activity_tags ?? []).join(" / ") || "—"}\n起售价: ${money(h.display_price)}`,
     );
   $("#hotel-table").innerHTML =
     `<div class="table market-table"><table><thead><tr><th rowspan="2" scope="col" class="hotel-name-head">酒店名称</th>${platforms.map((p) => `<th colspan="2" scope="colgroup">${esc(platformName(p))}</th>`).join("")}</tr><tr>${platforms.map((p) => `<th scope="col">${esc(platformName(p))}排名</th><th scope="col">${esc(platformName(p))}起售价</th>`).join("")}</tr></thead><tbody>${
-      [...groups.values()]
+      rows
         .map(
           (row) =>
             `<tr class="${row.category === "mine" ? "mine-row" : ""}"><td><div class="hotel-name">${esc(row.name)}</div><span class="category-label ${esc(row.category)}">${categories[row.category] ?? categories.other}</span></td>${platforms
@@ -490,7 +530,7 @@ function renderMarketHotels(category = "") {
               .join("")}</tr>`,
         )
         .join("") ||
-      `<tr><td colspan="${1 + platforms.length * 2}" class="empty">暂无真实数据</td></tr>`
+      `<tr><td colspan="${1 + platforms.length * 2}" class="empty">${marketData.hotels.length ? "没有匹配的酒店，请调整搜索或分类" : "暂无真实数据"}</td></tr>`
     }</tbody></table></div>`;
   bindTips($("#hotel-table"));
 }
