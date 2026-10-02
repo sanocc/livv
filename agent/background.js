@@ -1,3 +1,4 @@
+import { errorSummary, registrationRetry } from "./diagnostics.js";
 import { telemetryEvent, telemetryQueue } from "./telemetry.js";
 import {
   pageStep,
@@ -36,7 +37,7 @@ const telemetry = telemetryQueue({
       throw Error("Telemetry unavailable");
   },
 });
-function observe(event, active, diagnostic = "", message = "") {
+function observe(event, active, diagnostic = "", message = "", summary = null) {
   try {
     const point = telemetryEvent(
       event,
@@ -46,6 +47,7 @@ function observe(event, active, diagnostic = "", message = "") {
       diagnostic,
     );
     if (!point) return;
+    if (summary) point.error_summary = summary;
     point.diagnostic = /not valid JSON|Unexpected token/.test(message)
       ? "API_RESPONSE_NOT_JSON"
       : /Failed to fetch|fetch failed/.test(message)
@@ -58,6 +60,8 @@ let progressKey = "",
   onlineObservedAt = 0;
 let busy = false,
   timer;
+let operationPhase = "INITIALIZE",
+  requestPath = "";
 const read = async () =>
   chrome.storage.local.get([
     "identity",
@@ -71,7 +75,7 @@ const read = async () =>
     "ui_history",
     "navigation_profiles",
   ]);
-async function log(event, message = "", context = null) {
+async function log(event, message = "", context = null, summary = null) {
   const { logs = [], active } = await read();
   // Only the leading error-code token is eligible for remote telemetry; never upload free text.
   observe(
@@ -79,6 +83,7 @@ async function log(event, message = "", context = null) {
     context ?? active,
     String(message).split(/[:\s]/)[0],
     String(message),
+    summary,
   );
   await chrome.storage.local.set({
     logs: [
@@ -87,6 +92,7 @@ async function log(event, message = "", context = null) {
         at: new Date().toISOString(),
         event,
         message,
+        ...(summary ? { error_summary: summary } : {}),
         task_id: active?.task.id ?? null,
         attempt_id: active?.attempt.id ?? null,
       },
@@ -107,6 +113,7 @@ async function identity() {
   return identity;
 }
 async function request(path, body = {}, method = "POST", authenticated = true) {
+  requestPath = path;
   const id = await identity();
   const r = await fetch(API + path, {
     method,
@@ -134,25 +141,51 @@ async function request(path, body = {}, method = "POST", authenticated = true) {
 }
 let initialized = false;
 async function initialize() {
-  if (initialized) return;
+  if (initialized) return true;
+  operationPhase = "INITIALIZE";
+  requestPath = "";
   await chrome.storage.local.setAccessLevel({
     accessLevel: "TRUSTED_CONTEXTS",
   });
   const i = await identity();
   if (!i.registered) {
-    await request(
-      "/v1/devices/register",
-      { ...i, version: VERSION },
-      "POST",
-      false,
-    );
-    await chrome.storage.local.set({ identity: { ...i, registered: true } });
+    const { registration_retry = {} } =
+      await chrome.storage.local.get("registration_retry");
+    if (Date.now() < (registration_retry.next_at ?? 0)) {
+      await chrome.alarms.create("agent-register-retry", {
+        when: registration_retry.next_at,
+      });
+      return false;
+    }
+    operationPhase = "REGISTER";
+    try {
+      await request(
+        "/v1/devices/register",
+        { ...i, version: VERSION },
+        "POST",
+        false,
+      );
+      await chrome.storage.local.set({
+        identity: { ...i, registered: true },
+        error: null,
+      });
+      await chrome.storage.local.remove("registration_retry");
+      await chrome.alarms.clear("agent-register-retry");
+    } catch (error) {
+      const retry = registrationRetry(registration_retry);
+      await chrome.storage.local.set({ registration_retry: retry });
+      await chrome.alarms.create("agent-register-retry", {
+        when: retry.next_at,
+      });
+      throw error;
+    }
   }
   await chrome.alarms.clearAll();
   await chrome.alarms.create("agent-heartbeat", { periodInMinutes: 0.5 });
   const state = await read();
   if (state.auto === undefined) await chrome.storage.local.set({ auto: true });
   initialized = true;
+  return true;
 }
 async function execute(a, func, args = []) {
   const tab = await chrome.tabs.get(a.tab_id);
@@ -624,7 +657,9 @@ async function tick(heartbeat = false) {
   if (busy) return;
   busy = true;
   try {
-    await initialize();
+    if (!(await initialize())) return;
+    operationPhase = "IDLE";
+    requestPath = "";
     let state = await read(),
       heartbeatFetched = false;
     if (
@@ -632,6 +667,7 @@ async function tick(heartbeat = false) {
       !state.cloud ||
       Date.now() - (state.cloud_at ?? 0) > 20000
     ) {
+      operationPhase = "HEARTBEAT";
       const cloud = await request("/v1/device/heartbeat", {
         version: VERSION,
         error_code: state.error ?? null,
@@ -672,6 +708,8 @@ async function tick(heartbeat = false) {
         });
         return;
       }
+      operationPhase = state.active.upload ? "UPLOAD" : state.active.phase;
+      requestPath = "";
       await run(state.active);
     } else if (state.auto) {
       if (!(await chrome.permissions.contains({ permissions: ["debugger"] }))) {
@@ -681,8 +719,11 @@ async function tick(heartbeat = false) {
         });
         return;
       }
+      operationPhase = "CLAIM";
       const c = await request("/v1/device/claim");
       if (c) {
+        operationPhase = "MANAGED_TAB";
+        requestPath = "";
         let navigationUrl = null;
         if (c.task.task_type === "MARKET_LIST") {
           try {
@@ -746,6 +787,23 @@ async function tick(heartbeat = false) {
           ? "API_TIMEOUT"
           : "HELPER_ERROR";
     const state = await read();
+    // Diagnosis is best effort and must not alter task outcome or prevent retries.
+    try {
+      let tab;
+      try {
+        if (state.active?.tab_id ?? state.managed_tab)
+          tab = await chrome.tabs.get(
+            state.active?.tab_id ?? state.managed_tab,
+          );
+      } catch {}
+      const summary = errorSummary(e, {
+        phase: operationPhase,
+        url: tab?.url,
+        request_path: requestPath,
+        browser: navigator.userAgent,
+      });
+      await log(code, summary.error_message, state.active, summary);
+    } catch {}
     if (
       state.active &&
       [
@@ -770,7 +828,6 @@ async function tick(heartbeat = false) {
       return;
     }
     await chrome.storage.local.set({ error: code });
-    await log(code, e.message);
   } finally {
     busy = false;
     clearTimeout(timer);
@@ -781,7 +838,7 @@ async function tick(heartbeat = false) {
 chrome.runtime.onInstalled.addListener(() => tick(true));
 chrome.runtime.onStartup.addListener(() => tick(true));
 chrome.alarms.onAlarm.addListener((a) => {
-  if (a.name === "agent-heartbeat") tick(true);
+  if (["agent-heartbeat", "agent-register-retry"].includes(a.name)) tick(true);
 });
 chrome.tabs.onUpdated.addListener((id, change) => {
   if (change.status === "complete")

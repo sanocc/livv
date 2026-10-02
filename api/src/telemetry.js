@@ -1,3 +1,4 @@
+import { errorSummary } from "../../agent/diagnostics.js";
 import { requireThat } from "./domain.js";
 import { rows, first, stmt } from "./db.js";
 import { CONFIG, nowIso } from "./config.js";
@@ -62,6 +63,7 @@ const metadata = (e) => ({
   duration_ms: e.duration_ms,
   hotel_count: e.hotel_count,
   diagnostic: e.diagnostic || null,
+  ...(e.error_summary ? { error_summary: e.error_summary } : {}),
 });
 export async function ingestTelemetry(env, device, body, now = Date.now()) {
   requireThat(
@@ -86,6 +88,26 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
       "INVALID_TELEMETRY",
     );
     return {
+      error_summary:
+        e.error_summary && e.event_code !== "DEVICE_ONLINE"
+          ? errorSummary(
+              {
+                name: e.error_summary.error_name,
+                message: e.error_summary.error_message,
+                code: e.error_summary.error_code,
+                stack: e.error_summary.stack_summary,
+              },
+              {
+                ...e.error_summary,
+                url:
+                  "https://m.ctrip.com" +
+                  (typeof e.error_summary.pathname === "string" &&
+                  e.error_summary.pathname.startsWith("/")
+                    ? e.error_summary.pathname
+                    : "/"),
+              },
+            )
+          : null,
       event_id: dim(e.event_id),
       device_id: device.id,
       task_id,
@@ -196,6 +218,7 @@ export async function ingestTelemetry(env, device, body, now = Date.now()) {
           e.occurred_at,
           e.error_code,
           e.diagnostic,
+          JSON.stringify(e.error_summary),
         ],
         doubles: [e.duration_ms ?? -1, e.hotel_count ?? -1],
       });
@@ -212,7 +235,7 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
   if (!/^[a-zA-Z0-9_-]{1,80}$/.test(deviceId))
     return { available: false, reason: "INVALID_DEVICE", events: [] };
   try {
-    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, blob12 AS error_code, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM agent_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
+    const sql = `SELECT timestamp, blob2 AS task_id, blob3 AS attempt_id, blob4 AS helper_version, blob5 AS event_code, blob6 AS platform, blob7 AS task_type, blob8 AS os, blob9 AS navigation_mode, blob10 AS event_id, blob11 AS occurred_at, blob12 AS error_code, blob14 AS error_summary, double1 AS duration_ms, double2 AS hotel_count, _sample_interval AS sample_interval FROM agent_events WHERE index1 = '${deviceId}' AND timestamp >= NOW() - INTERVAL '1' DAY ORDER BY timestamp DESC LIMIT 100`;
     const r = await fetcher(
       `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/analytics_engine/sql`,
       {
@@ -250,6 +273,13 @@ export async function analyticsEvents(env, deviceId, fetcher = fetch) {
           message: JSON.stringify({ count: e.hotel_count }),
         }),
         metadata: {
+          error_summary: (() => {
+            try {
+              return JSON.parse(e.error_summary || "null");
+            } catch {
+              return null;
+            }
+          })(),
           attempt_id: e.attempt_id,
           platform: e.platform,
           task_type: e.task_type,

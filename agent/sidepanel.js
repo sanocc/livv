@@ -84,7 +84,10 @@ function render(s) {
     s.logs
       .slice()
       .reverse()
-      .map((l) => `${time(l.at)} ${businessLog(l)}\n${l.event}\n${l.message}`)
+      .map(
+        (l) =>
+          `${time(l.at)} ${businessLog(l)}\n${l.event}\n${l.message}${l.error_summary ? "\n" + JSON.stringify(l.error_summary, null, 2) : ""}`,
+      )
       .join("\n\n") || "暂无技术日志",
   );
   updateText($("#technical-error"), technicalError(s.last_error));
@@ -180,7 +183,10 @@ $("#copy-technical").onclick = () =>
   action(() =>
     navigator.clipboard.writeText(
       state.logs
-        .map((l) => `${l.at} ${businessLog(l)}\n${l.event} ${l.message}`)
+        .map(
+          (l) =>
+            `${l.at} ${businessLog(l)}\n${l.event} ${l.message}${l.error_summary ? "\n" + JSON.stringify(l.error_summary, null, 2) : ""}`,
+        )
         .join("\n\n"),
     ),
   );

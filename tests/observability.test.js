@@ -289,12 +289,60 @@ test("prefixed Agent IDs remain queryable without accepting SQL control characte
   let requests = 0;
   const fetcher = async (_, options) => {
     requests++;
-    assert.match(options.body, /FROM agent_events WHERE index1 = 'poai_[a-z0-9-]+'/);
+    assert.match(
+      options.body,
+      /FROM agent_events WHERE index1 = 'poai_[a-z0-9-]+'/,
+    );
     return Response.json({ data: [] });
   };
-  const result = await analyticsEvents(env, "poai_" + crypto.randomUUID(), fetcher);
+  const result = await analyticsEvents(
+    env,
+    "poai_" + crypto.randomUUID(),
+    fetcher,
+  );
   assert.equal(result.available, true);
   const denied = await analyticsEvents(env, "poai_' OR 1=1 --", fetcher);
   assert.equal(denied.reason, "INVALID_DEVICE");
   assert.equal(requests, 1);
+});
+
+test("exception summaries persist sanitized evidence in D1 and Analytics without schema changes", async () => {
+  const f = await fixture(),
+    points = [];
+  const input = {
+    ...event(),
+    event_code: "HELPER_ERROR",
+    os: "Windows",
+    error_summary: {
+      error_name: "TypeError",
+      error_message:
+        "Failed to fetch https://api.poai.cc/v1/device/heartbeat?token=hidden Bearer private-value credential=private-value",
+      phase: "HEARTBEAT",
+      pathname: "/webapp/hotels/list",
+      request_path: "/v1/device/heartbeat",
+      browser: "Chrome/141 Windows",
+      stack_summary:
+        "TypeError: Failed to fetch\n at request (chrome-extension://private-id/background.js:123:4)",
+    },
+  };
+  const env = {
+    DB: f.DB,
+    HELPER_EVENTS: { writeDataPoint: (p) => points.push(p) },
+  };
+  await ingestTelemetry(env, { id: f.id }, { events: [input] }, f.now);
+  const row = f.DB.raw
+    .prepare("SELECT metadata FROM agent_logs WHERE device_id=?")
+    .get(f.id);
+  const summary = JSON.parse(row.metadata).error_summary;
+  assert.equal(summary.error_name, "TypeError");
+  assert.equal(summary.phase, "HEARTBEAT");
+  assert.equal(summary.request_path, "/v1/device/heartbeat");
+  assert.equal(summary.pathname, "/webapp/hotels/list");
+  assert.equal(summary.browser, "Chrome/141 Windows");
+  assert.match(summary.error_message, /Failed to fetch/);
+  assert.match(summary.stack_summary, /background.js:123:4/);
+  assert.ok(!JSON.stringify([row, points]).includes("private-value"));
+  assert.ok(!JSON.stringify([row, points]).includes("hidden"));
+  assert.ok(!JSON.stringify([row, points]).includes("private-id"));
+  assert.equal(JSON.parse(points[0].blobs[13]).phase, "HEARTBEAT");
 });

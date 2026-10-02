@@ -1,3 +1,12 @@
+# Windows 网络错误诊断与低频注册重试（2026-10-02）
+
+- Windows 1.3.2 / poai_ed7149fb-ab99-4db8-af1e-4f8143001cd6 的唯一已查到 HELPER_ERROR：2026-10-02T04:57:14.741Z（新加坡时间 12:57:14.741），D1 agent_logs e667a704-e09b-4d0f-b0e8-5906b0e4d56a；用户提供本地原文 Failed to fetch，云端诊断 NETWORK_FETCH_FAILED，Task/Attempt 均空，发生在首次批准与任务领取之前。
+- 旧版未记录 error.name/stack/request path/浏览器版本/managed-tab 状态，无法从历史还原；按初始化后的 pending 分支，最可能是心跳 fetch，严格结论仅为无任务时的设备 API 网络异常。没有证据确认 Windows 特有、debugger/Side Panel/scripting 权限缺陷或携程登录/DOM缺陷，不凭猜测改采集逻辑。
+- 同一 Windows 1.3.2 随后真实 Task 4584424a-379a-4861-b1cc-64932904b144 / Attempt e7378f69-8d99-4dee-9da9-1478316f2f28 COMPLETED。咸宁、中心花坛、2026-10-03→10-04；Snapshot 284429c0-6548-43b0-8226-63e82ac4e589，30 家、详情目标0；FAST_NAV_VERIFIED，卡片城市/日期/关键词验证通过。领取 05:04:46.810Z，完成 05:05:16.866Z，总 30.056 秒；领取→ready 4.489 秒，ready→锁定 22.396 秒。现有 Windows 采集链路 PASS，设备 last_error 自然恢复 null，没有人为改写。
+- Agent 1.3.3 仅加入诊断与低频首次注册重试：2/5/10/15/30 分钟退避，封顶每30分钟；chrome.storage 保存 next_at，MV3 alarms 恢复，重复检查不能绕过退避；成功后移除重试状态并恢复原心跳。原 device_id/credential 不变，注册校验与协议不变。
+- HELPER_ERROR 及现有 catch 异常记录脱敏 error_name/error_message/error_code、phase、pathname、request_path、浏览器 UA 和最多4行 stack；Task/Attempt 仍为已有日志关联字段。开发日志显示/复制摘要；D1 使用既有 agent_logs.metadata，Analytics 使用追加 blob14；没有 Schema migration。日志上传和诊断失败独立隔离，不改变任务结果。
+- 自动测试77/77 PASS，覆盖背景真实初始化失败/唤醒限频/重试成功/身份保留、退避上限、脱敏摘要、D1/Analytics存证及原全部回归。版本由1.3.2递增至1.3.3；1.3.3 新包 Windows 真机重载验收 PENDING，不能将上面的1.3.2结果当作新包PASS。
+
 # 新设备注册兼容修复（2026-10-02）
 
 - 仅修改注册入口 device_id 校验：接受原裸 UUID v4 或 poai_ + 同一严格 UUID v4 主体；原始 ID 原样保存。拒绝非法主体、其他前缀、超长、空值与空白包裹；没有放宽为任意字符串。

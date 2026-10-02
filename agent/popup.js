@@ -29,7 +29,10 @@ async function load() {
   $("#technical-logs").textContent = (s.logs ?? [])
     .slice(-15)
     .reverse()
-    .map((x) => `${time(x.at)} ${businessLog(x)}\n${x.event} ${x.message}`)
+    .map(
+      (x) =>
+        `${time(x.at)} ${businessLog(x)}\n${x.event} ${x.message}${x.error_summary ? "\n" + JSON.stringify(x.error_summary, null, 2) : ""}`,
+    )
     .join("\n\n");
   $("#auto").checked = s.auto;
   $("#error").textContent = errorLabel(s.last_error);
