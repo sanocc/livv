@@ -3,16 +3,23 @@
 本节为当前状态；下文保留历史验收，历史品牌称谓统一使用当前产品名，原始资源命名以相应 Git 历史为准。Task/Attempt ID、结果和失败证据不改写。
 
 - 自动测试 70/70 PASS；MV3 / JavaScript 语法与数据库边界检查 PASS。
-- 源码、配置、文件名、发布 ZIP 内容扫描旧品牌字样：0 条。此结果针对工作树，尚未代表 GitHub 当前 HEAD。
+- 源码、配置、文件名、发布 ZIP 内容扫描旧品牌字样：0 条。已推送代码提交 2c4b0a30b6a86edd26accf4fc02854f616efcbb9 的 HEAD 内容与文件名扫描均为 0 条。
 - 新 D1 切换前 16 张业务表逐行哈希一致；外键错误 0；schema 命名残留 0。正式 Plan 整行不变，enabled=1/horizon=14。
 - 新 Mac Agent 1.3.2 保留原 UUID、批准状态和凭证；新路径扩展心跳成功，自动接单恢复。
 - 正式 Plan Task 7f8320d59ce9126883395bccddfb4412：COMPLETED，Attempt 561587cd-ada1-434b-bca9-b2270759b688，Snapshot 213632a6-5ca4-4bda-8e0b-ce70a83c8eb0，30 家，执行约 28 秒，入住 10/09→10/10。
 - 正式 Plan Task ca89bf1f0acfef764d7155f89dae88af：COMPLETED，Attempt 94add621-f6d4-4964-a613-7723a375aed1，Snapshot ea1f1537-a264-4d4f-a48e-848ca9af1739，30 家，执行约 29 秒，入住 10/02→10/03。
 - 人工迁移验收 Task 3799692f-e58d-455c-84ab-95127f749323：COMPLETED，成功 Attempt 06794f00-7954-4511-bd0b-6b0cad83dc4c，Snapshot de1970a9-60ac-46b1-acd6-99850892ed7e，30 家，成功执行约 29 秒，入住 10/03→10/04。首次 Attempt 70f76ef7-105b-4937-82cd-326c8a903f99 因操作人员在自动焦点切换时误导航采集页而 FAILED，保留真实历史；不将重试成功解释为首次执行成功。
-- 三次 TASK_COMPLETED 与一次 ATTEMPT_FAILED 日志已上传新 D1，app_version=1.3.2。设备仍只有原 Mac 与办公室 Windows 两台，没有重新注册替代设备。
-- API /health 已验证 poai-api/database=ok；OTA 新代码和 POAI Service Binding 已部署。Access 团队域已实际切换到 poai-cc.cloudflareaccess.com，API 验证域同步更新；本轮新的浏览器登录/市场读取验收尚待进行。
+- 五次 TASK_COMPLETED 与一次 ATTEMPT_FAILED 日志已上传新 D1，app_version=1.3.2。设备仍只有原 Mac 与办公室 Windows 两台，没有重新注册替代设备。
+- API /health 已验证 poai-api/database=ok；OTA 新代码和 POAI Service Binding 已部署。Access 团队域已实际切换到 poai-cc.cloudflareaccess.com，API 验证域同步更新；经批准清除仅 OTA 的旧本地会话并重新登录后，真实市场 30 家、价格曲线、设备 1.3.2 和云端 D1 日志读取均通过，没有放宽鉴权。
 - Windows FAST_NAV / 新版本真实验收：PENDING。
-- Git Builds 配置、Access 策略和令牌命名、旧 Analytics 历史保全及云端残留清理尚在进行，完整全量迁移不得标记 PASS。
+- 五个 Worker 已在推送上述提交后自动部署，部署时间 01:40:46～53 UTC；Git Builds 仓库统一为 sanocc/poai，各项使用现有通用构建令牌，保留 main/构建命令/监视路径。
+- 正式 Plan 又自然完成 5cfcf34e06cdd0c9b3b10ef1129a9922（30 家，29.276 秒）与 05c03e9fa169a214a0cf8e4d45694c51（30 家，34.423 秒）。
+- 自然任务 8e19e372f817566e24257cc58bc3742f / 执行 088202af-0c60-4b0d-b3c0-31a7f1fdf4b0 于 02:17:10 UTC 真实 PARTIAL，快照 be79fcf0-1c7c-4ad6-82c2-6fe9336e3eb4 只有 22 家；此结果与 TASK_PARTIAL 云端日志原样保留，不计入 30 家成功样本。
+- 02:17 UTC 再查：原 1615 条市场观察、389 条房型观察、125 条执行、65 个快照及 6 条映射历史均为未变更子集；新记录使总量增加，外键错误仍为 0，两个 Plan 整行不变。
+- Access 应用、五条相关策略、六项用户令牌和三个服务令牌均已统一命名。服务令牌 UI 改名自动将有效期从 2027-09-27 续至 2027-10-02；权限、Client ID 和密钥值保留，不能称到期日不变。
+- 旧 Analytics 历史导出 175 条物理记录、44 列、采样权重合计 210，保留原始时间、采样权重与原 CSV SHA256 dce58b777e14e638f63d96eb93a5900a7c0115d501b3937b702b95b23754b10b。新 agent_events 已收到事件。旧数据集尚无管理 UI 改名/删除入口，未伪造删除结果。
+- 新链路与历史校验通过后，原 D1 已删除；Chrome 旧路径扩展已获即时确认后移除。旧域名 DNS 记录 0、Worker 路由 0，域名注册保留。两条离线隧道原位改为 POAI 归档名称。
+- GitHub 仓库/环境 Secrets 与 Variables 均为空，无部署环境及手工 Webhook。剩余 Build Token 缓存清理需要 Builds API 专用权限，完整账户资源清理仍未标记 PASS。
 
 # 验收记录（持续更新）
 
